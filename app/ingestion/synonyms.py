@@ -45,6 +45,7 @@ COLUMN_SYNONYMS = {
         "produkt",
         "artikelname",
         "produktname",
+        "kurzbezeichnung",
 
         # polish
         "nazwa produktu",
@@ -211,6 +212,8 @@ COLUMN_SYNONYMS = {
         "artikelnummer",
         "artikel nr",
         "sku nummer",
+        "artnr",
+        "art nr",
 
         # polish
         "symbol",
@@ -243,6 +246,8 @@ COLUMN_SYNONYMS = {
         "hbnr",
         "herstellernummer",
         "teilenummer",
+        "herstellernr",
+        "hersteller nr",
 
         # polish
         "numer producenta",
@@ -257,7 +262,7 @@ COLUMN_SYNONYMS = {
         "reference fabricant",
     ],
 
-    "category": [
+    "supplier_category": [
 
         # english
         "category",
@@ -270,6 +275,9 @@ COLUMN_SYNONYMS = {
         # german
         "produktgruppe",
         "kategorie",
+        "obergruppe",
+        "hauptgruppe",
+        "warengruppe",
 
         # polish
         "kategoria",
@@ -284,6 +292,51 @@ COLUMN_SYNONYMS = {
         "categorie",
     ],
 
+    "supplier_subcategory": [
+
+        # english
+        "subcategory",
+        "sub category",
+        "product subcategory",
+
+        # italian
+        "sottocategoria",
+
+        # german
+        "untergruppe",
+        "unterkategorie",
+
+        # polish
+        "podkategoria",
+
+        # french
+        "sous categorie",
+    ],
+
+    "lead_time_days": [
+
+        # english
+        "lead time",
+        "lead time days",
+        "delivery time",
+        "delivery days",
+        "shipping time",
+
+        # italian
+        "tempo di consegna",
+
+        # german
+        "lieferzeit",
+        "lieferzeit tage",
+        "lieferzeit in tagen",
+
+        # polish
+        "czas dostawy",
+
+        # french
+        "delai de livraison",
+    ],
+
     "msrp": [
 
         # english
@@ -291,13 +344,215 @@ COLUMN_SYNONYMS = {
         "rrp",
         "retail price",
 
+        # italian
+        "prezzo consigliato",
+
         # german
         "uvp",
 
         # french
         "prix public",
+    ],
+
+    "weight": [
+
+        # english
+        "weight",
+        "product weight",
+
+        # german
+        "gewicht",
 
         # italian
-        "prezzo consigliato",
+        "peso",
+
+        # polish
+        "waga",
+
+        # french
+        "poids",
+    ],
+
+    "condition": [
+
+        # english
+        "condition",
+        "item condition",
+
+        # german
+        "zustand",
+
+        # italian
+        "condizione",
+
+        # polish
+        "stan produktu",
+
+        # french
+        "etat",
+    ],
+
+    "currency": [
+
+        # english
+        "currency",
+
+        # german
+        "wahrung",
+        "waehrung",
+
+        # italian
+        "valuta",
+
+        # french
+        "devise",
+    ],
+
+    "vat_rate": [
+
+        # english
+        "vat",
+        "vat rate",
+        "tax rate",
+
+        # german
+        "mwst",
+        "mehrwertsteuer",
+
+        # italian
+        "iva",
+
+        # polish
+        "vat stawka",
+
+        # french
+        "tva",
+    ],
+
+        "image_url": [
+
+        # english
+        "image",
+        "image url",
+        "picture",
+        "photo",
+        "product image",
+
+        # german
+        "bild",
+
+        # italian
+        "immagine",
+
+        # french
+        "image produit",
+    ],
+
+    "incoterm": [
+
+        # english
+        "incoterm",
+        "shipping terms",
+        "delivery terms",
+
+        # german
+        "lieferbedingungen",
+
+        # italian
+        "termini di consegna",
+
+        # french
+        "conditions de livraison",
+    ],
+
+    "units_per_box": [
+
+        # english
+        "units per box",
+
+        # italian
+        "pz/box",
+
+        # german
+        "stk pro karton",
+    ],
+
+    "boxes_per_pallet": [
+
+        # english
+        "boxes per pallet",
+
+        # italian
+        "box/pallet",
+
+        # german
+        "kartons pro palette",
+    ],
+
+    "units_per_pallet": [
+
+        # english
+        "units per pallet",
+
+        # italian
+        "pz/pallet",
+
+        # german
+        "stk pro palette",
+    ],
+
+    "best_before_date": [
+
+        # english
+        "bbd",
+        "best before",
+        "expiry date",
+
+        # italian
+        "scadenza",
+
+        # german
+        "mhd",
+
+        # french
+        "date limite",
+    ],
+
+        "energy_efficiency_class": [
+
+        # english
+        "eec",
+        "energy class",
+        "energy efficiency class",
+
+        # german
+        "energieeffizienzklasse",
+        "energie effizienz klasse",
+    ],
+
+    "refurbished": [
+
+        # english
+        "refurbished",
+        "renewed",
+        "remanufactured",
+        "used like new",
+
+        # german
+        "generaluberholt",
+        "erneuert",
+    ],
+
+    "freight_shipping": [
+
+        # english
+        "freight",
+        "freight shipping",
+        "pallet shipping",
+
+        # german
+        "spedition",
+        "palett spedition",
+        "palettenversand",
     ],
 }

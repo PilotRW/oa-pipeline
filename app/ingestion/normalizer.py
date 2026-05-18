@@ -8,6 +8,19 @@ from app.ingestion.synonyms import COLUMN_SYNONYMS
 
 MATCH_THRESHOLD = 80
 
+STOPWORDS = {
+    "code",
+    "number",
+    "nr",
+    "no",
+}
+
+IGNORED_COLUMNS = {
+    "text",
+    "text 1",
+    "zip code",
+}
+
 
 def clean_column_name(column: str) -> str:
     column = str(column).strip().lower()
@@ -21,7 +34,23 @@ def tokenize_column(column: str) -> list[str]:
     cleaned = clean_column_name(column)
     tokens = cleaned.split(" ")
 
-    return [token for token in tokens if token]
+    return [
+        token
+        for token in tokens
+        if token and token not in STOPWORDS
+    ]
+
+
+def should_ignore_column(column: str) -> bool:
+    cleaned = clean_column_name(column)
+
+    if cleaned.startswith("unnamed"):
+        return True
+
+    if cleaned in IGNORED_COLUMNS:
+        return True
+
+    return False
 
 
 def score_against_synonym(
@@ -31,6 +60,9 @@ def score_against_synonym(
 ) -> tuple[int, int]:
     cleaned_synonym = clean_column_name(synonym)
     synonym_tokens = tokenize_column(synonym)
+
+    if cleaned_column == cleaned_synonym:
+        return 100, len(synonym_tokens)
 
     full_score = fuzz.ratio(cleaned_column, cleaned_synonym)
 
@@ -44,14 +76,18 @@ def score_against_synonym(
 
     best_token_score = max(token_scores) if token_scores else 0
 
-    exact_matches = len(set(column_tokens) & set(synonym_tokens))
+    intersection = set(column_tokens) & set(synonym_tokens)
+    exact_matches = len(intersection)
 
-    final_score = int(max(full_score, best_token_score))
+    if exact_matches >= 2:
+        return 100, exact_matches
 
-    if exact_matches > 0:
-        final_score = max(final_score, 100)
+    if exact_matches == 1:
+        return int(max(full_score, best_token_score, 92)), exact_matches
 
-    return final_score, exact_matches
+    fuzzy_only_score = int(max(full_score, best_token_score) * 0.7)
+
+    return fuzzy_only_score, exact_matches
 
 
 def score_column(column: str) -> dict[str, Any]:
@@ -121,6 +157,9 @@ def normalize_columns(df):
     report = []
 
     for column in df.columns:
+        if should_ignore_column(column):
+            continue
+
         result = score_column(column)
         report.append(result)
 

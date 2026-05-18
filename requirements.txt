@@ -20,3 +20,5 @@ httpx
 
 rapidfuzz
 unidecode
+
+openpyxl

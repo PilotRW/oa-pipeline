@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.ingestion.parser import parse_csv
+from app.ingestion.parser import parse_file
 from app.ingestion.normalizer import normalize_columns
 from app.ingestion.cleaners import clean_dataframe
 from app.services.ingestion_service import (
@@ -21,7 +21,7 @@ async def upload_csv(
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_db),
 ):
-    df = await parse_csv(file)
+    df = await parse_file(file)
 
     original_columns = list(df.columns)
 
