@@ -1,11 +1,25 @@
-# oa-pipeline
+# OA Pipeline
 
-Data pipeline for online arbitrage:
-supplier offers → ASIN mapping → market data → ROI analysis.
+Backend pipeline for ecommerce Online Arbitrage automation.
+
+## Current status
+
+✅ FastAPI backend  
+✅ PostgreSQL database  
+✅ SQLAlchemy models  
+✅ Alembic migrations  
+✅ Supplier CSV / Excel ingestion  
+✅ Header auto-detection  
+✅ Multilingual column normalization  
+✅ Fuzzy column matching  
+✅ Supplier offer persistence  
+✅ Feed refresh / duplicate handling  
+✅ Unmapped-column analytics  
+🚧 Comparison Engine MVP — current stage
 
 ---
 
-## Project Structure
+## Project structure
 
 ```text
 oa-pipeline/
@@ -17,6 +31,9 @@ oa-pipeline/
 │
 ├── app/
 │   ├── api/
+│   │   ├── ingestion.py
+│   │   └── comparison.py
+│   │
 │   ├── config/
 │   │   └── settings.py
 │   │
@@ -24,15 +41,30 @@ oa-pipeline/
 │   │   └── database.py
 │   │
 │   ├── ingestion/
+│   │   ├── column_normalizer.py
+│   │   ├── excel_reader.py
+│   │   ├── csv_reader.py
+│   │   ├── cleaners.py
+│   │   └── mappings.py
 │   │
 │   ├── models/
-│   │   └── supplier_offer.py
+│   │   ├── supplier.py
+│   │   ├── supplier_offer.py
+│   │   ├── ingestion_run.py
+│   │   ├── supplier_column_mapping.py
+│   │   ├── product_cluster.py
+│   │   ├── cluster_offer.py
+│   │   └── cluster_price_stats.py
 │   │
 │   ├── services/
+│   │   ├── ingestion_service.py
+│   │   └── comparison_service.py
 │   │
 │   └── main.py
 │
 ├── data/
+│   ├── raw/
+│   └── processed/
 │
 ├── docker/
 │
