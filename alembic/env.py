@@ -3,6 +3,9 @@ from app.db.database import Base
 
 # IMPORTANT: імпорт моделі (щоб SQLAlchemy зареєстрував її)
 from app.models.supplier_offer import SupplierOffer
+from app.models.supplier import Supplier
+from app.models.ingestion_run import IngestionRun
+from app.models.supplier_column_mapping import SupplierColumnMapping
 
 from logging.config import fileConfig
 

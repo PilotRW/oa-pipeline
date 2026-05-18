@@ -17,3 +17,6 @@ python-multipart
 alembic
 
 httpx
+
+rapidfuzz
+unidecode
