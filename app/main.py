@@ -6,6 +6,7 @@ from app.api import research_queue
 from app.api import amazon_matches
 from app.api import keepa
 from app.api import deals
+from app.api import pipeline
 
 app = FastAPI()
 
@@ -15,6 +16,7 @@ app.include_router(research_queue.router)
 app.include_router(amazon_matches.router)
 app.include_router(keepa.router)
 app.include_router(deals.router)
+app.include_router(pipeline.router)
 
 
 @app.get("/")

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.deal_candidate import DealCandidate
 from app.models.keepa_product_metric import KeepaProductMetric
+from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier_offer import SupplierOffer
 
 
@@ -14,11 +15,6 @@ class DealService:
         self.db = db
 
     def estimate_fees(self, amazon_price: Decimal) -> Decimal:
-        """
-        Temporary mock fee model.
-        Later replace with Amazon FBA fee calculator.
-        """
-
         referral_fee = amazon_price * Decimal("0.15")
         fulfillment_fee = Decimal("5.00")
 
@@ -55,6 +51,7 @@ class DealService:
                 AmazonProductMatch,
                 KeepaProductMetric,
                 SupplierOffer,
+                OfferResearchQueue,
             )
             .join(
                 KeepaProductMetric,
@@ -63,6 +60,10 @@ class DealService:
             .join(
                 SupplierOffer,
                 SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
+            )
+            .join(
+                OfferResearchQueue,
+                OfferResearchQueue.id == AmazonProductMatch.queue_id,
             )
             .where(AmazonProductMatch.match_status == "matched")
             .where(KeepaProductMetric.data_status == "completed")
@@ -78,29 +79,49 @@ class DealService:
 
         deal_rows = []
 
-        for match, keepa, offer in rows:
+        for match, keepa, offer, queue_item in rows:
             if keepa.buy_box_price is None or offer.cost is None:
                 continue
 
             amazon_price = Decimal(str(keepa.buy_box_price))
             supplier_cost = Decimal(str(offer.cost))
-            estimated_fees = self.estimate_fees(amazon_price)
+
+            estimated_fees = self.estimate_fees(
+                amazon_price
+            )
+
             estimated_profit = self.calculate_profit(
                 amazon_price=amazon_price,
                 supplier_cost=supplier_cost,
                 estimated_fees=estimated_fees,
             )
+
             roi_percent = self.calculate_roi(
                 profit=estimated_profit,
                 supplier_cost=supplier_cost,
             )
 
             status = "candidate"
+            rejection_reason = None
 
             if estimated_profit <= 0:
                 status = "rejected_unprofitable"
+                rejection_reason = "Estimated profit <= 0"
+
             elif roi_percent < Decimal("20.00"):
                 status = "rejected_low_roi"
+                rejection_reason = "ROI below 20%"
+
+            if status == "candidate":
+                queue_item.status = "deal_candidate"
+
+            elif status == "rejected_low_roi":
+                queue_item.status = "rejected_low_roi"
+
+            elif status == "rejected_unprofitable":
+                queue_item.status = "rejected_unprofitable"
+
+            queue_item.rejection_reason = rejection_reason
 
             deal_rows.append(
                 {
@@ -136,7 +157,9 @@ class DealService:
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
-        query = select(DealCandidate)
+        query = select(
+            DealCandidate
+        )
 
         if status:
             query = query.where(
