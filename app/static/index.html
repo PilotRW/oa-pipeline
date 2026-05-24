@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
-    <link rel="stylesheet" href="/ui/styles.css">
+    <link rel="icon" type="image/png" href="/ui/favicon.png">
+    <link rel="stylesheet" href="/ui/styles.css?v=20260525-1">
   </head>
   <body>
     <div class="app-shell">
@@ -16,9 +17,11 @@
 
         <nav class="nav" aria-label="Main">
           <button class="nav-item active" data-view="overview" data-i18n="nav.overview" type="button">Overview</button>
+          <button class="nav-item" data-view="pipeline" data-i18n="nav.pipeline" type="button">Pipeline</button>
           <button class="nav-item" data-view="settings" data-i18n="nav.settings" type="button">Settings</button>
           <button class="nav-item" data-view="rules" data-i18n="nav.rules" type="button">Rules</button>
           <button class="nav-item" data-view="research" data-i18n="nav.research" type="button">Research</button>
+          <button class="nav-item" data-view="suppliers" data-i18n="nav.suppliers" type="button">Suppliers</button>
           <button class="nav-item" data-view="upload" data-i18n="nav.upload" type="button">Upload</button>
         </nav>
       </aside>
@@ -31,15 +34,13 @@
           </div>
           <div class="topbar-actions">
             <span id="api-status" class="connection-status" data-i18n="api.checking">Checking API</span>
+            <select id="supplier-select" class="supplier-select" aria-label="Supplier"></select>
             <select id="language-select" class="language-select" aria-label="Language">
               <option value="en">EN</option>
               <option value="de">DE</option>
               <option value="uk">UA</option>
             </select>
             <button id="refresh-button" class="icon-button" type="button" title="Refresh" data-i18n-title="action.refresh">R</button>
-            <button id="run-batch-button" class="primary-button" type="button">
-              <span data-i18n="action.runBatch">Run batch</span>
-            </button>
           </div>
         </header>
 
@@ -48,35 +49,49 @@
         <section class="view active" id="view-overview">
           <div class="summary-grid" id="summary-grid"></div>
 
-          <div class="split-layout">
-            <section class="panel">
-              <div class="panel-header">
-                <h3 data-i18n="panel.pipelineRun">Pipeline Run</h3>
-                <span id="last-run-status" class="badge" data-i18n="status.idle">Idle</span>
-              </div>
-              <pre id="last-run-output" class="output">{}</pre>
-            </section>
+          <section class="panel">
+            <div class="panel-header">
+              <h3 data-i18n="panel.pipelineIssues">Pipeline Issues</h3>
+              <button class="ghost-button" id="refresh-issues-button" data-i18n="action.refresh" type="button">Refresh</button>
+            </div>
+            <div class="issue-grid" id="pipeline-issues"></div>
+          </section>
 
-            <section class="panel">
-              <div class="panel-header">
-                <h3 data-i18n="panel.dealCandidates">Deal Candidates</h3>
-                <button class="ghost-button" id="refresh-deals-button" data-i18n="action.refresh" type="button">Refresh</button>
+          <section class="panel overview-deals-panel">
+            <div class="panel-header">
+              <h3 data-i18n="panel.dealCandidates">Deal Candidates</h3>
+              <button class="ghost-button" id="refresh-deals-button" data-i18n="action.refresh" type="button">Refresh</button>
+            </div>
+            <div class="table-wrap scroll-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="table.supplier">Supplier</th>
+                    <th>ASIN</th>
+                    <th data-i18n="table.roi">ROI</th>
+                    <th data-i18n="table.profit">Profit</th>
+                    <th data-i18n="table.status">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="deals-table"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" id="view-pipeline">
+          <section class="panel">
+            <div class="panel-header">
+              <h3 data-i18n="panel.pipelineRun">Pipeline Run</h3>
+              <div class="button-row">
+                <span id="last-run-status" class="badge" data-i18n="status.idle">Idle</span>
+                <button id="run-batch-button" class="primary-button" type="button">
+                  <span data-i18n="action.runBatch">Run batch</span>
+                </button>
               </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ASIN</th>
-                      <th data-i18n="table.roi">ROI</th>
-                      <th data-i18n="table.profit">Profit</th>
-                      <th data-i18n="table.status">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="deals-table"></tbody>
-                </table>
-              </div>
-            </section>
-          </div>
+            </div>
+            <pre id="last-run-output" class="output">{}</pre>
+          </section>
         </section>
 
         <section class="view" id="view-settings">
@@ -156,13 +171,14 @@
             <section class="panel">
               <div class="panel-header">
                 <h3 data-i18n="panel.researchQueue">Research Queue</h3>
-                <button class="ghost-button" id="populate-queue-button" data-i18n="action.populate" type="button">Populate</button>
+                <button class="primary-button" id="run-research-button" data-i18n="action.runResearch" type="button">Run research</button>
               </div>
               <div class="table-wrap">
                 <table>
                   <thead>
                     <tr>
                       <th>EAN</th>
+                      <th data-i18n="table.supplier">Supplier</th>
                       <th data-i18n="table.priority">Priority</th>
                       <th data-i18n="table.status">Status</th>
                       <th data-i18n="table.brand">Brand</th>
@@ -176,13 +192,13 @@
             <section class="panel">
               <div class="panel-header">
                 <h3 data-i18n="panel.amazonMatches">Amazon Matches</h3>
-                <button class="ghost-button" id="process-matches-button" data-i18n="action.process" type="button">Process</button>
               </div>
               <div class="table-wrap">
                 <table>
                   <thead>
                     <tr>
                       <th>EAN</th>
+                      <th data-i18n="table.supplier">Supplier</th>
                       <th>ASIN</th>
                       <th data-i18n="table.status">Status</th>
                       <th data-i18n="table.confidence">Confidence</th>
@@ -193,6 +209,10 @@
               </div>
             </section>
           </div>
+        </section>
+
+        <section class="view" id="view-suppliers">
+          <div class="suppliers-grid" id="suppliers-dashboard"></div>
         </section>
 
         <section class="view" id="view-upload">
@@ -238,6 +258,27 @@
       </main>
     </div>
 
-    <script src="/ui/app.js"></script>
+    <div class="modal hidden" id="issue-modal" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-panel">
+        <div class="panel-header">
+          <h3 id="issue-modal-title">Details</h3>
+          <div class="button-row">
+            <button class="ghost-button" id="download-issue-csv" type="button" data-i18n="action.downloadCsv">CSV</button>
+            <button class="ghost-button" id="download-issue-xls" type="button" data-i18n="action.downloadXls">XLS</button>
+            <button class="icon-button" type="button" data-close-modal title="Close" data-i18n-title="action.close">X</button>
+          </div>
+        </div>
+        <div id="issue-modal-summary" class="modal-summary"></div>
+        <div class="table-wrap scroll-table">
+          <table>
+            <thead id="issue-modal-head"></thead>
+            <tbody id="issue-modal-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script src="/ui/app.js?v=20260525-1"></script>
   </body>
 </html>

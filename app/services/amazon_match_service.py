@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.offer_research_queue import OfferResearchQueue
+from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
 from app.services.amazon_matchers.factory import get_amazon_matcher
 from app.services.config_service import ConfigService
@@ -19,6 +20,7 @@ class AmazonMatchService:
         self,
         min_priority_score: float | None = None,
         limit: int | None = None,
+        supplier_id: int | None = None,
     ) -> int:
         config_service = ConfigService(self.db)
         settings = None
@@ -58,6 +60,13 @@ class AmazonMatchService:
             .where(OfferResearchQueue.status == "needs_amazon_match")
             .where(OfferResearchQueue.priority_score >= priority_score)
             .where(OfferResearchQueue.id.not_in(existing_queue_ids_subquery))
+        )
+
+        if supplier_id is not None:
+            query = query.where(OfferResearchQueue.supplier_id == supplier_id)
+
+        query = (
+            query
             .order_by(
                 OfferResearchQueue.priority_score.desc().nullslast(),
                 OfferResearchQueue.created_at.desc(),
@@ -98,6 +107,7 @@ class AmazonMatchService:
         limit: int | None = None,
         use_real_keepa: bool | None = None,
         marketplace: str | None = None,
+        supplier_id: int | None = None,
     ) -> dict:
         settings = None
 
@@ -140,12 +150,23 @@ class AmazonMatchService:
                 "reason": str(exc),
             }
 
-        query = (
-            select(AmazonProductMatch)
-            .where(AmazonProductMatch.match_status == "pending")
-            .order_by(AmazonProductMatch.created_at.asc())
-            .limit(batch_limit)
+        query = select(AmazonProductMatch).where(
+            AmazonProductMatch.match_status == "pending"
         )
+
+        if supplier_id is not None:
+            query = (
+                query
+                .join(
+                    SupplierOffer,
+                    SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
+                )
+                .where(SupplierOffer.supplier_id == supplier_id)
+            )
+
+        query = query.order_by(
+            AmazonProductMatch.created_at.asc()
+        ).limit(batch_limit)
 
         result = await self.db.execute(query)
         matches = result.scalars().all()
@@ -203,14 +224,33 @@ class AmazonMatchService:
     async def list_matches(
         self,
         match_status: str | None = None,
+        supplier_id: int | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
-        query = select(AmazonProductMatch)
+        query = (
+            select(
+                AmazonProductMatch,
+                Supplier.name.label("supplier_name"),
+            )
+            .join(
+                SupplierOffer,
+                SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
+            )
+            .join(
+                Supplier,
+                Supplier.id == SupplierOffer.supplier_id,
+            )
+        )
 
         if match_status:
             query = query.where(
                 AmazonProductMatch.match_status == match_status
+            )
+
+        if supplier_id is not None:
+            query = query.where(
+                SupplierOffer.supplier_id == supplier_id
             )
 
         query = (
@@ -221,13 +261,14 @@ class AmazonMatchService:
         )
 
         result = await self.db.execute(query)
-        matches = result.scalars().all()
+        rows = result.all()
 
         return [
             {
                 "id": match.id,
                 "queue_id": match.queue_id,
                 "supplier_offer_id": match.supplier_offer_id,
+                "supplier_name": supplier_name,
                 "ean": match.ean,
                 "asin": match.asin,
                 "match_status": match.match_status,
@@ -241,5 +282,5 @@ class AmazonMatchService:
                 "matched_at": match.matched_at,
                 "created_at": match.created_at,
             }
-            for match in matches
+            for match, supplier_name in rows
         ]

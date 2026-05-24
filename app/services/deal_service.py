@@ -8,6 +8,7 @@ from app.models.deal_candidate import DealCandidate
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.research_rule import ResearchRule
+from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
 from app.services.config_service import ConfigService
 
@@ -51,6 +52,7 @@ class DealService:
     async def create_deal_candidates(
         self,
         limit: int | None = None,
+        supplier_id: int | None = None,
     ) -> int:
         settings = None
 
@@ -91,8 +93,12 @@ class DealService:
             .where(AmazonProductMatch.match_status == "matched")
             .where(KeepaProductMetric.data_status == "completed")
             .where(SupplierOffer.id.not_in(existing_offer_ids_subquery))
-            .limit(batch_limit)
         )
+
+        if supplier_id is not None:
+            query = query.where(SupplierOffer.supplier_id == supplier_id)
+
+        query = query.limit(batch_limit)
 
         result = await self.db.execute(query)
         rows = result.all()
@@ -214,11 +220,23 @@ class DealService:
         self,
         status: str | None = None,
         min_roi_percent: float | None = None,
+        supplier_id: int | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
-        query = select(
-            DealCandidate
+        query = (
+            select(
+                DealCandidate,
+                Supplier.name.label("supplier_name"),
+            )
+            .join(
+                SupplierOffer,
+                SupplierOffer.id == DealCandidate.supplier_offer_id,
+            )
+            .join(
+                Supplier,
+                Supplier.id == SupplierOffer.supplier_id,
+            )
         )
 
         if status:
@@ -229,6 +247,11 @@ class DealService:
         if min_roi_percent is not None:
             query = query.where(
                 DealCandidate.roi_percent >= min_roi_percent
+            )
+
+        if supplier_id is not None:
+            query = query.where(
+                SupplierOffer.supplier_id == supplier_id
             )
 
         query = (
@@ -242,12 +265,13 @@ class DealService:
         )
 
         result = await self.db.execute(query)
-        deals = result.scalars().all()
+        rows = result.all()
 
         return [
             {
                 "id": deal.id,
                 "supplier_offer_id": deal.supplier_offer_id,
+                "supplier_name": supplier_name,
                 "asin": deal.asin,
                 "supplier_cost": float(deal.supplier_cost),
                 "amazon_price": (
@@ -276,5 +300,5 @@ class DealService:
                 "created_at": deal.created_at,
                 "updated_at": deal.updated_at,
             }
-            for deal in deals
+            for deal, supplier_name in rows
         ]

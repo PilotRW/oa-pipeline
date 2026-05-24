@@ -36,6 +36,11 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
@@ -156,6 +161,13 @@ button {
   font-weight: 800;
 }
 
+.supplier-select {
+  width: min(240px, 28vw);
+  min-height: 38px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
 .primary-button,
 .ghost-button,
 .icon-button {
@@ -202,6 +214,10 @@ button {
   margin-bottom: 16px;
 }
 
+.overview-deals-panel {
+  margin-top: 16px;
+}
+
 .metric {
   min-height: 112px;
   border: 1px solid var(--line);
@@ -228,6 +244,82 @@ button {
   display: block;
   margin-top: 8px;
   color: var(--muted);
+}
+
+.issue-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.issue-card {
+  display: grid;
+  gap: 10px;
+  min-height: 118px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 14px;
+}
+
+.issue-card span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.issue-card strong {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.issue-card .badge {
+  justify-self: start;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.46);
+}
+
+.modal-panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  width: min(1080px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.modal-panel .scroll-table {
+  max-height: min(560px, calc(100vh - 220px));
+}
+
+.modal-summary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .split-layout {
@@ -259,6 +351,7 @@ button {
 .badge {
   display: inline-flex;
   align-items: center;
+  border: 0;
   min-height: 26px;
   border-radius: 999px;
   background: var(--surface-soft);
@@ -266,6 +359,10 @@ button {
   padding: 0 10px;
   font-size: 12px;
   font-weight: 800;
+}
+
+button.badge:hover {
+  filter: brightness(0.96);
 }
 
 .badge.ok {
@@ -299,6 +396,16 @@ button {
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
+}
+
+.scroll-table {
+  max-height: 520px;
+}
+
+.scroll-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 table {
@@ -458,6 +565,55 @@ select:focus {
   padding: 11px 12px;
 }
 
+.suppliers-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.supplier-card {
+  display: grid;
+  gap: 16px;
+}
+
+.supplier-card .panel-header {
+  margin-bottom: 0;
+}
+
+.supplier-card p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.supplier-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.supplier-status-grid article {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
+.supplier-status-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.supplier-status-grid strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .alert {
   border-radius: 8px;
   border: 1px solid var(--line);
@@ -490,7 +646,7 @@ select:focus {
   }
 
   .nav {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     margin-top: 14px;
   }
 
@@ -499,6 +655,8 @@ select:focus {
   }
 
   .summary-grid,
+  .issue-grid,
+  .supplier-status-grid,
   .split-layout,
   .preview-summary,
   .form-grid,
@@ -526,6 +684,8 @@ select:focus {
   }
 
   .summary-grid,
+  .issue-grid,
+  .supplier-status-grid,
   .split-layout,
   .preview-summary,
   .mapping-item,

@@ -2,8 +2,12 @@ const state = {
   summary: null,
   settings: null,
   rules: null,
+  suppliers: [],
+  supplierDashboard: [],
+  supplierId: localStorage.getItem("oaSupplierId") || "",
   importDraft: null,
   importPreview: null,
+  issueExport: null,
   language: localStorage.getItem("oaLanguage") || "en",
   activeView: "overview",
 };
@@ -15,14 +19,19 @@ const translations = {
     "action.preview": "Preview",
     "action.refresh": "Refresh",
     "action.runBatch": "Run batch",
+    "action.runResearch": "Run research",
     "action.save": "Save",
     "action.saveImport": "Save import",
     "action.upload": "Upload",
+    "action.close": "Close",
+    "action.downloadCsv": "CSV",
+    "action.downloadXls": "XLSX",
     "api.checking": "Checking API",
     "api.offline": "API unavailable",
     "api.online": "API online",
     "app.eyebrow": "Backend control panel",
     "app.tagline": "Automation console",
+    "field.allSuppliers": "All suppliers",
     "field.batchSize": "Batch size",
     "field.excludeAmazonStock": "Exclude Amazon stock",
     "field.feedFile": "CSV or Excel file",
@@ -61,19 +70,24 @@ const translations = {
     "message.createdQueueItems": "Created {count} queue items",
     "message.noRecords": "No records",
     "message.processedMatches": "Processed {count} matches",
+    "message.researchRun": "Research completed: {count} matches processed",
     "message.previewReady": "Preview ready: {count} rows",
     "message.saved": "Saved",
     "message.savedImport": "Saved {count} offers",
     "message.uploaded": "Uploaded",
+    "nav.pipeline": "Pipeline",
     "nav.overview": "Overview",
     "nav.research": "Research",
     "nav.rules": "Rules",
     "nav.settings": "Settings",
+    "nav.suppliers": "Suppliers",
     "nav.upload": "Upload",
+    "panel.recentImports": "Recent Imports",
     "panel.amazonMatches": "Amazon Matches",
     "panel.dealCandidates": "Deal Candidates",
     "panel.pipelineRun": "Pipeline Run",
     "panel.pipelineSettings": "Pipeline Settings",
+    "panel.pipelineIssues": "Pipeline Issues",
     "panel.columnMapping": "Column Mapping",
     "panel.previewRows": "Preview Rows",
     "panel.researchQueue": "Research Queue",
@@ -87,14 +101,29 @@ const translations = {
     "summary.dealCandidates": "Deal Candidates",
     "summary.keepaMetrics": "Keepa Metrics",
     "summary.researchQueue": "Research Queue",
+    "issue.amazonNotFound": "Amazon not found",
+    "issue.available": "Available",
+    "issue.dealCandidates": "Deal candidates",
+    "issue.keepaPending": "Keepa pending",
+    "issue.needsAmazonMatch": "Needs Amazon match",
+    "issue.open": "Open",
+    "issue.rejectedLowRoi": "Rejected low ROI",
+    "issue.rejectedUnprofitable": "Rejected unprofitable",
     "table.brand": "Brand",
     "table.confidence": "Confidence",
     "table.detectedAs": "Detected as",
     "table.fileColumn": "File column",
     "table.priority": "Priority",
     "table.profit": "Profit",
+    "table.reason": "Reason",
     "table.roi": "ROI",
+    "table.sales": "Sales",
+    "table.stock": "Stock",
     "table.status": "Status",
+    "table.supplier": "Supplier",
+    "table.file": "File",
+    "table.rows": "Rows",
+    "table.valid": "Valid",
   },
   de: {
     "action.populate": "Befüllen",
@@ -102,14 +131,19 @@ const translations = {
     "action.preview": "Vorschau",
     "action.refresh": "Aktualisieren",
     "action.runBatch": "Batch starten",
+    "action.runResearch": "Recherche starten",
     "action.save": "Speichern",
     "action.saveImport": "Import speichern",
     "action.upload": "Hochladen",
+    "action.close": "Schließen",
+    "action.downloadCsv": "CSV",
+    "action.downloadXls": "XLSX",
     "api.checking": "API wird geprüft",
     "api.offline": "API nicht erreichbar",
     "api.online": "API online",
     "app.eyebrow": "Backend-Steuerung",
     "app.tagline": "Automation-Konsole",
+    "field.allSuppliers": "Alle Lieferanten",
     "field.batchSize": "Batchgröße",
     "field.excludeAmazonStock": "Amazon-Bestand ausschließen",
     "field.feedFile": "CSV- oder Excel-Datei",
@@ -148,19 +182,24 @@ const translations = {
     "message.createdQueueItems": "{count} Queue-Einträge erstellt",
     "message.noRecords": "Keine Einträge",
     "message.processedMatches": "{count} Matches verarbeitet",
+    "message.researchRun": "Recherche fertig: {count} Matches verarbeitet",
     "message.previewReady": "Vorschau bereit: {count} Zeilen",
     "message.saved": "Gespeichert",
     "message.savedImport": "{count} Angebote gespeichert",
     "message.uploaded": "Hochgeladen",
+    "nav.pipeline": "Pipeline",
     "nav.overview": "Übersicht",
     "nav.research": "Recherche",
     "nav.rules": "Regeln",
     "nav.settings": "Einstellungen",
+    "nav.suppliers": "Lieferanten",
     "nav.upload": "Upload",
+    "panel.recentImports": "Letzte Importe",
     "panel.amazonMatches": "Amazon Matches",
     "panel.dealCandidates": "Deal-Kandidaten",
     "panel.pipelineRun": "Pipeline-Lauf",
     "panel.pipelineSettings": "Pipeline-Einstellungen",
+    "panel.pipelineIssues": "Pipeline-Probleme",
     "panel.columnMapping": "Spaltenzuordnung",
     "panel.previewRows": "Vorschauzeilen",
     "panel.researchQueue": "Recherche-Queue",
@@ -174,14 +213,29 @@ const translations = {
     "summary.dealCandidates": "Deal-Kandidaten",
     "summary.keepaMetrics": "Keepa-Metriken",
     "summary.researchQueue": "Recherche-Queue",
+    "issue.amazonNotFound": "Amazon nicht gefunden",
+    "issue.available": "Verfügbar",
+    "issue.dealCandidates": "Deal-Kandidaten",
+    "issue.keepaPending": "Keepa ausstehend",
+    "issue.needsAmazonMatch": "Benötigt Amazon-Match",
+    "issue.open": "Offen",
+    "issue.rejectedLowRoi": "Abgelehnt: niedriger ROI",
+    "issue.rejectedUnprofitable": "Abgelehnt: unprofitabel",
     "table.brand": "Marke",
     "table.confidence": "Konfidenz",
     "table.detectedAs": "Erkannt als",
     "table.fileColumn": "Dateispalte",
     "table.priority": "Priorität",
     "table.profit": "Gewinn",
+    "table.reason": "Grund",
     "table.roi": "ROI",
+    "table.sales": "Verkäufe",
+    "table.stock": "Bestand",
     "table.status": "Status",
+    "table.supplier": "Lieferant",
+    "table.file": "Datei",
+    "table.rows": "Zeilen",
+    "table.valid": "Gültig",
   },
   uk: {
     "action.populate": "Заповнити",
@@ -189,14 +243,19 @@ const translations = {
     "action.preview": "Превʼю",
     "action.refresh": "Оновити",
     "action.runBatch": "Запустити batch",
+    "action.runResearch": "Запустити research",
     "action.save": "Зберегти",
     "action.saveImport": "Зберегти імпорт",
     "action.upload": "Завантажити",
+    "action.close": "Закрити",
+    "action.downloadCsv": "CSV",
+    "action.downloadXls": "XLSX",
     "api.checking": "Перевірка API",
     "api.offline": "API недоступний",
     "api.online": "API онлайн",
     "app.eyebrow": "Панель керування backend",
     "app.tagline": "Консоль автоматизації",
+    "field.allSuppliers": "Усі постачальники",
     "field.batchSize": "Розмір batch",
     "field.excludeAmazonStock": "Виключати Amazon in stock",
     "field.feedFile": "CSV або Excel файл",
@@ -235,19 +294,24 @@ const translations = {
     "message.createdQueueItems": "Створено {count} елементів черги",
     "message.noRecords": "Немає записів",
     "message.processedMatches": "Оброблено {count} matches",
+    "message.researchRun": "Research завершено: оброблено {count} matches",
     "message.previewReady": "Превʼю готове: {count} рядків",
     "message.saved": "Збережено",
     "message.savedImport": "Збережено {count} offers",
     "message.uploaded": "Завантажено",
+    "nav.pipeline": "Pipeline",
     "nav.overview": "Огляд",
     "nav.research": "Дослідження",
     "nav.rules": "Правила",
     "nav.settings": "Налаштування",
+    "nav.suppliers": "Постачальники",
     "nav.upload": "Завантаження",
+    "panel.recentImports": "Останні імпорти",
     "panel.amazonMatches": "Amazon збіги",
     "panel.dealCandidates": "Кандидати угод",
     "panel.pipelineRun": "Запуск pipeline",
     "panel.pipelineSettings": "Налаштування pipeline",
+    "panel.pipelineIssues": "Проблеми pipeline",
     "panel.columnMapping": "Зіставлення колонок",
     "panel.previewRows": "Рядки превʼю",
     "panel.researchQueue": "Черга дослідження",
@@ -261,14 +325,29 @@ const translations = {
     "summary.dealCandidates": "Кандидати угод",
     "summary.keepaMetrics": "Keepa метрики",
     "summary.researchQueue": "Черга дослідження",
+    "issue.amazonNotFound": "Amazon не знайдено",
+    "issue.available": "Доступно",
+    "issue.dealCandidates": "Кандидати угод",
+    "issue.keepaPending": "Keepa очікує",
+    "issue.needsAmazonMatch": "Потрібен Amazon match",
+    "issue.open": "Відкрито",
+    "issue.rejectedLowRoi": "Відхилено: низький ROI",
+    "issue.rejectedUnprofitable": "Відхилено: без прибутку",
     "table.brand": "Бренд",
     "table.confidence": "Впевненість",
     "table.detectedAs": "Розпізнано як",
     "table.fileColumn": "Колонка файлу",
     "table.priority": "Пріоритет",
     "table.profit": "Прибуток",
+    "table.reason": "Причина",
     "table.roi": "ROI",
+    "table.sales": "Продажі",
+    "table.stock": "Stock",
     "table.status": "Статус",
+    "table.supplier": "Постачальник",
+    "table.file": "Файл",
+    "table.rows": "Рядки",
+    "table.valid": "Валідні",
   },
 };
 
@@ -312,10 +391,15 @@ function applyLanguage() {
 
   setStatus(Boolean(state.summary));
   renderSummary();
+  renderPipelineIssues();
+  renderSuppliersDashboard();
 
   if (state.importPreview) {
     renderImportPreview(state.importPreview);
   }
+
+  renderSupplierSelect();
+  updateSupplierScopeVisibility();
 }
 
 async function api(path, options = {}) {
@@ -340,6 +424,14 @@ async function api(path, options = {}) {
   return data;
 }
 
+function scopedPath(path) {
+  if (!state.supplierId) return path;
+
+  const separator = path.includes("?") ? "&" : "?";
+
+  return `${path}${separator}supplier_id=${encodeURIComponent(state.supplierId)}`;
+}
+
 function showAlert(message, isError = false) {
   const alert = document.querySelector("#alert");
   alert.textContent = message;
@@ -350,6 +442,38 @@ function showAlert(message, isError = false) {
   showAlert.timer = window.setTimeout(() => {
     alert.classList.add("hidden");
   }, 4200);
+}
+
+function renderSupplierSelect() {
+  const select = document.querySelector("#supplier-select");
+
+  select.innerHTML = [
+    `<option value="">${t("field.allSuppliers")}</option>`,
+    ...state.suppliers.map((supplier) => `
+      <option value="${supplier.id}">
+        ${escapeHtml(supplier.name)} (${formatNumber(supplier.offers_count)})
+      </option>
+    `),
+  ].join("");
+
+  select.value = state.supplierId;
+}
+
+function updateSupplierScopeVisibility() {
+  document.querySelector("#supplier-select").classList.toggle(
+    "hidden",
+    state.activeView === "suppliers",
+  );
+}
+
+function selectedSupplierName() {
+  if (!state.supplierId) return t("field.allSuppliers");
+
+  const supplier = state.suppliers.find(
+    (item) => String(item.id) === state.supplierId,
+  );
+
+  return supplier?.name || t("field.allSuppliers");
 }
 
 function setStatus(ok) {
@@ -402,6 +526,219 @@ function renderSummary() {
         </article>
       `;
     })
+    .join("");
+}
+
+function statusText(statuses = {}) {
+  const text = Object.entries(statuses)
+    .map(([key, count]) => `${key}: ${formatNumber(count)}`)
+    .join(" | ");
+
+  return text || t("message.noRecords");
+}
+
+function renderSuppliersDashboard() {
+  const grid = document.querySelector("#suppliers-dashboard");
+
+  if (!grid) return;
+
+  if (!state.supplierDashboard.length) {
+    grid.innerHTML = `<section class="panel">${t("message.noRecords")}</section>`;
+    return;
+  }
+
+  grid.innerHTML = state.supplierDashboard
+    .map((supplier) => {
+      const imports = supplier.recent_imports || [];
+
+      return `
+        <section class="panel supplier-card">
+          <div class="panel-header">
+            <div>
+              <h3>${escapeHtml(supplier.name)}</h3>
+              <p>${formatNumber(supplier.offers_count)} offers</p>
+            </div>
+            <button class="ghost-button" data-select-supplier="${supplier.id}" type="button">
+              ${t("nav.overview")}
+            </button>
+          </div>
+
+          <div class="supplier-status-grid">
+            <article>
+              <span>${t("summary.researchQueue")}</span>
+              <strong>${statusText(supplier.statuses?.research_queue)}</strong>
+            </article>
+            <article>
+              <span>${t("summary.amazonMatches")}</span>
+              <strong>${statusText(supplier.statuses?.amazon_matches)}</strong>
+            </article>
+            <article>
+              <span>${t("summary.dealCandidates")}</span>
+              <strong>${statusText(supplier.statuses?.deal_candidates)}</strong>
+            </article>
+          </div>
+
+          <div class="preview-section">
+            <h4>${t("panel.recentImports")}</h4>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>${t("table.file")}</th>
+                    <th>${t("table.rows")}</th>
+                    <th>${t("table.valid")}</th>
+                    <th>${t("table.status")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${imports.length
+                    ? imports.map((run) => `
+                      <tr>
+                        <td>${escapeHtml(run.filename)}</td>
+                        <td>${formatNumber(run.rows_total)}</td>
+                        <td>${formatNumber(run.rows_valid)}</td>
+                        <td><span class="badge ${statusClass(run.status)}">${escapeHtml(run.status)}</span></td>
+                      </tr>
+                    `).join("")
+                    : `<tr><td colspan="4">${t("message.noRecords")}</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      `;
+    })
+    .join("");
+}
+
+function statusCount(section, status) {
+  return state.summary?.[section]?.by_status?.[status] || 0;
+}
+
+function maxStatusCount(leftSection, leftStatus, rightSection, rightStatus) {
+  return Math.max(
+    statusCount(leftSection, leftStatus),
+    statusCount(rightSection, rightStatus),
+  );
+}
+
+function issueDefinitions() {
+  return {
+    needsAmazonMatch: {
+      label: "issue.needsAmazonMatch",
+      count: statusCount("research_queue", "needs_amazon_match"),
+      tone: "warn",
+      endpoint: scopedPath("/research-queue/?status=needs_amazon_match&limit=500"),
+      columns: [
+        { label: t("table.supplier"), key: "supplier_name", render: (row) => escapeHtml(row.supplier_name) || "-" },
+        { label: "EAN", key: "ean" },
+        { label: t("table.priority"), key: "priority_score", render: (row) => formatNumber(row.priority_score) },
+        { label: t("table.brand"), key: "brand", render: (row) => escapeHtml(row.brand) || "-" },
+        { label: t("table.stock"), key: "stock", render: (row) => formatNumber(row.stock) },
+        { label: t("table.status"), key: "status", render: (row) => `<span class="badge ${statusClass(row.status)}">${escapeHtml(row.status)}</span>` },
+      ],
+    },
+    amazonNotFound: {
+      label: "issue.amazonNotFound",
+      count: maxStatusCount(
+        "amazon_matches",
+        "not_found",
+        "research_queue",
+        "amazon_match_not_found",
+      ),
+      tone: "bad",
+      endpoint: scopedPath("/amazon-matches/?match_status=not_found&limit=500"),
+      columns: [
+        { label: t("table.supplier"), key: "supplier_name", render: (row) => escapeHtml(row.supplier_name) || "-" },
+        { label: "EAN", key: "ean" },
+        { label: "ASIN", key: "asin", render: (row) => escapeHtml(row.asin) || "-" },
+        { label: t("table.confidence"), key: "match_confidence", render: (row) => formatNumber(row.match_confidence) },
+        { label: t("table.status"), key: "match_status", render: (row) => `<span class="badge ${statusClass(row.match_status)}">${escapeHtml(row.match_status)}</span>` },
+      ],
+    },
+    keepaPending: {
+      label: "issue.keepaPending",
+      count: statusCount("keepa_metrics", "pending")
+        + statusCount("research_queue", "keepa_pending"),
+      tone: "warn",
+      endpoint: scopedPath("/keepa/?data_status=pending&limit=500"),
+      columns: [
+        { label: t("table.supplier"), key: "supplier_name", render: (row) => escapeHtml(row.supplier_name) || "-" },
+        { label: "ASIN", key: "asin" },
+        { label: t("table.status"), key: "data_status", render: (row) => `<span class="badge ${statusClass(row.data_status)}">${escapeHtml(row.data_status)}</span>` },
+        { label: t("table.sales"), key: "estimated_monthly_sales", render: (row) => formatNumber(row.estimated_monthly_sales) },
+      ],
+    },
+    rejectedLowRoi: {
+      label: "issue.rejectedLowRoi",
+      count: maxStatusCount(
+        "deal_candidates",
+        "rejected_low_roi",
+        "research_queue",
+        "rejected_low_roi",
+      ),
+      tone: "bad",
+      endpoint: scopedPath("/research-queue/?status=rejected_low_roi&limit=500"),
+      columns: [
+        { label: t("table.supplier"), key: "supplier_name", render: (row) => escapeHtml(row.supplier_name) || "-" },
+        { label: "EAN", key: "ean" },
+        { label: t("table.priority"), key: "priority_score", render: (row) => formatNumber(row.priority_score) },
+        { label: t("table.reason"), key: "rejection_reason", render: (row) => escapeHtml(row.rejection_reason) || "-" },
+        { label: t("table.status"), key: "status", render: (row) => `<span class="badge ${statusClass(row.status)}">${escapeHtml(row.status)}</span>` },
+      ],
+    },
+    rejectedUnprofitable: {
+      label: "issue.rejectedUnprofitable",
+      count: maxStatusCount(
+        "deal_candidates",
+        "rejected_unprofitable",
+        "research_queue",
+        "rejected_unprofitable",
+      ),
+      tone: "bad",
+      endpoint: scopedPath("/research-queue/?status=rejected_unprofitable&limit=500"),
+      columns: [
+        { label: t("table.supplier"), key: "supplier_name", render: (row) => escapeHtml(row.supplier_name) || "-" },
+        { label: "EAN", key: "ean" },
+        { label: t("table.priority"), key: "priority_score", render: (row) => formatNumber(row.priority_score) },
+        { label: t("table.reason"), key: "rejection_reason", render: (row) => escapeHtml(row.rejection_reason) || "-" },
+        { label: t("table.status"), key: "status", render: (row) => `<span class="badge ${statusClass(row.status)}">${escapeHtml(row.status)}</span>` },
+      ],
+    },
+    dealCandidates: {
+      label: "issue.dealCandidates",
+      count: statusCount("deal_candidates", "candidate"),
+      tone: "ok",
+      doneLabel: "issue.available",
+      endpoint: scopedPath("/deals/?status=candidate&limit=500"),
+      columns: [
+        { label: t("table.supplier"), key: "supplier_name", render: (row) => escapeHtml(row.supplier_name) || "-" },
+        { label: "ASIN", key: "asin" },
+        { label: t("table.roi"), key: "roi_percent", render: (row) => formatNumber(row.roi_percent) },
+        { label: t("table.profit"), key: "estimated_profit", render: (row) => formatNumber(row.estimated_profit) },
+        { label: t("table.status"), key: "status", render: (row) => `<span class="badge ${statusClass(row.status)}">${escapeHtml(row.status)}</span>` },
+      ],
+    },
+  };
+}
+
+function renderPipelineIssues() {
+  const grid = document.querySelector("#pipeline-issues");
+
+  if (!grid) return;
+
+  const items = Object.entries(issueDefinitions());
+
+  grid.innerHTML = items
+    .map(([key, item]) => `
+      <article class="issue-card">
+        <span>${t(item.label)}</span>
+        <strong>${formatNumber(item.count)}</strong>
+        <button class="badge ${item.count ? item.tone : "ok"}" data-issue-key="${key}" type="button">
+          ${item.count ? t(item.doneLabel || "issue.open") : t("status.done")}
+        </button>
+      </article>
+    `)
     .join("");
 }
 
@@ -461,6 +798,35 @@ function renderRows(selector, rows, columns) {
       const cells = columns
         .map((column) => {
           const value = column.render ? column.render(row) : row[column.key];
+          return `<td>${column.render ? value : escapeHtml(value) || "-"}</td>`;
+        })
+        .join("");
+
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+}
+
+function renderTable(headSelector, bodySelector, rows, columns) {
+  const head = document.querySelector(headSelector);
+  const body = document.querySelector(bodySelector);
+
+  head.innerHTML = `
+    <tr>
+      ${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
+    </tr>
+  `;
+
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="${columns.length}">${t("message.noRecords")}</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows
+    .map((row) => {
+      const cells = columns
+        .map((column) => {
+          const value = column.render ? column.render(row) : row[column.key];
           return `<td>${value ?? "-"}</td>`;
         })
         .join("");
@@ -468,6 +834,201 @@ function renderRows(selector, rows, columns) {
       return `<tr>${cells}</tr>`;
     })
     .join("");
+}
+
+function plainCellValue(row, column) {
+  const value = row[column.key];
+
+  if (value === null || value === undefined || value === "") return "";
+
+  return String(value);
+}
+
+function csvEscape(value) {
+  const text = String(value ?? "");
+
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replaceAll('"', '""')}"`;
+  }
+
+  return text;
+}
+
+function xmlEscape(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function filenameSafe(value) {
+  return String(value || "export")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "export";
+}
+
+function downloadBlob(filename, mimeType, content) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function textBytes(value) {
+  return new TextEncoder().encode(value);
+}
+
+const crcTable = Array.from({ length: 256 }, (_, index) => {
+  let crc = index;
+
+  for (let bit = 0; bit < 8; bit += 1) {
+    crc = (crc & 1) ? (0xEDB88320 ^ (crc >>> 1)) : (crc >>> 1);
+  }
+
+  return crc >>> 0;
+});
+
+function crc32(bytes) {
+  let crc = 0xFFFFFFFF;
+
+  for (const byte of bytes) {
+    crc = crcTable[(crc ^ byte) & 0xFF] ^ (crc >>> 8);
+  }
+
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function u16(value) {
+  return [value & 0xFF, (value >>> 8) & 0xFF];
+}
+
+function u32(value) {
+  return [
+    value & 0xFF,
+    (value >>> 8) & 0xFF,
+    (value >>> 16) & 0xFF,
+    (value >>> 24) & 0xFF,
+  ];
+}
+
+function concatBytes(parts) {
+  const length = parts.reduce((total, part) => total + part.length, 0);
+  const output = new Uint8Array(length);
+  let offset = 0;
+
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+
+  return output;
+}
+
+function zipDateParts() {
+  const now = new Date();
+  const time = (
+    (now.getHours() << 11)
+    | (now.getMinutes() << 5)
+    | Math.floor(now.getSeconds() / 2)
+  );
+  const date = (
+    ((now.getFullYear() - 1980) << 9)
+    | ((now.getMonth() + 1) << 5)
+    | now.getDate()
+  );
+
+  return { time, date };
+}
+
+function createZip(files) {
+  const localParts = [];
+  const centralParts = [];
+  const { time, date } = zipDateParts();
+  let offset = 0;
+
+  for (const file of files) {
+    const name = textBytes(file.name);
+    const data = textBytes(file.content);
+    const crc = crc32(data);
+    const localHeader = new Uint8Array([
+      ...u32(0x04034b50),
+      ...u16(20),
+      ...u16(0),
+      ...u16(0),
+      ...u16(time),
+      ...u16(date),
+      ...u32(crc),
+      ...u32(data.length),
+      ...u32(data.length),
+      ...u16(name.length),
+      ...u16(0),
+    ]);
+    const centralHeader = new Uint8Array([
+      ...u32(0x02014b50),
+      ...u16(20),
+      ...u16(20),
+      ...u16(0),
+      ...u16(0),
+      ...u16(time),
+      ...u16(date),
+      ...u32(crc),
+      ...u32(data.length),
+      ...u32(data.length),
+      ...u16(name.length),
+      ...u16(0),
+      ...u16(0),
+      ...u16(0),
+      ...u16(0),
+      ...u32(0),
+      ...u32(offset),
+    ]);
+
+    localParts.push(localHeader, name, data);
+    centralParts.push(centralHeader, name);
+    offset += localHeader.length + name.length + data.length;
+  }
+
+  const centralDirectory = concatBytes(centralParts);
+  const end = new Uint8Array([
+    ...u32(0x06054b50),
+    ...u16(0),
+    ...u16(0),
+    ...u16(files.length),
+    ...u16(files.length),
+    ...u32(centralDirectory.length),
+    ...u32(offset),
+    ...u16(0),
+  ]);
+
+  return concatBytes([
+    ...localParts,
+    centralDirectory,
+    end,
+  ]);
+}
+
+function columnName(index) {
+  let name = "";
+  let value = index + 1;
+
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    value = Math.floor((value - 1) / 26);
+  }
+
+  return name;
 }
 
 function escapeHtml(value) {
@@ -480,8 +1041,28 @@ function escapeHtml(value) {
 }
 
 async function loadSummary() {
-  state.summary = await api("/pipeline/summary");
+  state.summary = await api(scopedPath("/pipeline/summary"));
   renderSummary();
+  renderPipelineIssues();
+}
+
+async function loadSuppliers() {
+  state.suppliers = await api("/suppliers/");
+
+  if (
+    state.supplierId
+    && !state.suppliers.some((supplier) => String(supplier.id) === state.supplierId)
+  ) {
+    state.supplierId = "";
+    localStorage.removeItem("oaSupplierId");
+  }
+
+  renderSupplierSelect();
+}
+
+async function loadSuppliersDashboard() {
+  state.supplierDashboard = await api("/suppliers/dashboard");
+  renderSuppliersDashboard();
 }
 
 async function loadConfig() {
@@ -498,8 +1079,9 @@ async function loadConfig() {
 }
 
 async function loadDeals() {
-  const deals = await api("/deals/?limit=10");
+  const deals = await api(scopedPath("/deals/?limit=500"));
   renderRows("#deals-table", deals, [
+    { key: "supplier_name" },
     { key: "asin" },
     { key: "roi_percent", render: (row) => formatNumber(row.roi_percent) },
     { key: "estimated_profit", render: (row) => formatNumber(row.estimated_profit) },
@@ -512,12 +1094,13 @@ async function loadDeals() {
 
 async function loadResearch() {
   const [queue, matches] = await Promise.all([
-    api("/research-queue/?limit=12"),
-    api("/amazon-matches/?limit=12"),
+    api(scopedPath("/research-queue/?limit=12")),
+    api(scopedPath("/amazon-matches/?limit=12")),
   ]);
 
   renderRows("#queue-table", queue, [
     { key: "ean" },
+    { key: "supplier_name" },
     { key: "priority_score", render: (row) => formatNumber(row.priority_score) },
     {
       key: "status",
@@ -528,6 +1111,7 @@ async function loadResearch() {
 
   renderRows("#matches-table", matches, [
     { key: "ean" },
+    { key: "supplier_name" },
     { key: "asin" },
     {
       key: "match_status",
@@ -541,11 +1125,13 @@ async function refreshAll() {
   try {
     await api("/");
     setStatus(true);
+    await loadSuppliers();
     await Promise.all([
       loadSummary(),
       loadConfig(),
       loadDeals(),
       loadResearch(),
+      loadSuppliersDashboard(),
     ]);
   } catch (error) {
     setStatus(false);
@@ -563,7 +1149,7 @@ async function runBatch() {
   status.className = "badge warn";
 
   try {
-    const result = await api("/pipeline/run-batch", {
+    const result = await api(scopedPath("/pipeline/run-batch"), {
       method: "POST",
     });
     output.textContent = JSON.stringify(result, null, 2);
@@ -573,6 +1159,26 @@ async function runBatch() {
   } catch (error) {
     status.textContent = t("status.failed");
     status.className = "badge bad";
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function runResearch() {
+  const button = document.querySelector("#run-research-button");
+
+  button.disabled = true;
+
+  try {
+    const result = await api(scopedPath("/pipeline/run-research"), {
+      method: "POST",
+    });
+    showAlert(t("message.researchRun", {
+      count: result.amazon_processed?.processed_count || 0,
+    }));
+    await Promise.all([loadSummary(), loadResearch(), loadDeals()]);
+  } catch (error) {
     showAlert(error.message, true);
   } finally {
     button.disabled = false;
@@ -680,6 +1286,144 @@ function renderImportPreview(result) {
   preview.classList.remove("hidden");
 }
 
+function closeIssueModal() {
+  document.querySelector("#issue-modal").classList.add("hidden");
+}
+
+function setIssueExport(title, rows, columns) {
+  state.issueExport = { title, rows, columns };
+
+  const disabled = !rows.length;
+  document.querySelector("#download-issue-csv").disabled = disabled;
+  document.querySelector("#download-issue-xls").disabled = disabled;
+}
+
+function downloadIssueCsv() {
+  if (!state.issueExport) return;
+
+  const { title, rows, columns } = state.issueExport;
+  const header = columns.map((column) => csvEscape(column.label)).join(",");
+  const body = rows
+    .map((row) => columns
+      .map((column) => csvEscape(plainCellValue(row, column)))
+      .join(","))
+    .join("\n");
+
+  downloadBlob(
+    `${filenameSafe(selectedSupplierName())}-${filenameSafe(title)}.csv`,
+    "text/csv;charset=utf-8",
+    `\uFEFF${header}\n${body}`,
+  );
+}
+
+function downloadIssueXls() {
+  if (!state.issueExport) return;
+
+  const { title, rows, columns } = state.issueExport;
+  const sheetRows = [
+    columns.map((column) => column.label),
+    ...rows.map((row) => columns.map((column) => plainCellValue(row, column))),
+  ];
+  const sheetData = sheetRows
+    .map((row, rowIndex) => {
+      const cells = row
+        .map((value, columnIndex) => {
+          const ref = `${columnName(columnIndex)}${rowIndex + 1}`;
+          return `
+            <c r="${ref}" t="inlineStr">
+              <is><t>${xmlEscape(value)}</t></is>
+            </c>
+          `;
+        })
+        .join("");
+
+      return `<row r="${rowIndex + 1}">${cells}</row>`;
+    })
+    .join("");
+  const files = [
+    {
+      name: "[Content_Types].xml",
+      content: `<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>`,
+    },
+    {
+      name: "_rels/.rels",
+      content: `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`,
+    },
+    {
+      name: "xl/workbook.xml",
+      content: `<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="${xmlEscape(filenameSafe(title).slice(0, 31))}" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`,
+    },
+    {
+      name: "xl/_rels/workbook.xml.rels",
+      content: `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>`,
+    },
+    {
+      name: "xl/worksheets/sheet1.xml",
+      content: `<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>${sheetData}</sheetData>
+</worksheet>`,
+    },
+  ];
+
+  downloadBlob(
+    `${filenameSafe(selectedSupplierName())}-${filenameSafe(title)}.xlsx`,
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    createZip(files),
+  );
+}
+
+async function openIssueModal(issueKey) {
+  const definition = issueDefinitions()[issueKey];
+
+  if (!definition) return;
+
+  const modal = document.querySelector("#issue-modal");
+  const title = document.querySelector("#issue-modal-title");
+  const summary = document.querySelector("#issue-modal-summary");
+
+  title.textContent = t(definition.label);
+  summary.innerHTML = `
+    <span class="badge ${definition.count ? definition.tone : "ok"}">
+      ${formatNumber(definition.count)}
+    </span>
+  `;
+  renderTable("#issue-modal-head", "#issue-modal-body", [], definition.columns);
+  setIssueExport(t(definition.label), [], definition.columns);
+  modal.classList.remove("hidden");
+
+  try {
+    const rows = await api(definition.endpoint);
+    setIssueExport(t(definition.label), rows, definition.columns);
+    renderTable(
+      "#issue-modal-head",
+      "#issue-modal-body",
+      rows,
+      definition.columns,
+    );
+  } catch (error) {
+    showAlert(error.message, true);
+  }
+}
+
 function bindNavigation() {
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => {
@@ -692,6 +1436,7 @@ function bindNavigation() {
       });
       state.activeView = view;
       document.querySelector("#view-title").textContent = t(`nav.${view}`);
+      updateSupplierScopeVisibility();
     });
   });
 }
@@ -703,19 +1448,59 @@ function bindActions() {
     localStorage.setItem("oaLanguage", state.language);
     applyLanguage();
   });
-  document.querySelector("#run-batch-button").addEventListener("click", runBatch);
-  document.querySelector("#refresh-deals-button").addEventListener("click", loadDeals);
-  document.querySelector("#populate-queue-button").addEventListener("click", async () => {
-    const result = await api("/research-queue/populate", { method: "POST" });
-    showAlert(t("message.createdQueueItems", { count: result.created_count }));
-    await Promise.all([loadSummary(), loadResearch()]);
-  });
-  document.querySelector("#process-matches-button").addEventListener("click", async () => {
-    const result = await api("/amazon-matches/process-pending", { method: "POST" });
-    showAlert(t("message.processedMatches", { count: result.processed_count }));
-    await Promise.all([loadSummary(), loadResearch()]);
-  });
+  document.querySelector("#supplier-select").addEventListener("change", async (event) => {
+    state.supplierId = event.currentTarget.value;
 
+    if (state.supplierId) {
+      localStorage.setItem("oaSupplierId", state.supplierId);
+    } else {
+      localStorage.removeItem("oaSupplierId");
+    }
+
+    try {
+      await Promise.all([loadSummary(), loadDeals(), loadResearch()]);
+    } catch (error) {
+      showAlert(error.message, true);
+    }
+  });
+  document.querySelector("#run-batch-button").addEventListener("click", runBatch);
+  document.querySelector("#run-research-button").addEventListener("click", runResearch);
+  document.querySelector("#refresh-deals-button").addEventListener("click", loadDeals);
+  document.querySelector("#refresh-issues-button").addEventListener("click", loadSummary);
+  document.querySelector("#pipeline-issues").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-issue-key]");
+
+    if (!button) return;
+
+    openIssueModal(button.dataset.issueKey);
+  });
+  document.querySelector("#suppliers-dashboard").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-select-supplier]");
+
+    if (!button) return;
+
+    state.supplierId = button.dataset.selectSupplier;
+    localStorage.setItem("oaSupplierId", state.supplierId);
+    renderSupplierSelect();
+
+    document.querySelector('[data-view="overview"]').click();
+
+    try {
+      await Promise.all([loadSummary(), loadDeals(), loadResearch()]);
+    } catch (error) {
+      showAlert(error.message, true);
+    }
+  });
+  document.querySelectorAll("[data-close-modal]").forEach((element) => {
+    element.addEventListener("click", closeIssueModal);
+  });
+  document.querySelector("#download-issue-csv").addEventListener("click", downloadIssueCsv);
+  document.querySelector("#download-issue-xls").addEventListener("click", downloadIssueXls);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeIssueModal();
+    }
+  });
   document.querySelector("#pipeline-settings-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     try {

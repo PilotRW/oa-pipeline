@@ -4,6 +4,7 @@ from app.services.amazon_match_service import AmazonMatchService
 from app.services.config_service import ConfigService
 from app.services.deal_service import DealService
 from app.services.keepa_service import KeepaService
+from app.services.research_queue_service import ResearchQueueService
 
 
 class PipelineService:
@@ -15,6 +16,7 @@ class PipelineService:
         self,
         min_priority_score: float | None = None,
         limit: int | None = None,
+        supplier_id: int | None = None,
     ) -> dict:
         settings = await self.config_service.get_pipeline_settings()
         rules = await self.config_service.get_research_rules()
@@ -38,26 +40,31 @@ class PipelineService:
         amazon_pending_created = await amazon_service.create_pending_matches(
             min_priority_score=priority_score,
             limit=batch_limit,
+            supplier_id=supplier_id,
         )
 
         amazon_processed = await amazon_service.process_pending_matches(
             limit=batch_limit,
             use_real_keepa=settings.use_real_keepa,
             marketplace=settings.default_marketplace,
+            supplier_id=supplier_id,
         )
 
         keepa_pending_created = await keepa_service.create_pending_metrics(
             limit=batch_limit,
+            supplier_id=supplier_id,
         )
 
         keepa_processed = await keepa_service.process_pending_metrics(
             limit=batch_limit,
             use_real_keepa=settings.use_real_keepa,
             marketplace=settings.default_marketplace,
+            supplier_id=supplier_id,
         )
 
         deal_candidates_created = await deal_service.create_deal_candidates(
             limit=batch_limit,
+            supplier_id=supplier_id,
         )
 
         return {
@@ -67,10 +74,66 @@ class PipelineService:
                 "min_priority_score": priority_score,
                 "use_real_keepa": settings.use_real_keepa,
                 "marketplace": settings.default_marketplace,
+                "supplier_id": supplier_id,
             },
             "amazon_pending_created": amazon_pending_created,
             "amazon_processed": amazon_processed,
             "keepa_pending_created": keepa_pending_created,
             "keepa_processed": keepa_processed,
             "deal_candidates_created": deal_candidates_created,
+        }
+
+    async def run_research(
+        self,
+        min_priority_score: float | None = None,
+        limit: int | None = None,
+        supplier_id: int | None = None,
+    ) -> dict:
+        settings = await self.config_service.get_pipeline_settings()
+        rules = await self.config_service.get_research_rules()
+
+        batch_limit = (
+            limit
+            if limit is not None
+            else settings.default_batch_size
+        )
+
+        priority_score = (
+            min_priority_score
+            if min_priority_score is not None
+            else float(rules.min_priority_score)
+        )
+
+        queue_service = ResearchQueueService(self.db)
+        amazon_service = AmazonMatchService(self.db)
+
+        queue_created = await queue_service.populate_queue_from_supplier_offers(
+            supplier_id=supplier_id,
+        )
+
+        amazon_pending_created = await amazon_service.create_pending_matches(
+            min_priority_score=priority_score,
+            limit=batch_limit,
+            supplier_id=supplier_id,
+        )
+
+        amazon_processed = await amazon_service.process_pending_matches(
+            limit=batch_limit,
+            use_real_keepa=settings.use_real_keepa,
+            marketplace=settings.default_marketplace,
+            supplier_id=supplier_id,
+        )
+
+        return {
+            "status": "ok",
+            "settings": {
+                "limit": batch_limit,
+                "min_priority_score": priority_score,
+                "use_real_keepa": settings.use_real_keepa,
+                "marketplace": settings.default_marketplace,
+                "supplier_id": supplier_id,
+            },
+            "queue_created": queue_created,
+            "amazon_pending_created": amazon_pending_created,
+            "amazon_processed": amazon_processed,
         }

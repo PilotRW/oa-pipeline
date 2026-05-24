@@ -12,11 +12,14 @@ router = APIRouter(
 
 @router.post("/populate")
 async def populate_research_queue(
+    supplier_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
 ):
     service = ResearchQueueService(db)
 
-    created_count = await service.populate_queue_from_supplier_offers()
+    created_count = await service.populate_queue_from_supplier_offers(
+        supplier_id=supplier_id,
+    )
 
     return {
         "created_count": created_count,
@@ -42,6 +45,7 @@ async def recalculate_priority(
 async def list_research_queue(
     status: str | None = Query(default=None),
     min_priority_score: float | None = Query(default=None),
+    supplier_id: int | None = Query(default=None, ge=1),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -51,6 +55,7 @@ async def list_research_queue(
     items = await service.list_queue(
         status=status,
         min_priority_score=min_priority_score,
+        supplier_id=supplier_id,
         limit=limit,
         offset=offset,
     )

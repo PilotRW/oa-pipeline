@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
+from app.models.supplier import Supplier
+from app.models.supplier_offer import SupplierOffer
 from app.services.config_service import ConfigService
 from app.services.keepa_client import (
     KeepaConfigurationError,
@@ -19,6 +21,7 @@ class KeepaService:
     async def create_pending_metrics(
         self,
         limit: int | None = None,
+        supplier_id: int | None = None,
     ) -> int:
         settings = None
 
@@ -49,9 +52,21 @@ class KeepaService:
             .where(AmazonProductMatch.match_status == "matched")
             .where(AmazonProductMatch.asin.is_not(None))
             .where(AmazonProductMatch.asin.not_in(existing_asins_subquery))
-            .order_by(AmazonProductMatch.created_at.desc())
-            .limit(batch_limit)
         )
+
+        if supplier_id is not None:
+            query = (
+                query
+                .join(
+                    SupplierOffer,
+                    SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
+                )
+                .where(SupplierOffer.supplier_id == supplier_id)
+            )
+
+        query = query.order_by(
+            AmazonProductMatch.created_at.desc()
+        ).limit(batch_limit)
 
         result = await self.db.execute(query)
         rows_result = result.all()
@@ -91,6 +106,7 @@ class KeepaService:
         limit: int | None = None,
         use_real_keepa: bool | None = None,
         marketplace: str | None = None,
+        supplier_id: int | None = None,
     ) -> dict:
         settings = None
 
@@ -134,8 +150,19 @@ class KeepaService:
                 OfferResearchQueue.id == AmazonProductMatch.queue_id,
             )
             .where(KeepaProductMetric.data_status == "pending")
-            .limit(batch_limit)
         )
+
+        if supplier_id is not None:
+            query = (
+                query
+                .join(
+                    SupplierOffer,
+                    SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
+                )
+                .where(SupplierOffer.supplier_id == supplier_id)
+            )
+
+        query = query.limit(batch_limit)
 
         result = await self.db.execute(query)
         rows = result.all()
@@ -220,16 +247,37 @@ class KeepaService:
     async def list_metrics(
         self,
         data_status: str | None = None,
+        supplier_id: int | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
-        query = select(
-            KeepaProductMetric
+        query = (
+            select(
+                KeepaProductMetric,
+                Supplier.name.label("supplier_name"),
+            )
+            .join(
+                AmazonProductMatch,
+                AmazonProductMatch.asin == KeepaProductMetric.asin,
+            )
+            .join(
+                SupplierOffer,
+                SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
+            )
+            .join(
+                Supplier,
+                Supplier.id == SupplierOffer.supplier_id,
+            )
         )
 
         if data_status:
             query = query.where(
                 KeepaProductMetric.data_status == data_status
+            )
+
+        if supplier_id is not None:
+            query = query.where(
+                SupplierOffer.supplier_id == supplier_id
             )
 
         query = (
@@ -242,11 +290,12 @@ class KeepaService:
         )
 
         result = await self.db.execute(query)
-        metrics = result.scalars().all()
+        rows = result.all()
 
         return [
             {
                 "asin": m.asin,
+                "supplier_name": supplier_name,
                 "buy_box_price": (
                     float(m.buy_box_price)
                     if m.buy_box_price
@@ -258,5 +307,5 @@ class KeepaService:
                 "estimated_monthly_sales": m.estimated_monthly_sales,
                 "data_status": m.data_status,
             }
-            for m in metrics
+            for m, supplier_name in rows
         ]

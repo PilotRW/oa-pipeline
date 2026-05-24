@@ -13,12 +13,14 @@ router = APIRouter(
 @router.post("/create-candidates")
 async def create_deal_candidates(
     limit: int | None = Query(default=None, ge=1, le=1000),
+    supplier_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
 ):
     service = DealService(db)
 
     created_count = await service.create_deal_candidates(
         limit=limit,
+        supplier_id=supplier_id,
     )
 
     return {
@@ -31,6 +33,7 @@ async def create_deal_candidates(
 async def list_deal_candidates(
     status: str | None = Query(default=None),
     min_roi_percent: float | None = Query(default=None),
+    supplier_id: int | None = Query(default=None, ge=1),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -40,6 +43,7 @@ async def list_deal_candidates(
     items = await service.list_deal_candidates(
         status=status,
         min_roi_percent=min_roi_percent,
+        supplier_id=supplier_id,
         limit=limit,
         offset=offset,
     )

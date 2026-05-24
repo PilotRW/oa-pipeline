@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.research_rule import ResearchRule
+from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
 from app.services.config_service import ConfigService
 
@@ -53,7 +54,10 @@ class ResearchQueueService:
 
         return float(score)
 
-    async def populate_queue_from_supplier_offers(self) -> int:
+    async def populate_queue_from_supplier_offers(
+        self,
+        supplier_id: int | None = None,
+    ) -> int:
         config_service = ConfigService(self.db)
         rules = await config_service.get_research_rules()
 
@@ -68,6 +72,9 @@ class ResearchQueueService:
             .where(SupplierOffer.cost.is_not(None))
             .where(SupplierOffer.id.not_in(existing_offer_ids_subquery))
         )
+
+        if supplier_id is not None:
+            query = query.where(SupplierOffer.supplier_id == supplier_id)
 
         result = await self.db.execute(query)
         offers = result.scalars().all()
@@ -131,6 +138,7 @@ class ResearchQueueService:
         self,
         status: str | None = None,
         min_priority_score: float | None = None,
+        supplier_id: int | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
@@ -144,6 +152,7 @@ class ResearchQueueService:
                 OfferResearchQueue.updated_at,
                 OfferResearchQueue.supplier_offer_id,
                 OfferResearchQueue.supplier_id,
+                Supplier.name.label("supplier_name"),
                 OfferResearchQueue.ean,
                 SupplierOffer.supplier_sku,
                 SupplierOffer.brand,
@@ -156,6 +165,10 @@ class ResearchQueueService:
                 SupplierOffer,
                 SupplierOffer.id == OfferResearchQueue.supplier_offer_id,
             )
+            .join(
+                Supplier,
+                Supplier.id == OfferResearchQueue.supplier_id,
+            )
         )
 
         if status:
@@ -166,6 +179,11 @@ class ResearchQueueService:
         if min_priority_score is not None:
             query = query.where(
                 OfferResearchQueue.priority_score >= min_priority_score
+            )
+
+        if supplier_id is not None:
+            query = query.where(
+                OfferResearchQueue.supplier_id == supplier_id
             )
 
         query = (
@@ -195,6 +213,7 @@ class ResearchQueueService:
                 "updated_at": row["updated_at"],
                 "supplier_offer_id": row["supplier_offer_id"],
                 "supplier_id": row["supplier_id"],
+                "supplier_name": row["supplier_name"],
                 "ean": row["ean"],
                 "supplier_sku": row["supplier_sku"],
                 "brand": row["brand"],
