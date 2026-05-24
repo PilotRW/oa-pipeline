@@ -12,8 +12,8 @@ router = APIRouter(
 
 @router.post("/create-pending")
 async def create_pending_matches(
-    min_priority_score: float = Query(default=80),
-    limit: int = Query(default=100, ge=1, le=1000),
+    min_priority_score: float | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
 ):
     service = AmazonMatchService(db)
@@ -31,7 +31,7 @@ async def create_pending_matches(
 
 @router.post("/process-pending")
 async def process_pending_matches(
-    limit: int = Query(default=50, ge=1, le=500),
+    limit: int | None = Query(default=None, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
     service = AmazonMatchService(db)

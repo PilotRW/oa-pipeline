@@ -7,6 +7,7 @@ from app.models.amazon_product_match import AmazonProductMatch
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier_offer import SupplierOffer
 from app.services.amazon_matchers.factory import get_amazon_matcher
+from app.services.config_service import ConfigService
 
 
 class AmazonMatchService:
@@ -16,9 +17,31 @@ class AmazonMatchService:
 
     async def create_pending_matches(
         self,
-        min_priority_score: float = 80,
-        limit: int = 100,
+        min_priority_score: float | None = None,
+        limit: int | None = None,
     ) -> int:
+        config_service = ConfigService(self.db)
+        settings = None
+        rules = None
+
+        if limit is None:
+            settings = await config_service.get_pipeline_settings()
+
+        if min_priority_score is None:
+            rules = await config_service.get_research_rules()
+
+        batch_limit = (
+            limit
+            if limit is not None
+            else settings.default_batch_size
+        )
+
+        priority_score = (
+            min_priority_score
+            if min_priority_score is not None
+            else float(rules.min_priority_score)
+        )
+
         existing_queue_ids_subquery = select(
             AmazonProductMatch.queue_id
         )
@@ -33,13 +56,13 @@ class AmazonMatchService:
                 SupplierOffer.id == OfferResearchQueue.supplier_offer_id,
             )
             .where(OfferResearchQueue.status == "needs_amazon_match")
-            .where(OfferResearchQueue.priority_score >= min_priority_score)
+            .where(OfferResearchQueue.priority_score >= priority_score)
             .where(OfferResearchQueue.id.not_in(existing_queue_ids_subquery))
             .order_by(
                 OfferResearchQueue.priority_score.desc().nullslast(),
                 OfferResearchQueue.created_at.desc(),
             )
-            .limit(limit)
+            .limit(batch_limit)
         )
 
         result = await self.db.execute(query)
@@ -72,13 +95,26 @@ class AmazonMatchService:
 
     async def process_pending_matches(
         self,
-        limit: int = 50,
+        limit: int | None = None,
     ) -> dict:
+        settings = None
+
+        if limit is None:
+            settings = await ConfigService(
+                self.db
+            ).get_pipeline_settings()
+
+        batch_limit = (
+            limit
+            if limit is not None
+            else settings.default_batch_size
+        )
+
         query = (
             select(AmazonProductMatch)
             .where(AmazonProductMatch.match_status == "pending")
             .order_by(AmazonProductMatch.created_at.asc())
-            .limit(limit)
+            .limit(batch_limit)
         )
 
         result = await self.db.execute(query)

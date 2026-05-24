@@ -12,7 +12,7 @@ router = APIRouter(
 
 @router.post("/create-candidates")
 async def create_deal_candidates(
-    limit: int = Query(default=100, ge=1, le=1000),
+    limit: int | None = Query(default=None, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
 ):
     service = DealService(db)

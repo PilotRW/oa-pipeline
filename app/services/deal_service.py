@@ -7,6 +7,7 @@ from app.models.amazon_product_match import AmazonProductMatch
 from app.models.deal_candidate import DealCandidate
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
+from app.models.research_rule import ResearchRule
 from app.models.supplier_offer import SupplierOffer
 from app.services.config_service import ConfigService
 
@@ -15,9 +16,17 @@ class DealService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def estimate_fees(self, amazon_price: Decimal) -> Decimal:
-        referral_fee = amazon_price * Decimal("0.15")
-        fulfillment_fee = Decimal("5.00")
+    def estimate_fees(
+        self,
+        amazon_price: Decimal,
+        rules: ResearchRule,
+    ) -> Decimal:
+        referral_fee = (
+            amazon_price
+            * Decimal(str(rules.referral_fee_percent))
+            / Decimal("100.00")
+        )
+        fulfillment_fee = Decimal(str(rules.fulfillment_fee_fixed))
 
         return referral_fee + fulfillment_fee
 
@@ -41,8 +50,21 @@ class DealService:
 
     async def create_deal_candidates(
         self,
-        limit: int = 100,
+        limit: int | None = None,
     ) -> int:
+        settings = None
+
+        if limit is None:
+            settings = await ConfigService(
+                self.db
+            ).get_pipeline_settings()
+
+        batch_limit = (
+            limit
+            if limit is not None
+            else settings.default_batch_size
+        )
+
         existing_offer_ids_subquery = select(
             DealCandidate.supplier_offer_id
         )
@@ -69,7 +91,7 @@ class DealService:
             .where(AmazonProductMatch.match_status == "matched")
             .where(KeepaProductMetric.data_status == "completed")
             .where(SupplierOffer.id.not_in(existing_offer_ids_subquery))
-            .limit(limit)
+            .limit(batch_limit)
         )
 
         result = await self.db.execute(query)
@@ -92,7 +114,8 @@ class DealService:
             supplier_cost = Decimal(str(offer.cost))
 
             estimated_fees = self.estimate_fees(
-                amazon_price
+                amazon_price=amazon_price,
+                rules=rules,
             )
 
             estimated_profit = self.calculate_profit(

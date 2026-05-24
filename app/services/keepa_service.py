@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
+from app.services.config_service import ConfigService
+from app.services.marketplace import currency_for_marketplace
 
 
 class KeepaService:
@@ -12,8 +14,21 @@ class KeepaService:
 
     async def create_pending_metrics(
         self,
-        limit: int = 100,
+        limit: int | None = None,
     ) -> int:
+        settings = None
+
+        if limit is None:
+            settings = await ConfigService(
+                self.db
+            ).get_pipeline_settings()
+
+        batch_limit = (
+            limit
+            if limit is not None
+            else settings.default_batch_size
+        )
+
         existing_asins_subquery = select(
             KeepaProductMetric.asin
         )
@@ -31,7 +46,7 @@ class KeepaService:
             .where(AmazonProductMatch.asin.is_not(None))
             .where(AmazonProductMatch.asin.not_in(existing_asins_subquery))
             .order_by(AmazonProductMatch.created_at.desc())
-            .limit(limit)
+            .limit(batch_limit)
         )
 
         result = await self.db.execute(query)
@@ -69,8 +84,37 @@ class KeepaService:
 
     async def process_pending_metrics(
         self,
-        limit: int = 50,
+        limit: int | None = None,
+        use_real_keepa: bool | None = None,
+        marketplace: str | None = None,
     ) -> dict:
+        settings = None
+
+        if (
+            limit is None
+            or use_real_keepa is None
+            or marketplace is None
+        ):
+            settings = await ConfigService(
+                self.db
+            ).get_pipeline_settings()
+
+        batch_limit = (
+            limit
+            if limit is not None
+            else settings.default_batch_size
+        )
+        real_keepa_enabled = (
+            use_real_keepa
+            if use_real_keepa is not None
+            else settings.use_real_keepa
+        )
+        target_marketplace = (
+            marketplace
+            if marketplace is not None
+            else settings.default_marketplace
+        )
+
         query = (
             select(
                 KeepaProductMetric,
@@ -86,7 +130,7 @@ class KeepaService:
                 OfferResearchQueue.id == AmazonProductMatch.queue_id,
             )
             .where(KeepaProductMetric.data_status == "pending")
-            .limit(limit)
+            .limit(batch_limit)
         )
 
         result = await self.db.execute(query)
@@ -94,9 +138,18 @@ class KeepaService:
 
         processed = 0
 
+        if real_keepa_enabled:
+            return {
+                "processed_count": processed,
+                "data_source": "keepa_real",
+                "status": "not_implemented",
+            }
+
         for metric, match, queue_item in rows:
             metric.buy_box_price = 199.99
-            metric.currency = "EUR"
+            metric.currency = currency_for_marketplace(
+                target_marketplace
+            )
             metric.sales_rank = 12500
             metric.amazon_in_stock = True
             metric.estimated_monthly_sales = 85
@@ -114,6 +167,7 @@ class KeepaService:
 
         return {
             "processed_count": processed,
+            "data_source": "keepa_mock",
         }
 
     async def list_metrics(

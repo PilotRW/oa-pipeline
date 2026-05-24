@@ -78,6 +78,18 @@ class ResearchRule(Base):
         default=0,
     )
 
+    referral_fee_percent: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+        default=15,
+    )
+
+    fulfillment_fee_fixed: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+        default=5,
+    )
+
     max_sales_rank: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,

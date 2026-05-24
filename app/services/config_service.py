@@ -91,6 +91,8 @@ class ConfigService:
             "min_cost",
             "min_roi_percent",
             "min_profit",
+            "referral_fee_percent",
+            "fulfillment_fee_fixed",
             "max_sales_rank",
             "min_monthly_sales",
             "exclude_amazon_in_stock",

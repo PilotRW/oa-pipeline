@@ -7,9 +7,7 @@ from app.models.amazon_product_match import AmazonProductMatch
 from app.models.deal_candidate import DealCandidate
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
-from app.services.amazon_match_service import AmazonMatchService
-from app.services.deal_service import DealService
-from app.services.keepa_service import KeepaService
+from app.services.pipeline_service import PipelineService
 
 router = APIRouter(
     prefix="/pipeline",
@@ -19,43 +17,16 @@ router = APIRouter(
 
 @router.post("/run-batch")
 async def run_pipeline_batch(
-    min_priority_score: float = Query(default=80),
-    limit: int = Query(default=20, ge=1, le=500),
+    min_priority_score: float | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
 ):
-    amazon_service = AmazonMatchService(db)
-    keepa_service = KeepaService(db)
-    deal_service = DealService(db)
+    service = PipelineService(db)
 
-    amazon_pending_created = await amazon_service.create_pending_matches(
+    return await service.run_batch(
         min_priority_score=min_priority_score,
         limit=limit,
     )
-
-    amazon_processed = await amazon_service.process_pending_matches(
-        limit=limit,
-    )
-
-    keepa_pending_created = await keepa_service.create_pending_metrics(
-        limit=limit,
-    )
-
-    keepa_processed = await keepa_service.process_pending_metrics(
-        limit=limit,
-    )
-
-    deal_candidates_created = await deal_service.create_deal_candidates(
-        limit=limit,
-    )
-
-    return {
-        "status": "ok",
-        "amazon_pending_created": amazon_pending_created,
-        "amazon_processed": amazon_processed,
-        "keepa_pending_created": keepa_pending_created,
-        "keepa_processed": keepa_processed,
-        "deal_candidates_created": deal_candidates_created,
-    }
 
 
 async def count_by_status(

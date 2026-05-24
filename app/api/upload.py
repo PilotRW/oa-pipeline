@@ -10,6 +10,8 @@ from app.services.ingestion_service import (
     save_ingestion_run,
     save_column_mappings,
 )
+from app.services.config_service import ConfigService
+from app.services.marketplace import currency_for_marketplace
 from app.services.supplier_offer_service import save_supplier_offers
 
 router = APIRouter()
@@ -28,6 +30,10 @@ async def upload_csv(
     df, normalization_report = normalize_columns(df)
 
     df = clean_dataframe(df)
+
+    settings = await ConfigService(
+        session
+    ).get_pipeline_settings()
 
     supplier = await get_or_create_supplier(
         session=session,
@@ -58,6 +64,7 @@ async def upload_csv(
         session=session,
         supplier_id=supplier.id,
         df=df,
+        currency=currency_for_marketplace(settings.default_marketplace),
     )
 
     await session.commit()

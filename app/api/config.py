@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.config_schemas import (
+    PipelineSettingsUpdate,
+    ResearchRulesUpdate,
+)
 from app.db.database import get_db
 from app.services.config_service import ConfigService
 
@@ -35,6 +39,8 @@ def serialize_research_rules(rules):
         "min_cost": float(rules.min_cost),
         "min_roi_percent": float(rules.min_roi_percent),
         "min_profit": float(rules.min_profit),
+        "referral_fee_percent": float(rules.referral_fee_percent),
+        "fulfillment_fee_fixed": float(rules.fulfillment_fee_fixed),
         "max_sales_rank": rules.max_sales_rank,
         "min_monthly_sales": rules.min_monthly_sales,
         "exclude_amazon_in_stock": rules.exclude_amazon_in_stock,
@@ -70,11 +76,13 @@ async def get_pipeline_settings(
 
 @router.patch("/pipeline-settings")
 async def update_pipeline_settings(
-    values: dict,
+    values: PipelineSettingsUpdate,
     db: AsyncSession = Depends(get_db),
 ):
     service = ConfigService(db)
-    settings = await service.update_pipeline_settings(values)
+    settings = await service.update_pipeline_settings(
+        values.model_dump(exclude_unset=True)
+    )
 
     return serialize_pipeline_settings(settings)
 
@@ -91,10 +99,12 @@ async def get_research_rules(
 
 @router.patch("/research-rules")
 async def update_research_rules(
-    values: dict,
+    values: ResearchRulesUpdate,
     db: AsyncSession = Depends(get_db),
 ):
     service = ConfigService(db)
-    rules = await service.update_research_rules(values)
+    rules = await service.update_research_rules(
+        values.model_dump(exclude_unset=True)
+    )
 
     return serialize_research_rules(rules)

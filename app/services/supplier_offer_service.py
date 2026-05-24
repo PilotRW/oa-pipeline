@@ -8,6 +8,7 @@ async def save_supplier_offers(
     session: AsyncSession,
     supplier_id: int,
     df,
+    currency: str,
 ) -> int:
     # MVP strategy:
     # each upload fully refreshes offers for this supplier
@@ -29,7 +30,7 @@ async def save_supplier_offers(
             brand=row.get("brand"),
             title=row.get("title"),
             cost=row.get("price"),
-            currency="EUR",
+            currency=currency,
             stock=row.get("stock"),
             raw_data=raw_data,
         )
