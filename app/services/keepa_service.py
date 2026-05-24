@@ -5,6 +5,10 @@ from app.models.amazon_product_match import AmazonProductMatch
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
 from app.services.config_service import ConfigService
+from app.services.keepa_client import (
+    KeepaConfigurationError,
+    KeepaMetricsClient,
+)
 from app.services.marketplace import currency_for_marketplace
 
 
@@ -139,10 +143,53 @@ class KeepaService:
         processed = 0
 
         if real_keepa_enabled:
+            try:
+                client = KeepaMetricsClient()
+            except KeepaConfigurationError as exc:
+                return {
+                    "processed_count": processed,
+                    "data_source": "keepa_real",
+                    "status": "not_configured",
+                    "reason": str(exc),
+                }
+
+            not_found = 0
+
+            for metric, match, queue_item in rows:
+                metric_result = await client.fetch_product_metrics(
+                    asin=metric.asin,
+                    marketplace=target_marketplace,
+                )
+
+                if not metric_result:
+                    metric.data_status = "not_found"
+                    queue_item.status = "keepa_not_found"
+                    not_found += 1
+                    continue
+
+                metric.buy_box_price = metric_result["buy_box_price"]
+                metric.currency = (
+                    metric_result["currency"]
+                    or currency_for_marketplace(target_marketplace)
+                )
+                metric.sales_rank = metric_result["sales_rank"]
+                metric.amazon_in_stock = metric_result["amazon_in_stock"]
+                metric.estimated_monthly_sales = (
+                    metric_result["estimated_monthly_sales"]
+                )
+                metric.data_status = "completed"
+                metric.raw_data = metric_result["raw_data"]
+
+                queue_item.status = "keepa_completed"
+
+                processed += 1
+
+            await self.db.commit()
+
             return {
                 "processed_count": processed,
                 "data_source": "keepa_real",
-                "status": "not_implemented",
+                "not_found_count": not_found,
             }
 
         for metric, match, queue_item in rows:

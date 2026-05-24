@@ -9,5 +9,6 @@ class BaseAmazonMatcher(Protocol):
     async def match_by_ean(
         self,
         ean: str,
+        marketplace: str,
     ) -> dict | None:
         ...

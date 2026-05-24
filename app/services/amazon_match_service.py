@@ -8,12 +8,12 @@ from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier_offer import SupplierOffer
 from app.services.amazon_matchers.factory import get_amazon_matcher
 from app.services.config_service import ConfigService
+from app.services.keepa_client import KeepaConfigurationError
 
 
 class AmazonMatchService:
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.matcher = get_amazon_matcher()
 
     async def create_pending_matches(
         self,
@@ -96,10 +96,16 @@ class AmazonMatchService:
     async def process_pending_matches(
         self,
         limit: int | None = None,
+        use_real_keepa: bool | None = None,
+        marketplace: str | None = None,
     ) -> dict:
         settings = None
 
-        if limit is None:
+        if (
+            limit is None
+            or use_real_keepa is None
+            or marketplace is None
+        ):
             settings = await ConfigService(
                 self.db
             ).get_pipeline_settings()
@@ -109,6 +115,30 @@ class AmazonMatchService:
             if limit is not None
             else settings.default_batch_size
         )
+        real_keepa_enabled = (
+            use_real_keepa
+            if use_real_keepa is not None
+            else settings.use_real_keepa
+        )
+        target_marketplace = (
+            marketplace
+            if marketplace is not None
+            else settings.default_marketplace
+        )
+
+        try:
+            matcher = get_amazon_matcher(
+                use_real_keepa=real_keepa_enabled
+            )
+        except KeepaConfigurationError as exc:
+            return {
+                "processed_count": 0,
+                "matched_count": 0,
+                "not_found_count": 0,
+                "data_source": "keepa_real",
+                "status": "not_configured",
+                "reason": str(exc),
+            }
 
         query = (
             select(AmazonProductMatch)
@@ -124,7 +154,10 @@ class AmazonMatchService:
         not_found_count = 0
 
         for match in matches:
-            match_result = await self.matcher.match_by_ean(match.ean)
+            match_result = await matcher.match_by_ean(
+                match.ean,
+                marketplace=target_marketplace,
+            )
 
             queue_result = await self.db.execute(
                 select(OfferResearchQueue).where(
@@ -160,6 +193,11 @@ class AmazonMatchService:
             "processed_count": len(matches),
             "matched_count": matched_count,
             "not_found_count": not_found_count,
+            "data_source": (
+                "keepa_real"
+                if real_keepa_enabled
+                else "mock"
+            ),
         }
 
     async def list_matches(

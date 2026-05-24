@@ -41,8 +41,8 @@ async def process_pending_matches(
     )
 
     return {
-        **result,
         "status": "ok",
+        **result,
     }
 
 

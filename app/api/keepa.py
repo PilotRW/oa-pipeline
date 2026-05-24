@@ -39,8 +39,8 @@ async def process_pending_keepa_metrics(
     )
 
     return {
-        **result,
         "status": "ok",
+        **result,
     }
 
 

@@ -42,6 +42,8 @@ class PipelineService:
 
         amazon_processed = await amazon_service.process_pending_matches(
             limit=batch_limit,
+            use_real_keepa=settings.use_real_keepa,
+            marketplace=settings.default_marketplace,
         )
 
         keepa_pending_created = await keepa_service.create_pending_metrics(

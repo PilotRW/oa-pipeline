@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.upload import router as upload_router
 from app.api.reports import router as reports_router
@@ -10,6 +12,8 @@ from app.api import pipeline
 from app.api import config
 
 app = FastAPI()
+
+app.mount("/ui", StaticFiles(directory="app/static", html=True), name="ui")
 
 app.include_router(upload_router)
 app.include_router(reports_router)
@@ -24,3 +28,8 @@ app.include_router(config.router)
 @app.get("/")
 async def root():
     return {"status": "ok"}
+
+
+@app.get("/dashboard", include_in_schema=False)
+async def dashboard():
+    return RedirectResponse(url="/ui/")

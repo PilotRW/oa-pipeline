@@ -1,6 +1,9 @@
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.amazon_product_match import AmazonProductMatch
+from app.models.deal_candidate import DealCandidate
+from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier_offer import SupplierOffer
 
 
@@ -12,6 +15,35 @@ async def save_supplier_offers(
 ) -> int:
     # MVP strategy:
     # each upload fully refreshes offers for this supplier
+    supplier_offer_ids = select(SupplierOffer.id).where(
+        SupplierOffer.supplier_id == supplier_id
+    )
+    queue_ids = select(OfferResearchQueue.id).where(
+        OfferResearchQueue.supplier_id == supplier_id
+    )
+
+    await session.execute(
+        delete(DealCandidate).where(
+            DealCandidate.supplier_offer_id.in_(
+                supplier_offer_ids
+            )
+        )
+    )
+
+    await session.execute(
+        delete(AmazonProductMatch).where(
+            AmazonProductMatch.queue_id.in_(
+                queue_ids
+            )
+        )
+    )
+
+    await session.execute(
+        delete(OfferResearchQueue).where(
+            OfferResearchQueue.supplier_id == supplier_id
+        )
+    )
+
     await session.execute(
         delete(SupplierOffer).where(
             SupplierOffer.supplier_id == supplier_id

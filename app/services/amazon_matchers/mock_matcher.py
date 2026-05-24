@@ -2,6 +2,7 @@ class MockAmazonMatcher:
     async def match_by_ean(
         self,
         ean: str,
+        marketplace: str = "DE",
     ) -> dict | None:
         if not ean:
             return None

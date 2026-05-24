@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mirenelle Automation</title>
+    <link rel="stylesheet" href="/ui/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-logo" src="/ui/mirenelle-logo.png" alt="Mirenelle">
+          <p data-i18n="app.tagline">Automation console</p>
+        </div>
+
+        <nav class="nav" aria-label="Main">
+          <button class="nav-item active" data-view="overview" data-i18n="nav.overview" type="button">Overview</button>
+          <button class="nav-item" data-view="settings" data-i18n="nav.settings" type="button">Settings</button>
+          <button class="nav-item" data-view="rules" data-i18n="nav.rules" type="button">Rules</button>
+          <button class="nav-item" data-view="research" data-i18n="nav.research" type="button">Research</button>
+          <button class="nav-item" data-view="upload" data-i18n="nav.upload" type="button">Upload</button>
+        </nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" data-i18n="app.eyebrow">Backend control panel</p>
+            <h2 id="view-title" data-i18n="nav.overview">Overview</h2>
+          </div>
+          <div class="topbar-actions">
+            <span id="api-status" class="connection-status" data-i18n="api.checking">Checking API</span>
+            <select id="language-select" class="language-select" aria-label="Language">
+              <option value="en">EN</option>
+              <option value="de">DE</option>
+              <option value="uk">UA</option>
+            </select>
+            <button id="refresh-button" class="icon-button" type="button" title="Refresh" data-i18n-title="action.refresh">R</button>
+            <button id="run-batch-button" class="primary-button" type="button">
+              <span data-i18n="action.runBatch">Run batch</span>
+            </button>
+          </div>
+        </header>
+
+        <section id="alert" class="alert hidden" role="status"></section>
+
+        <section class="view active" id="view-overview">
+          <div class="summary-grid" id="summary-grid"></div>
+
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-header">
+                <h3 data-i18n="panel.pipelineRun">Pipeline Run</h3>
+                <span id="last-run-status" class="badge" data-i18n="status.idle">Idle</span>
+              </div>
+              <pre id="last-run-output" class="output">{}</pre>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3 data-i18n="panel.dealCandidates">Deal Candidates</h3>
+                <button class="ghost-button" id="refresh-deals-button" data-i18n="action.refresh" type="button">Refresh</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ASIN</th>
+                      <th data-i18n="table.roi">ROI</th>
+                      <th data-i18n="table.profit">Profit</th>
+                      <th data-i18n="table.status">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deals-table"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-settings">
+          <form class="panel form-grid" id="pipeline-settings-form">
+            <div class="panel-header full-span">
+              <h3 data-i18n="panel.pipelineSettings">Pipeline Settings</h3>
+              <button class="primary-button" data-i18n="action.save" type="submit">Save</button>
+            </div>
+
+            <label>
+              <span data-i18n="field.batchSize">Batch size</span>
+              <input name="default_batch_size" type="number" min="1" max="500" step="1">
+            </label>
+
+            <label>
+              <span data-i18n="field.marketplace">Marketplace</span>
+              <select name="default_marketplace">
+                <option value="BE">BE</option>
+                <option value="DE">DE</option>
+                <option value="ES">ES</option>
+                <option value="FR">FR</option>
+                <option value="IT">IT</option>
+                <option value="NL">NL</option>
+                <option value="UK">UK</option>
+                <option value="US">US</option>
+              </select>
+            </label>
+
+            <label class="toggle-row">
+              <span data-i18n="field.realKeepa">Real Keepa</span>
+              <input name="use_real_keepa" type="checkbox">
+            </label>
+          </form>
+        </section>
+
+        <section class="view" id="view-rules">
+          <form class="panel form-grid dense" id="research-rules-form">
+            <div class="panel-header full-span">
+              <h3 data-i18n="panel.researchRules">Research Rules</h3>
+              <button class="primary-button" data-i18n="action.save" type="submit">Save</button>
+            </div>
+
+            <label><span data-i18n="field.minPriority">Min priority</span><input name="min_priority_score" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="field.minRoi">Min ROI %</span><input name="min_roi_percent" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="field.minProfit">Min profit</span><input name="min_profit" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="field.referralFee">Referral fee %</span><input name="referral_fee_percent" type="number" min="0" max="100" step="0.01"></label>
+            <label><span data-i18n="field.fulfillmentFee">Fulfillment fee</span><input name="fulfillment_fee_fixed" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="field.maxSalesRank">Max sales rank</span><input name="max_sales_rank" type="number" min="0" step="1"></label>
+            <label><span data-i18n="field.minMonthlySales">Min monthly sales</span><input name="min_monthly_sales" type="number" min="0" step="1"></label>
+            <label class="toggle-row"><span data-i18n="field.excludeAmazonStock">Exclude Amazon stock</span><input name="exclude_amazon_in_stock" type="checkbox"></label>
+
+            <label><span data-i18n="field.lowStock">Low stock</span><input name="low_stock_threshold" type="number" min="0" step="1"></label>
+            <label><span data-i18n="field.mediumStock">Medium stock</span><input name="medium_stock_threshold" type="number" min="0" step="1"></label>
+            <label><span data-i18n="field.highStock">High stock</span><input name="high_stock_threshold" type="number" min="0" step="1"></label>
+
+            <label><span data-i18n="field.preferredCostMin">Preferred cost min</span><input name="preferred_cost_min" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="field.preferredCostMax">Preferred cost max</span><input name="preferred_cost_max" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="field.mediumCostMax">Medium cost max</span><input name="medium_cost_max" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="field.minCost">Min cost</span><input name="min_cost" type="number" min="0" step="0.01"></label>
+
+            <label><span data-i18n="field.scoreStockHigh">Score stock high</span><input name="score_stock_high" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreStockMedium">Score stock medium</span><input name="score_stock_medium" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreStockLow">Score stock low</span><input name="score_stock_low" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreStockVeryLow">Score stock very low</span><input name="score_stock_very_low" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreCostPreferred">Score cost preferred</span><input name="score_cost_preferred" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreCostMedium">Score cost medium</span><input name="score_cost_medium" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreCostHigh">Score cost high</span><input name="score_cost_high" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreCostLow">Score cost low</span><input name="score_cost_low" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreBrand">Score brand</span><input name="score_brand_present" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreTitle">Score title</span><input name="score_title_present" type="number" step="1"></label>
+            <label><span data-i18n="field.scoreEan">Score EAN</span><input name="score_ean_present" type="number" step="1"></label>
+          </form>
+        </section>
+
+        <section class="view" id="view-research">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-header">
+                <h3 data-i18n="panel.researchQueue">Research Queue</h3>
+                <button class="ghost-button" id="populate-queue-button" data-i18n="action.populate" type="button">Populate</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>EAN</th>
+                      <th data-i18n="table.priority">Priority</th>
+                      <th data-i18n="table.status">Status</th>
+                      <th data-i18n="table.brand">Brand</th>
+                    </tr>
+                  </thead>
+                  <tbody id="queue-table"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <h3 data-i18n="panel.amazonMatches">Amazon Matches</h3>
+                <button class="ghost-button" id="process-matches-button" data-i18n="action.process" type="button">Process</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>EAN</th>
+                      <th>ASIN</th>
+                      <th data-i18n="table.status">Status</th>
+                      <th data-i18n="table.confidence">Confidence</th>
+                    </tr>
+                  </thead>
+                  <tbody id="matches-table"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-upload">
+          <form class="panel upload-panel" id="upload-form">
+            <div class="panel-header">
+              <h3 data-i18n="panel.supplierFeed">Supplier Feed</h3>
+              <div class="button-row">
+                <button class="ghost-button hidden" id="save-import-button" data-i18n="action.saveImport" type="button">Save import</button>
+                <button class="primary-button" data-i18n="action.preview" type="submit">Preview</button>
+              </div>
+            </div>
+
+            <label>
+              <span data-i18n="field.supplierName">Supplier name</span>
+              <input name="supplier_name" type="text" required>
+            </label>
+
+            <label>
+              <span data-i18n="field.feedFile">CSV or Excel file</span>
+              <input name="file" type="file" accept=".csv,.xlsx,.xls" required>
+            </label>
+
+            <section id="upload-preview" class="import-preview hidden" aria-live="polite">
+              <div class="preview-summary" id="preview-summary"></div>
+
+              <div class="preview-section">
+                <h4 data-i18n="panel.previewRows">Preview Rows</h4>
+                <div class="table-wrap">
+                  <table>
+                    <thead id="preview-table-head"></thead>
+                    <tbody id="preview-table-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="preview-section">
+                <h4 data-i18n="panel.columnMapping">Column Mapping</h4>
+                <div class="mapping-list" id="mapping-list"></div>
+              </div>
+            </section>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="/ui/app.js"></script>
+  </body>
+</html>

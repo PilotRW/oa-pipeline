@@ -27,6 +27,8 @@ Implemented:
 - Deal candidate generation
 - Pipeline batch orchestration
 - Config API with Pydantic validation for future UI use
+- Static FastAPI-hosted control panel at `/ui/`
+- UI language switcher for English, German, and Ukrainian
 
 Current stage:
 
@@ -36,8 +38,6 @@ Current stage:
 
 Not implemented yet:
 
-- Real Keepa metric processing
-- Real Amazon matching provider
 - Real FBA/VAT/shipping fee engine
 - Frontend UI
 - Supplier-specific rules
@@ -101,8 +101,15 @@ affects priority score.
 Upload:
 
 ```text
+POST /upload/preview
+POST /upload/commit
 POST /upload
 ```
+
+The UI uses the two-step import flow: upload a supplier file for preview first,
+then commit the import after column normalization and sample rows look correct.
+The legacy `POST /upload` endpoint still performs a direct save for scripts or
+manual API use.
 
 Reports:
 
@@ -187,6 +194,12 @@ Check pipeline summary:
 curl http://localhost:8000/pipeline/summary
 ```
 
+Open the control panel:
+
+```text
+http://localhost:8000/ui/
+```
+
 Run one pipeline batch:
 
 ```bash
@@ -211,10 +224,13 @@ USE_KEEPA_REAL_API
 
 Current provider behavior:
 
-- Amazon matching defaults to mock/provider factory behavior.
-- Keepa processing uses mock values unless real integration is implemented.
-- `pipeline_settings.use_real_keepa=true` currently returns a controlled
-  `not_implemented` result instead of running mock data.
+- `pipeline_settings.use_real_keepa=false` uses mock Amazon matching and mock
+  Keepa metrics.
+- `pipeline_settings.use_real_keepa=true` uses Keepa for Amazon EAN to ASIN
+  matching and Keepa metric enrichment.
+- If real Keepa mode is enabled without a valid `KEEPA_API_KEY`, processing
+  returns a controlled `not_configured` result instead of falling back to mock
+  data or raising a server error.
 
 ## Project Structure
 
@@ -267,6 +283,10 @@ oa-pipeline/
 │   │   ├── pipeline_service.py
 │   │   ├── research_queue_service.py
 │   │   └── supplier_offer_service.py
+│   ├── static/
+│   │   ├── app.js
+│   │   ├── index.html
+│   │   └── styles.css
 │   └── main.py
 ├── docker-compose.yml
 ├── Dockerfile
