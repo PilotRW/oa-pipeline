@@ -8,6 +8,7 @@ from app.models.deal_candidate import DealCandidate
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier_offer import SupplierOffer
+from app.services.config_service import ConfigService
 
 
 class DealService:
@@ -77,6 +78,10 @@ class DealService:
         if not rows:
             return 0
 
+        rules = await ConfigService(
+            self.db
+        ).get_research_rules()
+
         deal_rows = []
 
         for match, keepa, offer, queue_item in rows:
@@ -104,13 +109,45 @@ class DealService:
             status = "candidate"
             rejection_reason = None
 
-            if estimated_profit <= 0:
+            if estimated_profit <= rules.min_profit:
                 status = "rejected_unprofitable"
-                rejection_reason = "Estimated profit <= 0"
+                rejection_reason = (
+                    f"Profit below {rules.min_profit}"
+                )
 
-            elif roi_percent < Decimal("20.00"):
+            elif roi_percent < rules.min_roi_percent:
                 status = "rejected_low_roi"
-                rejection_reason = "ROI below 20%"
+                rejection_reason = (
+                    f"ROI below {rules.min_roi_percent}%"
+                )
+
+            elif (
+                rules.max_sales_rank is not None
+                and keepa.sales_rank is not None
+                and keepa.sales_rank > rules.max_sales_rank
+            ):
+                status = "rejected_low_roi"
+                rejection_reason = (
+                    f"Sales rank above {rules.max_sales_rank}"
+                )
+
+            elif (
+                rules.min_monthly_sales is not None
+                and keepa.estimated_monthly_sales is not None
+                and keepa.estimated_monthly_sales
+                < rules.min_monthly_sales
+            ):
+                status = "rejected_low_roi"
+                rejection_reason = (
+                    f"Monthly sales below {rules.min_monthly_sales}"
+                )
+
+            elif (
+                rules.exclude_amazon_in_stock
+                and keepa.amazon_in_stock
+            ):
+                status = "rejected_low_roi"
+                rejection_reason = "Amazon in stock"
 
             if status == "candidate":
                 queue_item.status = "deal_candidate"

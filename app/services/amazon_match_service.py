@@ -6,13 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier_offer import SupplierOffer
-from app.services.amazon_ean_matcher import AmazonEANMatcher
+from app.services.amazon_matchers.factory import get_amazon_matcher
 
 
 class AmazonMatchService:
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.matcher = AmazonEANMatcher()
+        self.matcher = get_amazon_matcher()
 
     async def create_pending_matches(
         self,

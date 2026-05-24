@@ -1,51 +1,62 @@
+from decimal import Decimal
+
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.supplier_offer import SupplierOffer
 from app.models.offer_research_queue import OfferResearchQueue
+from app.models.research_rule import ResearchRule
+from app.models.supplier_offer import SupplierOffer
+from app.services.config_service import ConfigService
 
 
 class ResearchQueueService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    def calculate_priority_score(self, offer: SupplierOffer) -> float:
+    def calculate_priority_score(
+        self,
+        offer: SupplierOffer,
+        rules: ResearchRule,
+    ) -> float:
         score = 0.0
 
         if offer.stock is not None:
-            if offer.stock >= 20:
-                score += 30
-            elif offer.stock >= 10:
-                score += 20
-            elif offer.stock >= 3:
-                score += 10
-            elif offer.stock <= 1:
-                score -= 20
+            if offer.stock >= rules.high_stock_threshold:
+                score += rules.score_stock_high
+            elif offer.stock >= rules.medium_stock_threshold:
+                score += rules.score_stock_medium
+            elif offer.stock > rules.low_stock_threshold:
+                score += rules.score_stock_low
+            elif offer.stock <= rules.low_stock_threshold:
+                score += rules.score_stock_very_low
 
         if offer.cost is not None:
-            cost = float(offer.cost)
+            cost = Decimal(str(offer.cost))
 
-            if 20 <= cost <= 300:
-                score += 30
-            elif 300 < cost <= 1000:
-                score += 15
-            elif cost > 1000:
-                score -= 10
-            elif cost < 5:
-                score -= 20
+            if rules.preferred_cost_min <= cost <= rules.preferred_cost_max:
+                score += rules.score_cost_preferred
+            elif rules.preferred_cost_max < cost <= rules.medium_cost_max:
+                score += rules.score_cost_medium
+            elif cost > rules.medium_cost_max:
+                score += rules.score_cost_high
+            elif cost < rules.min_cost:
+                score += rules.score_cost_low
 
         if offer.brand:
-            score += 15
+            score += rules.score_brand_present
 
         if offer.title:
-            score += 15
+            score += rules.score_title_present
 
         if offer.ean:
-            score += 10
+            score += rules.score_ean_present
 
-        return score
+        return float(score)
 
     async def populate_queue_from_supplier_offers(self) -> int:
+        config_service = ConfigService(self.db)
+        rules = await config_service.get_research_rules()
+
         existing_offer_ids_subquery = select(
             OfferResearchQueue.supplier_offer_id
         )
@@ -55,7 +66,6 @@ class ResearchQueueService:
             .where(SupplierOffer.ean.is_not(None))
             .where(SupplierOffer.ean != "")
             .where(SupplierOffer.cost.is_not(None))
-            .where(SupplierOffer.stock > 0)
             .where(SupplierOffer.id.not_in(existing_offer_ids_subquery))
         )
 
@@ -71,18 +81,28 @@ class ResearchQueueService:
                 "supplier_id": offer.supplier_id,
                 "ean": offer.ean,
                 "status": "needs_amazon_match",
-                "priority_score": self.calculate_priority_score(offer),
+                "priority_score": self.calculate_priority_score(
+                    offer=offer,
+                    rules=rules,
+                ),
                 "rejection_reason": None,
             }
             for offer in offers
         ]
 
-        await self.db.execute(insert(OfferResearchQueue), rows)
+        await self.db.execute(
+            insert(OfferResearchQueue),
+            rows,
+        )
+
         await self.db.commit()
 
         return len(rows)
 
     async def recalculate_priority_scores(self) -> int:
+        config_service = ConfigService(self.db)
+        rules = await config_service.get_research_rules()
+
         query = (
             select(OfferResearchQueue, SupplierOffer)
             .join(
@@ -97,7 +117,10 @@ class ResearchQueueService:
         updated = 0
 
         for queue_item, offer in rows:
-            queue_item.priority_score = self.calculate_priority_score(offer)
+            queue_item.priority_score = self.calculate_priority_score(
+                offer=offer,
+                rules=rules,
+            )
             updated += 1
 
         await self.db.commit()
@@ -136,7 +159,9 @@ class ResearchQueueService:
         )
 
         if status:
-            query = query.where(OfferResearchQueue.status == status)
+            query = query.where(
+                OfferResearchQueue.status == status
+            )
 
         if min_priority_score is not None:
             query = query.where(
