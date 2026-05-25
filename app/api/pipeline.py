@@ -7,6 +7,7 @@ from app.models.amazon_product_match import AmazonProductMatch
 from app.models.deal_candidate import DealCandidate
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
+from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
 from app.services.pipeline_service import PipelineService
 
@@ -86,6 +87,33 @@ async def count_by_status(
                 )
                 .where(SupplierOffer.supplier_id == supplier_id)
             )
+    else:
+        if model is OfferResearchQueue:
+            query = (
+                query
+                .join(Supplier, Supplier.id == OfferResearchQueue.supplier_id)
+                .where(Supplier.is_visible.is_(True))
+            )
+        elif model is AmazonProductMatch:
+            query = (
+                query
+                .join(
+                    SupplierOffer,
+                    SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
+                )
+                .join(Supplier, Supplier.id == SupplierOffer.supplier_id)
+                .where(Supplier.is_visible.is_(True))
+            )
+        elif model is DealCandidate:
+            query = (
+                query
+                .join(
+                    SupplierOffer,
+                    SupplierOffer.id == DealCandidate.supplier_offer_id,
+                )
+                .join(Supplier, Supplier.id == SupplierOffer.supplier_id)
+                .where(Supplier.is_visible.is_(True))
+            )
 
     result = await db.execute(query)
     rows = result.all()
@@ -120,6 +148,20 @@ async def count_keepa_by_status(
                 SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
             )
             .where(SupplierOffer.supplier_id == supplier_id)
+        )
+    else:
+        query = (
+            query
+            .join(
+                AmazonProductMatch,
+                AmazonProductMatch.asin == KeepaProductMetric.asin,
+            )
+            .join(
+                SupplierOffer,
+                SupplierOffer.id == AmazonProductMatch.supplier_offer_id,
+            )
+            .join(Supplier, Supplier.id == SupplierOffer.supplier_id)
+            .where(Supplier.is_visible.is_(True))
         )
 
     query = query.group_by(KeepaProductMetric.data_status)

@@ -252,6 +252,8 @@ class AmazonMatchService:
             query = query.where(
                 SupplierOffer.supplier_id == supplier_id
             )
+        else:
+            query = query.where(Supplier.is_visible.is_(True))
 
         query = (
             query

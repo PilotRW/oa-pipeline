@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
     <link rel="icon" type="image/png" href="/ui/favicon.png">
-    <link rel="stylesheet" href="/ui/styles.css?v=20260525-1">
+    <link rel="stylesheet" href="/ui/styles.css?v=20260525-9">
   </head>
   <body>
     <div class="app-shell">
@@ -134,35 +134,55 @@
               <button class="primary-button" data-i18n="action.save" type="submit">Save</button>
             </div>
 
-            <label><span data-i18n="field.minPriority">Min priority</span><input name="min_priority_score" type="number" min="0" step="0.01"></label>
-            <label><span data-i18n="field.minRoi">Min ROI %</span><input name="min_roi_percent" type="number" min="0" step="0.01"></label>
-            <label><span data-i18n="field.minProfit">Min profit</span><input name="min_profit" type="number" min="0" step="0.01"></label>
-            <label><span data-i18n="field.referralFee">Referral fee %</span><input name="referral_fee_percent" type="number" min="0" max="100" step="0.01"></label>
-            <label><span data-i18n="field.fulfillmentFee">Fulfillment fee</span><input name="fulfillment_fee_fixed" type="number" min="0" step="0.01"></label>
-            <label><span data-i18n="field.maxSalesRank">Max sales rank</span><input name="max_sales_rank" type="number" min="0" step="1"></label>
-            <label><span data-i18n="field.minMonthlySales">Min monthly sales</span><input name="min_monthly_sales" type="number" min="0" step="1"></label>
-            <label class="toggle-row"><span data-i18n="field.excludeAmazonStock">Exclude Amazon stock</span><input name="exclude_amazon_in_stock" type="checkbox"></label>
+            <section class="rule-section full-span">
+              <h4 data-i18n="ruleSection.dealFilters">Deal filters</h4>
+              <div class="rule-section-grid">
+                <label><span data-i18n="field.minPriority">Min priority</span><input name="min_priority_score" type="number" min="0" step="0.01"></label>
+                <label><span data-i18n="field.minRoi">Min ROI %</span><input name="min_roi_percent" type="number" min="0" step="0.01"></label>
+                <label><span data-i18n="field.minProfit">Min profit</span><input name="min_profit" type="number" min="0" step="0.01"></label>
+                <label><span data-i18n="field.maxSalesRank">Max sales rank</span><input name="max_sales_rank" type="number" min="0" step="1"></label>
+                <label><span data-i18n="field.minMonthlySales">Min monthly sales</span><input name="min_monthly_sales" type="number" min="0" step="1"></label>
+                <label class="toggle-row"><span data-i18n="field.excludeAmazonStock">Exclude Amazon stock</span><input name="exclude_amazon_in_stock" type="checkbox"></label>
+              </div>
+            </section>
 
-            <label><span data-i18n="field.lowStock">Low stock</span><input name="low_stock_threshold" type="number" min="0" step="1"></label>
-            <label><span data-i18n="field.mediumStock">Medium stock</span><input name="medium_stock_threshold" type="number" min="0" step="1"></label>
-            <label><span data-i18n="field.highStock">High stock</span><input name="high_stock_threshold" type="number" min="0" step="1"></label>
+            <section class="rule-section full-span">
+              <h4 data-i18n="ruleSection.feeModel">Fee model</h4>
+              <div class="rule-section-grid">
+                <label><span data-i18n="field.referralFee">Referral fee %</span><input name="referral_fee_percent" type="number" min="0" max="100" step="0.01"></label>
+                <label><span data-i18n="field.fulfillmentFee">Fulfillment fee</span><input name="fulfillment_fee_fixed" type="number" min="0" step="0.01"></label>
+              </div>
+            </section>
 
-            <label><span data-i18n="field.preferredCostMin">Preferred cost min</span><input name="preferred_cost_min" type="number" min="0" step="0.01"></label>
-            <label><span data-i18n="field.preferredCostMax">Preferred cost max</span><input name="preferred_cost_max" type="number" min="0" step="0.01"></label>
-            <label><span data-i18n="field.mediumCostMax">Medium cost max</span><input name="medium_cost_max" type="number" min="0" step="0.01"></label>
-            <label><span data-i18n="field.minCost">Min cost</span><input name="min_cost" type="number" min="0" step="0.01"></label>
+            <section class="rule-section full-span">
+              <h4 data-i18n="ruleSection.thresholds">Stock and cost thresholds</h4>
+              <div class="rule-section-grid">
+                <label><span data-i18n="field.lowStock">Low stock</span><input name="low_stock_threshold" type="number" min="0" step="1"></label>
+                <label><span data-i18n="field.mediumStock">Medium stock</span><input name="medium_stock_threshold" type="number" min="0" step="1"></label>
+                <label><span data-i18n="field.highStock">High stock</span><input name="high_stock_threshold" type="number" min="0" step="1"></label>
+                <label><span data-i18n="field.preferredCostMin">Preferred cost min</span><input name="preferred_cost_min" type="number" min="0" step="0.01"></label>
+                <label><span data-i18n="field.preferredCostMax">Preferred cost max</span><input name="preferred_cost_max" type="number" min="0" step="0.01"></label>
+                <label><span data-i18n="field.mediumCostMax">Medium cost max</span><input name="medium_cost_max" type="number" min="0" step="0.01"></label>
+                <label><span data-i18n="field.minCost">Min cost</span><input name="min_cost" type="number" min="0" step="0.01"></label>
+              </div>
+            </section>
 
-            <label><span data-i18n="field.scoreStockHigh">Score stock high</span><input name="score_stock_high" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreStockMedium">Score stock medium</span><input name="score_stock_medium" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreStockLow">Score stock low</span><input name="score_stock_low" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreStockVeryLow">Score stock very low</span><input name="score_stock_very_low" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreCostPreferred">Score cost preferred</span><input name="score_cost_preferred" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreCostMedium">Score cost medium</span><input name="score_cost_medium" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreCostHigh">Score cost high</span><input name="score_cost_high" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreCostLow">Score cost low</span><input name="score_cost_low" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreBrand">Score brand</span><input name="score_brand_present" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreTitle">Score title</span><input name="score_title_present" type="number" step="1"></label>
-            <label><span data-i18n="field.scoreEan">Score EAN</span><input name="score_ean_present" type="number" step="1"></label>
+            <section class="rule-section full-span">
+              <h4 data-i18n="ruleSection.priorityScores">Priority scoring</h4>
+              <div class="rule-section-grid">
+                <label><span data-i18n="field.scoreStockHigh">Score stock high</span><input name="score_stock_high" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreStockMedium">Score stock medium</span><input name="score_stock_medium" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreStockLow">Score stock low</span><input name="score_stock_low" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreStockVeryLow">Score stock very low</span><input name="score_stock_very_low" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreCostPreferred">Score cost preferred</span><input name="score_cost_preferred" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreCostMedium">Score cost medium</span><input name="score_cost_medium" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreCostHigh">Score cost high</span><input name="score_cost_high" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreCostLow">Score cost low</span><input name="score_cost_low" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreBrand">Score brand</span><input name="score_brand_present" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreTitle">Score title</span><input name="score_title_present" type="number" step="1"></label>
+                <label><span data-i18n="field.scoreEan">Score EAN</span><input name="score_ean_present" type="number" step="1"></label>
+              </div>
+            </section>
           </form>
         </section>
 
@@ -212,6 +232,25 @@
         </section>
 
         <section class="view" id="view-suppliers">
+          <section class="panel supplier-management" id="supplier-management">
+            <div class="panel-header">
+              <h3 data-i18n="panel.supplierManagement">Supplier Management</h3>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="table.supplier">Supplier</th>
+                    <th data-i18n="field.rows">Rows</th>
+                    <th data-i18n="table.visibility">Visibility</th>
+                    <th data-i18n="table.actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="supplier-management-table"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel supplier-detail hidden" id="supplier-detail"></section>
           <div class="suppliers-grid" id="suppliers-dashboard"></div>
         </section>
 
@@ -237,6 +276,12 @@
 
             <section id="upload-preview" class="import-preview hidden" aria-live="polite">
               <div class="preview-summary" id="preview-summary"></div>
+
+              <div class="preview-section">
+                <h4 data-i18n="panel.qualityChecks">Quality Checks</h4>
+                <div class="quality-grid" id="quality-grid"></div>
+                <div class="quality-details" id="quality-details"></div>
+              </div>
 
               <div class="preview-section">
                 <h4 data-i18n="panel.previewRows">Preview Rows</h4>
@@ -279,6 +324,6 @@
       </section>
     </div>
 
-    <script src="/ui/app.js?v=20260525-1"></script>
+    <script src="/ui/app.js?v=20260525-9"></script>
   </body>
 </html>

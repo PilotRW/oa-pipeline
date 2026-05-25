@@ -1,46 +1,53 @@
-# OA Pipeline
+# Mirenelle Automation / OA Pipeline
 
-Backend pipeline for ecommerce Online Arbitrage automation.
+Backend and local control panel for ecommerce Online Arbitrage automation.
 
-The project ingests supplier feeds, normalizes and stores supplier offers,
-queues offers for Amazon research, enriches matched products with marketplace
-metrics, evaluates profitability, and produces deal candidates.
+The project ingests supplier catalog files, normalizes supplier offers, queues
+offers for Amazon research, enriches matched products with marketplace metrics,
+evaluates profitability, and produces ranked deal candidates.
 
 ## Current Status
 
 Implemented:
 
-- FastAPI backend
-- PostgreSQL database
-- SQLAlchemy async models
-- Alembic migrations
-- CSV and Excel supplier feed ingestion
-- Header auto-detection
-- Multilingual column normalization
-- Fuzzy column matching
-- Supplier offer persistence and feed refresh
-- Unmapped-column reporting
-- Research queue population and priority scoring
-- Configurable research rules and scoring weights
-- Mock Amazon EAN to ASIN matching
-- Mock Keepa metric enrichment
-- Deal candidate generation
-- Pipeline batch orchestration
-- Config API with Pydantic validation for future UI use
-- Static FastAPI-hosted control panel at `/ui/`
-- UI language switcher for English, German, and Ukrainian
+- FastAPI backend with PostgreSQL, async SQLAlchemy models, and Alembic
+  migrations.
+- Static FastAPI-hosted UI at `/ui/`, branded as Mirenelle Automation.
+- UI localization for English, German, and Ukrainian.
+- CSV and Excel supplier feed ingestion.
+- Two-step import flow: preview first, then save.
+- Human-readable import preview table, column mapping preview, and quality
+  checks.
+- Multilingual semantic column normalization and fuzzy matching.
+- Supplier offer persistence, feed refresh, and duplicate prevention.
+- Supplier management with visible/hidden toggle.
+- Supplier detail page with offer stats, pipeline status, import history, recent
+  offers, supplier scope actions, and supplier-scoped research.
+- Supplier-scoped Overview, Research, Pipeline, Deals, and issue exports.
+- Research queue population, priority scoring, and rejection reasons.
+- Configurable `pipeline_settings` and `research_rules`.
+- Help buttons for each research-rule metric in the UI.
+- Mock Amazon EAN to ASIN matching.
+- Keepa wrapper with mock mode and real Keepa mode.
+- Mock fee estimation and deal candidate generation.
+- Pipeline orchestration endpoints.
+- Pipeline issue modals with CSV and real XLSX downloads.
 
 Current stage:
 
-- Removing hardcoded business and operational rules
-- Making pipeline behavior configurable through API-backed settings
-- Preparing backend contracts for a future UI
+- The backend and UI are being shaped into a supplier-driven operator console.
+- Business rules are moving into `research_rules`.
+- Operational/provider settings are moving into `pipeline_settings`.
+- Supplier visibility now controls default UI/list behavior without deleting
+  historical data.
 
-Not implemented yet:
+Still not production-grade:
 
-- Real FBA/VAT/shipping fee engine
-- Frontend UI
-- Supplier-specific rules
+- Amazon matching is still mock unless real Keepa mode is enabled.
+- Keepa metrics are mock unless real Keepa mode is enabled.
+- Fee estimation is still simplified.
+- No real FBA/VAT/shipping fee engine yet.
+- No supplier-specific rule profiles yet.
 
 ## Pipeline Flow
 
@@ -71,6 +78,78 @@ rejected_low_roi
 rejected_unprofitable
 ```
 
+## UI
+
+Open the local control panel:
+
+```text
+http://localhost:8000/ui/
+```
+
+Main UI areas:
+
+- `Overview`: summary metrics, pipeline issues, and scrollable deal candidates.
+- `Pipeline`: batch pipeline run controls.
+- `Settings`: technical pipeline settings.
+- `Rules`: business and scoring rules, grouped by function, with help buttons.
+- `Research`: research queue and Amazon match results.
+- `Suppliers`: supplier management, details, import history, and visibility.
+- `Upload`: supplier feed upload, preview, quality checks, and save.
+
+The top supplier selector scopes Overview, Research, Deals, Pipeline issue
+exports, and pipeline actions to one supplier. Hidden suppliers do not appear in
+this selector.
+
+## Supplier Management
+
+Suppliers have an `is_visible` flag.
+
+Visible suppliers:
+
+- appear in the top supplier selector;
+- appear in the supplier dashboard cards;
+- are included in default Overview summaries and default list endpoints.
+
+Hidden suppliers:
+
+- remain in the database;
+- remain available from Supplier Management and Supplier Details;
+- are excluded from default summary/list views;
+- can still be queried explicitly with `supplier_id`.
+
+This is intended to keep the UI usable when many suppliers exist, without
+deleting supplier history.
+
+## Import Flow
+
+Preferred UI/API flow:
+
+```text
+POST /upload/preview
+POST /upload/commit
+```
+
+Preview returns:
+
+- normalized columns;
+- preview rows;
+- mapping confidence;
+- quality checks such as missing EAN, missing price, duplicate EAN, suspicious
+  price, unmapped columns, and weak mappings.
+
+Commit saves:
+
+- supplier;
+- ingestion run;
+- supplier column mappings;
+- normalized supplier offers.
+
+Legacy direct import is still available:
+
+```text
+POST /upload
+```
+
 ## Configuration Model
 
 The project intentionally separates technical settings from business rules.
@@ -83,18 +162,33 @@ Technical settings live in `pipeline_settings`:
 
 Business rules live in `research_rules`:
 
-- priority score threshold
-- stock thresholds
-- cost ranges
-- scoring weights
-- ROI and profit thresholds
-- fee assumptions
-- sales rank and monthly sales filters
-- Amazon-in-stock exclusion
+- priority score threshold;
+- stock thresholds;
+- cost ranges;
+- scoring weights;
+- ROI and profit thresholds;
+- fee assumptions;
+- sales rank and monthly sales filters;
+- Amazon-in-stock exclusion.
 
 Stock is intentionally not a hard blocker for research queue population. Some
 suppliers may allow ordering even when stock appears unavailable, so stock only
 affects priority score.
+
+## Provider Behavior
+
+Current provider behavior:
+
+- `pipeline_settings.use_real_keepa=false` uses mock Amazon matching and mock
+  Keepa metrics.
+- `pipeline_settings.use_real_keepa=true` uses Keepa for Amazon EAN to ASIN
+  matching and Keepa metric enrichment.
+- If real Keepa mode is enabled without a valid `KEEPA_API_KEY`, processing
+  returns a controlled `not_configured` result instead of falling back to mock
+  data or raising a server error.
+
+Temporary mock values should stay inside provider/mock code, not become
+user-facing business settings.
 
 ## API Endpoints
 
@@ -106,15 +200,20 @@ POST /upload/commit
 POST /upload
 ```
 
-The UI uses the two-step import flow: upload a supplier file for preview first,
-then commit the import after column normalization and sample rows look correct.
-The legacy `POST /upload` endpoint still performs a direct save for scripts or
-manual API use.
-
 Reports:
 
 ```text
 GET /reports/unmapped-columns
+```
+
+Suppliers:
+
+```text
+GET   /suppliers/
+GET   /suppliers/?include_hidden=true
+GET   /suppliers/dashboard
+GET   /suppliers/{supplier_id}
+PATCH /suppliers/{supplier_id}/visibility
 ```
 
 Research queue:
@@ -151,6 +250,7 @@ GET  /deals/
 Pipeline:
 
 ```text
+POST /pipeline/run-research
 POST /pipeline/run-batch
 GET  /pipeline/summary
 ```
@@ -165,8 +265,12 @@ GET   /config/research-rules
 PATCH /config/research-rules
 ```
 
-`PATCH /config/*` uses Pydantic schemas with partial updates, forbidden
-unknown fields, and validation designed for UI clients.
+Most research, matching, Keepa, deals, and pipeline endpoints accept
+`supplier_id`. Without `supplier_id`, default read/list/summary endpoints only
+include visible suppliers.
+
+`PATCH /config/*` uses Pydantic schemas with partial updates, forbidden unknown
+fields, and validation designed for UI clients.
 
 ## Run Locally
 
@@ -200,6 +304,12 @@ Open the control panel:
 http://localhost:8000/ui/
 ```
 
+Run supplier-scoped research:
+
+```bash
+curl -X POST "http://localhost:8000/pipeline/run-research?supplier_id=3"
+```
+
 Run one pipeline batch:
 
 ```bash
@@ -222,16 +332,6 @@ KEEPA_API_KEY
 USE_KEEPA_REAL_API
 ```
 
-Current provider behavior:
-
-- `pipeline_settings.use_real_keepa=false` uses mock Amazon matching and mock
-  Keepa metrics.
-- `pipeline_settings.use_real_keepa=true` uses Keepa for Amazon EAN to ASIN
-  matching and Keepa metric enrichment.
-- If real Keepa mode is enabled without a valid `KEEPA_API_KEY`, processing
-  returns a controlled `not_configured` result instead of falling back to mock
-  data or raising a server error.
-
 ## Project Structure
 
 ```text
@@ -250,6 +350,7 @@ oa-pipeline/
 │   │   ├── pipeline.py
 │   │   ├── reports.py
 │   │   ├── research_queue.py
+│   │   ├── suppliers.py
 │   │   └── upload.py
 │   ├── config/
 │   │   └── settings.py
@@ -275,9 +376,12 @@ oa-pipeline/
 │   │   └── supplier_offer.py
 │   ├── services/
 │   │   ├── amazon_match_service.py
+│   │   ├── amazon_matchers/
 │   │   ├── config_service.py
 │   │   ├── deal_service.py
+│   │   ├── import_draft_service.py
 │   │   ├── ingestion_service.py
+│   │   ├── keepa_client.py
 │   │   ├── keepa_service.py
 │   │   ├── marketplace.py
 │   │   ├── pipeline_service.py
@@ -285,7 +389,9 @@ oa-pipeline/
 │   │   └── supplier_offer_service.py
 │   ├── static/
 │   │   ├── app.js
+│   │   ├── favicon.png
 │   │   ├── index.html
+│   │   ├── mirenelle-logo.png
 │   │   └── styles.css
 │   └── main.py
 ├── docker-compose.yml
@@ -301,5 +407,14 @@ oa-pipeline/
 - Put operational/provider settings in `pipeline_settings`.
 - Keep temporary mock provider values inside mock/provider code rather than
   exposing them as user-facing settings.
+- Hidden suppliers should not appear in default UI lists, but their historical
+  data should remain available through explicit supplier detail/scope access.
 - Comparison engine work is postponed until multiple overlapping supplier
   catalogs exist.
+
+## Near-Term Roadmap
+
+1. Supplier-specific rule profiles.
+2. Separate explicit Keepa step in the UI.
+3. Real Keepa-based Amazon matching and metric enrichment hardening.
+4. Real fee engine for FBA/VAT/shipping/marketplace rules.

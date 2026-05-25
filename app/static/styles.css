@@ -137,6 +137,7 @@ button:disabled {
 
 .button-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
@@ -430,6 +431,11 @@ td .badge {
   white-space: nowrap;
 }
 
+.compact-table th,
+.compact-table td {
+  padding: 9px 10px;
+}
+
 th {
   background: var(--surface-soft);
   color: var(--muted);
@@ -450,8 +456,32 @@ tr:last-child td {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.form-grid.dense .panel-header {
+  margin-bottom: 2px;
+}
+
 .full-span {
   grid-column: 1 / -1;
+}
+
+.rule-section {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.rule-section h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.rule-section-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
 
 label {
@@ -461,9 +491,35 @@ label {
 }
 
 label span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 800;
+}
+
+.help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 0;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.help-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 input,
@@ -550,6 +606,53 @@ select:focus {
   font-size: 14px;
 }
 
+.quality-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quality-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
+.quality-card.ok {
+  background: #e6f4ee;
+}
+
+.quality-card.bad {
+  background: #fff1f0;
+}
+
+.quality-card span,
+.quality-details span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.quality-card strong,
+.quality-details strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 15px;
+}
+
+.quality-details {
+  display: grid;
+  gap: 8px;
+}
+
+.quality-details article {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 11px 12px;
+}
+
 .mapping-list {
   display: grid;
   gap: 8px;
@@ -568,6 +671,53 @@ select:focus {
 .suppliers-grid {
   display: grid;
   gap: 16px;
+}
+
+.supplier-management {
+  margin-bottom: 16px;
+}
+
+.table-actions {
+  flex-wrap: nowrap;
+}
+
+.supplier-detail {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.supplier-detail.hidden {
+  display: none;
+}
+
+.supplier-detail .panel-header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.supplier-detail-actions {
+  justify-content: flex-end;
+}
+
+.supplier-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.supplier-detail-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.supplier-detail-section h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 900;
 }
 
 .supplier-card {
@@ -657,8 +807,11 @@ select:focus {
   .summary-grid,
   .issue-grid,
   .supplier-status-grid,
+  .quality-grid,
   .split-layout,
   .preview-summary,
+  .rule-section-grid,
+  .supplier-detail-grid,
   .form-grid,
   .form-grid.dense {
     grid-template-columns: 1fr 1fr;
@@ -686,8 +839,11 @@ select:focus {
   .summary-grid,
   .issue-grid,
   .supplier-status-grid,
+  .quality-grid,
   .split-layout,
   .preview-summary,
+  .rule-section-grid,
+  .supplier-detail-grid,
   .mapping-item,
   .form-grid,
   .form-grid.dense {

@@ -3,7 +3,9 @@ const state = {
   settings: null,
   rules: null,
   suppliers: [],
+  supplierManagement: [],
   supplierDashboard: [],
+  supplierDetail: null,
   supplierId: localStorage.getItem("oaSupplierId") || "",
   importDraft: null,
   importPreview: null,
@@ -26,6 +28,12 @@ const translations = {
     "action.close": "Close",
     "action.downloadCsv": "CSV",
     "action.downloadXls": "XLSX",
+    "action.details": "Details",
+    "action.hide": "Hide",
+    "action.show": "Show",
+    "action.setScope": "Set scope",
+    "action.viewOverview": "Overview",
+    "action.viewResearch": "Research",
     "api.checking": "Checking API",
     "api.offline": "API unavailable",
     "api.online": "API online",
@@ -67,6 +75,16 @@ const translations = {
     "field.supplierName": "Supplier name",
     "field.columns": "Columns",
     "field.mapped": "Mapped",
+    "quality.duplicateEan": "Duplicate EAN",
+    "quality.missingEan": "Missing EAN",
+    "quality.missingPrice": "Missing price",
+    "quality.suspiciousPrice": "Suspicious price",
+    "quality.unmappedColumns": "Unmapped columns",
+    "quality.weakMappings": "Weak mappings",
+    "ruleSection.dealFilters": "Deal filters",
+    "ruleSection.feeModel": "Fee model",
+    "ruleSection.priorityScores": "Priority scoring",
+    "ruleSection.thresholds": "Stock and cost thresholds",
     "message.createdQueueItems": "Created {count} queue items",
     "message.noRecords": "No records",
     "message.processedMatches": "Processed {count} matches",
@@ -90,9 +108,16 @@ const translations = {
     "panel.pipelineIssues": "Pipeline Issues",
     "panel.columnMapping": "Column Mapping",
     "panel.previewRows": "Preview Rows",
+    "panel.qualityChecks": "Quality Checks",
     "panel.researchQueue": "Research Queue",
     "panel.researchRules": "Research Rules",
     "panel.supplierFeed": "Supplier Feed",
+    "panel.supplierDetails": "Supplier Details",
+    "panel.supplierManagement": "Supplier Management",
+    "panel.importHistory": "Import History",
+    "panel.offerStats": "Offer Stats",
+    "panel.recentOffers": "Recent Offers",
+    "panel.pipelineStatus": "Pipeline Status",
     "status.done": "Done",
     "status.failed": "Failed",
     "status.idle": "Idle",
@@ -124,6 +149,22 @@ const translations = {
     "table.file": "File",
     "table.rows": "Rows",
     "table.valid": "Valid",
+    "table.actions": "Actions",
+    "table.failed": "Failed",
+    "table.importedAt": "Imported at",
+    "table.sku": "SKU",
+    "table.cost": "Cost",
+    "table.title": "Title",
+    "table.visibility": "Visibility",
+    "status.hidden": "Hidden",
+    "status.visible": "Visible",
+    "metric.avgCost": "Avg cost",
+    "metric.createdAt": "Created at",
+    "metric.totalOffers": "Total offers",
+    "metric.withBrand": "With brand",
+    "metric.withEan": "With EAN",
+    "metric.withStock": "With stock",
+    "metric.withTitle": "With title",
   },
   de: {
     "action.populate": "Befüllen",
@@ -138,6 +179,12 @@ const translations = {
     "action.close": "Schließen",
     "action.downloadCsv": "CSV",
     "action.downloadXls": "XLSX",
+    "action.details": "Details",
+    "action.hide": "Ausblenden",
+    "action.show": "Einblenden",
+    "action.setScope": "Scope setzen",
+    "action.viewOverview": "Übersicht",
+    "action.viewResearch": "Recherche",
     "api.checking": "API wird geprüft",
     "api.offline": "API nicht erreichbar",
     "api.online": "API online",
@@ -179,6 +226,16 @@ const translations = {
     "field.supplierName": "Lieferantenname",
     "field.columns": "Spalten",
     "field.mapped": "Zugeordnet",
+    "quality.duplicateEan": "Doppelte EAN",
+    "quality.missingEan": "Fehlende EAN",
+    "quality.missingPrice": "Fehlender Preis",
+    "quality.suspiciousPrice": "Verdächtiger Preis",
+    "quality.unmappedColumns": "Nicht zugeordnete Spalten",
+    "quality.weakMappings": "Schwache Zuordnungen",
+    "ruleSection.dealFilters": "Deal-Filter",
+    "ruleSection.feeModel": "Gebührenmodell",
+    "ruleSection.priorityScores": "Prioritäts-Scoring",
+    "ruleSection.thresholds": "Bestands- und Kostenschwellen",
     "message.createdQueueItems": "{count} Queue-Einträge erstellt",
     "message.noRecords": "Keine Einträge",
     "message.processedMatches": "{count} Matches verarbeitet",
@@ -202,9 +259,16 @@ const translations = {
     "panel.pipelineIssues": "Pipeline-Probleme",
     "panel.columnMapping": "Spaltenzuordnung",
     "panel.previewRows": "Vorschauzeilen",
+    "panel.qualityChecks": "Qualitätsprüfung",
     "panel.researchQueue": "Recherche-Queue",
     "panel.researchRules": "Recherche-Regeln",
     "panel.supplierFeed": "Lieferanten-Feed",
+    "panel.supplierDetails": "Lieferanten-Details",
+    "panel.supplierManagement": "Lieferantenverwaltung",
+    "panel.importHistory": "Importhistorie",
+    "panel.offerStats": "Angebotsstatistik",
+    "panel.recentOffers": "Letzte Angebote",
+    "panel.pipelineStatus": "Pipeline-Status",
     "status.done": "Fertig",
     "status.failed": "Fehlgeschlagen",
     "status.idle": "Bereit",
@@ -236,6 +300,22 @@ const translations = {
     "table.file": "Datei",
     "table.rows": "Zeilen",
     "table.valid": "Gültig",
+    "table.actions": "Aktionen",
+    "table.failed": "Fehler",
+    "table.importedAt": "Importiert am",
+    "table.sku": "SKU",
+    "table.cost": "Kosten",
+    "table.title": "Titel",
+    "table.visibility": "Sichtbarkeit",
+    "status.hidden": "Ausgeblendet",
+    "status.visible": "Sichtbar",
+    "metric.avgCost": "Ø Kosten",
+    "metric.createdAt": "Erstellt am",
+    "metric.totalOffers": "Angebote gesamt",
+    "metric.withBrand": "Mit Marke",
+    "metric.withEan": "Mit EAN",
+    "metric.withStock": "Mit Bestand",
+    "metric.withTitle": "Mit Titel",
   },
   uk: {
     "action.populate": "Заповнити",
@@ -250,6 +330,12 @@ const translations = {
     "action.close": "Закрити",
     "action.downloadCsv": "CSV",
     "action.downloadXls": "XLSX",
+    "action.details": "Деталі",
+    "action.hide": "Сховати",
+    "action.show": "Показати",
+    "action.setScope": "Зробити scope",
+    "action.viewOverview": "Огляд",
+    "action.viewResearch": "Research",
     "api.checking": "Перевірка API",
     "api.offline": "API недоступний",
     "api.online": "API онлайн",
@@ -291,6 +377,16 @@ const translations = {
     "field.supplierName": "Назва постачальника",
     "field.columns": "Колонки",
     "field.mapped": "Розпізнано",
+    "quality.duplicateEan": "Дублікати EAN",
+    "quality.missingEan": "Без EAN",
+    "quality.missingPrice": "Без ціни",
+    "quality.suspiciousPrice": "Підозріла ціна",
+    "quality.unmappedColumns": "Нерозпізнані колонки",
+    "quality.weakMappings": "Слабкі mappings",
+    "ruleSection.dealFilters": "Фільтри угод",
+    "ruleSection.feeModel": "Модель комісій",
+    "ruleSection.priorityScores": "Scoring пріоритету",
+    "ruleSection.thresholds": "Пороги stock і cost",
     "message.createdQueueItems": "Створено {count} елементів черги",
     "message.noRecords": "Немає записів",
     "message.processedMatches": "Оброблено {count} matches",
@@ -314,9 +410,16 @@ const translations = {
     "panel.pipelineIssues": "Проблеми pipeline",
     "panel.columnMapping": "Зіставлення колонок",
     "panel.previewRows": "Рядки превʼю",
+    "panel.qualityChecks": "Перевірка якості",
     "panel.researchQueue": "Черга дослідження",
     "panel.researchRules": "Правила дослідження",
     "panel.supplierFeed": "Фід постачальника",
+    "panel.supplierDetails": "Деталі постачальника",
+    "panel.supplierManagement": "Керування постачальниками",
+    "panel.importHistory": "Історія імпортів",
+    "panel.offerStats": "Статистика offers",
+    "panel.recentOffers": "Останні offers",
+    "panel.pipelineStatus": "Pipeline статус",
     "status.done": "Готово",
     "status.failed": "Помилка",
     "status.idle": "Очікує",
@@ -348,6 +451,109 @@ const translations = {
     "table.file": "Файл",
     "table.rows": "Рядки",
     "table.valid": "Валідні",
+    "table.actions": "Дії",
+    "table.failed": "Помилки",
+    "table.importedAt": "Імпортовано",
+    "table.sku": "SKU",
+    "table.cost": "Ціна",
+    "table.title": "Назва",
+    "table.visibility": "Видимість",
+    "status.hidden": "Приховано",
+    "status.visible": "Видимий",
+    "metric.avgCost": "Середня ціна",
+    "metric.createdAt": "Створено",
+    "metric.totalOffers": "Усього offers",
+    "metric.withBrand": "З brand",
+    "metric.withEan": "З EAN",
+    "metric.withStock": "З stock",
+    "metric.withTitle": "З title",
+  },
+};
+
+const ruleHelp = {
+  en: {
+    min_priority_score: "Minimum priority score required before an offer is sent to Amazon matching.",
+    min_roi_percent: "Minimum ROI percent needed for an evaluated offer to become a deal candidate.",
+    min_profit: "Minimum estimated profit needed after supplier cost and estimated fees.",
+    referral_fee_percent: "Estimated Amazon referral fee as a percent of Amazon sell price.",
+    fulfillment_fee_fixed: "Fixed fulfillment cost used in the temporary fee model.",
+    max_sales_rank: "Maximum accepted Amazon sales rank. Higher rank can be rejected.",
+    min_monthly_sales: "Minimum estimated monthly sales required from market metrics.",
+    exclude_amazon_in_stock: "Reject deals when Amazon itself is in stock for the product.",
+    low_stock_threshold: "Stock value treated as low for priority scoring.",
+    medium_stock_threshold: "Stock value treated as medium for priority scoring.",
+    high_stock_threshold: "Stock value treated as high for priority scoring.",
+    preferred_cost_min: "Lower bound of the preferred supplier cost range.",
+    preferred_cost_max: "Upper bound of the preferred supplier cost range.",
+    medium_cost_max: "Upper bound of the medium supplier cost range.",
+    min_cost: "Supplier cost below this value receives the low-cost score.",
+    score_stock_high: "Priority points added when stock is at or above the high threshold.",
+    score_stock_medium: "Priority points added when stock is at or above the medium threshold.",
+    score_stock_low: "Priority points added when stock is above the low threshold.",
+    score_stock_very_low: "Priority points added when stock is at or below the low threshold.",
+    score_cost_preferred: "Priority points added when supplier cost is in the preferred range.",
+    score_cost_medium: "Priority points added when supplier cost is in the medium range.",
+    score_cost_high: "Priority points added when supplier cost is above the medium range.",
+    score_cost_low: "Priority points added when supplier cost is below the minimum cost.",
+    score_brand_present: "Priority points added when a supplier offer has a brand.",
+    score_title_present: "Priority points added when a supplier offer has a title.",
+    score_ean_present: "Priority points added when a supplier offer has an EAN.",
+  },
+  de: {
+    min_priority_score: "Mindest-Priorität, bevor ein Angebot ins Amazon-Matching geht.",
+    min_roi_percent: "Mindest-ROI, damit ein geprüftes Angebot Deal-Kandidat wird.",
+    min_profit: "Mindestgewinn nach Einkaufskosten und geschätzten Gebühren.",
+    referral_fee_percent: "Geschätzte Amazon-Vermittlungsgebühr als Prozent vom Verkaufspreis.",
+    fulfillment_fee_fixed: "Fester Fulfillment-Kostenwert im temporären Gebührenmodell.",
+    max_sales_rank: "Maximal akzeptierter Amazon Sales Rank. Höhere Werte können abgelehnt werden.",
+    min_monthly_sales: "Mindestanzahl geschätzter Monatsverkäufe aus Marktdaten.",
+    exclude_amazon_in_stock: "Deals ablehnen, wenn Amazon selbst für dieses Produkt auf Lager ist.",
+    low_stock_threshold: "Bestandswert, der für das Scoring als niedrig gilt.",
+    medium_stock_threshold: "Bestandswert, der für das Scoring als mittel gilt.",
+    high_stock_threshold: "Bestandswert, der für das Scoring als hoch gilt.",
+    preferred_cost_min: "Untere Grenze des bevorzugten Einkaufspreisbereichs.",
+    preferred_cost_max: "Obere Grenze des bevorzugten Einkaufspreisbereichs.",
+    medium_cost_max: "Obere Grenze des mittleren Einkaufspreisbereichs.",
+    min_cost: "Einkaufspreis unter diesem Wert erhält den Low-Cost-Score.",
+    score_stock_high: "Prioritätspunkte bei Bestand ab hoher Schwelle.",
+    score_stock_medium: "Prioritätspunkte bei Bestand ab mittlerer Schwelle.",
+    score_stock_low: "Prioritätspunkte bei Bestand über niedriger Schwelle.",
+    score_stock_very_low: "Prioritätspunkte bei Bestand auf oder unter niedriger Schwelle.",
+    score_cost_preferred: "Prioritätspunkte für Einkaufspreis im bevorzugten Bereich.",
+    score_cost_medium: "Prioritätspunkte für Einkaufspreis im mittleren Bereich.",
+    score_cost_high: "Prioritätspunkte für Einkaufspreis oberhalb des mittleren Bereichs.",
+    score_cost_low: "Prioritätspunkte für Einkaufspreis unter Mindestkosten.",
+    score_brand_present: "Prioritätspunkte, wenn ein Angebot eine Marke hat.",
+    score_title_present: "Prioritätspunkte, wenn ein Angebot einen Titel hat.",
+    score_ean_present: "Prioritätspunkte, wenn ein Angebot eine EAN hat.",
+  },
+  uk: {
+    min_priority_score: "Мінімальний priority score, щоб offer пішов у Amazon matching.",
+    min_roi_percent: "Мінімальний ROI %, щоб offer став deal candidate.",
+    min_profit: "Мінімальний очікуваний profit після cost і estimated fees.",
+    referral_fee_percent: "Оцінка Amazon referral fee у відсотках від Amazon price.",
+    fulfillment_fee_fixed: "Фіксована fulfillment fee у тимчасовій моделі комісій.",
+    max_sales_rank: "Максимальний Amazon sales rank. Вищий rank може відхиляти deal.",
+    min_monthly_sales: "Мінімальна оцінка місячних продажів з market metrics.",
+    exclude_amazon_in_stock: "Відхиляти deal, якщо Amazon сам має товар in stock.",
+    low_stock_threshold: "Stock-рівень, який вважається low для priority scoring.",
+    medium_stock_threshold: "Stock-рівень, який вважається medium для priority scoring.",
+    high_stock_threshold: "Stock-рівень, який вважається high для priority scoring.",
+    preferred_cost_min: "Нижня межа бажаного supplier cost діапазону.",
+    preferred_cost_max: "Верхня межа бажаного supplier cost діапазону.",
+    medium_cost_max: "Верхня межа середнього supplier cost діапазону.",
+    min_cost: "Supplier cost нижче цього значення отримує low-cost score.",
+    score_stock_high: "Бали priority, якщо stock на high threshold або вище.",
+    score_stock_medium: "Бали priority, якщо stock на medium threshold або вище.",
+    score_stock_low: "Бали priority, якщо stock вище low threshold.",
+    score_stock_very_low: "Бали priority, якщо stock на low threshold або нижче.",
+    score_cost_preferred: "Бали priority для cost у бажаному діапазоні.",
+    score_cost_medium: "Бали priority для cost у середньому діапазоні.",
+    score_cost_high: "Бали priority для cost вище середнього діапазону.",
+    score_cost_low: "Бали priority для cost нижче мінімального cost.",
+    score_brand_present: "Бали priority, якщо в offer є brand.",
+    score_title_present: "Бали priority, якщо в offer є title.",
+    score_ean_present: "Бали priority, якщо в offer є EAN.",
   },
 };
 
@@ -373,6 +579,34 @@ function t(key, params = {}) {
   );
 }
 
+function renderRuleHelpButtons() {
+  document
+    .querySelectorAll("#research-rules-form input[name]")
+    .forEach((input) => {
+      const helpText =
+        ruleHelp[state.language]?.[input.name] || ruleHelp.en[input.name];
+
+      if (!helpText) {
+        return;
+      }
+
+      const label = input.closest("label");
+      const labelText = label?.querySelector("span");
+
+      if (!labelText) {
+        return;
+      }
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "help-button";
+      button.textContent = "?";
+      button.title = helpText;
+      button.setAttribute("aria-label", helpText);
+      labelText.appendChild(button);
+    });
+}
+
 function applyLanguage() {
   document.documentElement.lang = state.language;
   document.querySelector("#language-select").value = state.language;
@@ -392,13 +626,16 @@ function applyLanguage() {
   setStatus(Boolean(state.summary));
   renderSummary();
   renderPipelineIssues();
+  renderSupplierManagement();
   renderSuppliersDashboard();
+  renderSupplierDetail(state.supplierDetail);
 
   if (state.importPreview) {
     renderImportPreview(state.importPreview);
   }
 
   renderSupplierSelect();
+  renderRuleHelpButtons();
   updateSupplierScopeVisibility();
 }
 
@@ -474,6 +711,17 @@ function selectedSupplierName() {
   );
 
   return supplier?.name || t("field.allSuppliers");
+}
+
+async function setSupplierScope(supplierId) {
+  state.supplierId = String(supplierId);
+  localStorage.setItem("oaSupplierId", state.supplierId);
+  renderSupplierSelect();
+  await Promise.all([loadSummary(), loadDeals(), loadResearch()]);
+}
+
+function navigateToView(view) {
+  document.querySelector(`[data-view="${view}"]`)?.click();
 }
 
 function setStatus(ok) {
@@ -558,9 +806,14 @@ function renderSuppliersDashboard() {
               <h3>${escapeHtml(supplier.name)}</h3>
               <p>${formatNumber(supplier.offers_count)} offers</p>
             </div>
-            <button class="ghost-button" data-select-supplier="${supplier.id}" type="button">
-              ${t("nav.overview")}
-            </button>
+            <div class="button-row">
+              <button class="ghost-button" data-open-supplier-details="${supplier.id}" type="button">
+                ${t("action.details")}
+              </button>
+              <button class="ghost-button" data-select-supplier="${supplier.id}" type="button">
+                ${t("nav.overview")}
+              </button>
+            </div>
           </div>
 
           <div class="supplier-status-grid">
@@ -609,6 +862,262 @@ function renderSuppliersDashboard() {
       `;
     })
     .join("");
+}
+
+function renderSupplierManagement() {
+  const body = document.querySelector("#supplier-management-table");
+
+  if (!body) return;
+
+  body.innerHTML = state.supplierManagement.length
+    ? state.supplierManagement
+      .map((supplier) => `
+        <tr>
+          <td>${escapeHtml(supplier.name)}</td>
+          <td>${formatNumber(supplier.offers_count)}</td>
+          <td>
+            <span class="badge ${supplier.is_visible ? "ok" : "warn"}">
+              ${supplier.is_visible ? t("status.visible") : t("status.hidden")}
+            </span>
+          </td>
+          <td>
+            <div class="button-row table-actions">
+              <button
+                class="ghost-button"
+                data-toggle-supplier-visibility="${supplier.id}"
+                data-visible="${supplier.is_visible ? "false" : "true"}"
+                type="button"
+              >
+                ${supplier.is_visible ? t("action.hide") : t("action.show")}
+              </button>
+              <button class="ghost-button" data-open-supplier-details="${supplier.id}" type="button">
+                ${t("action.details")}
+              </button>
+            </div>
+          </td>
+        </tr>
+      `)
+      .join("")
+    : `<tr><td colspan="4">${t("message.noRecords")}</td></tr>`;
+}
+
+function importMappingSummary(run = {}) {
+  const mapped = run.mapped_columns || 0;
+  const total = run.total_columns || 0;
+
+  if (!total) return "-";
+
+  return `${formatNumber(mapped)} / ${formatNumber(total)}`;
+}
+
+function renderSupplierDetail(detail) {
+  const panel = document.querySelector("#supplier-detail");
+  const grid = document.querySelector("#suppliers-dashboard");
+  const management = document.querySelector("#supplier-management");
+
+  if (!panel) return;
+
+  if (!detail) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    grid?.classList.remove("hidden");
+    management?.classList.remove("hidden");
+    return;
+  }
+
+  const stats = detail.offer_stats || {};
+  const imports = detail.import_history || [];
+  const offers = detail.recent_offers || [];
+
+  grid?.classList.add("hidden");
+  management?.classList.add("hidden");
+  panel.classList.remove("hidden");
+  panel.innerHTML = `
+    <div class="panel-header">
+      <div>
+        <h3>${t("panel.supplierDetails")}: ${escapeHtml(detail.name)}</h3>
+        <p>${t("metric.createdAt")}: ${formatDate(detail.created_at)}</p>
+      </div>
+      <div class="button-row supplier-detail-actions">
+        <button class="ghost-button" data-supplier-scope="${detail.id}" type="button">${t("action.setScope")}</button>
+        <button class="ghost-button" data-supplier-nav="overview" data-supplier-id="${detail.id}" type="button">${t("action.viewOverview")}</button>
+        <button class="ghost-button" data-supplier-nav="research" data-supplier-id="${detail.id}" type="button">${t("action.viewResearch")}</button>
+        <button class="primary-button" data-run-supplier-research="${detail.id}" type="button">${t("action.runResearch")}</button>
+        <button class="ghost-button" data-close-supplier-details type="button">${t("action.close")}</button>
+      </div>
+    </div>
+
+    <section class="supplier-detail-grid">
+      <article class="supplier-detail-section">
+        <h4>${t("panel.offerStats")}</h4>
+        <div class="preview-summary">
+          <article><span>${t("metric.totalOffers")}</span><strong>${formatNumber(stats.total || 0)}</strong></article>
+          <article><span>${t("metric.withEan")}</span><strong>${formatNumber(stats.with_ean || 0)}</strong></article>
+          <article><span>${t("metric.withBrand")}</span><strong>${formatNumber(stats.with_brand || 0)}</strong></article>
+          <article><span>${t("metric.withTitle")}</span><strong>${formatNumber(stats.with_title || 0)}</strong></article>
+          <article><span>${t("metric.withStock")}</span><strong>${formatNumber(stats.with_stock || 0)}</strong></article>
+          <article><span>${t("metric.avgCost")}</span><strong>${formatNumber(stats.avg_cost)}</strong></article>
+        </div>
+      </article>
+
+      <article class="supplier-detail-section">
+        <h4>${t("panel.pipelineStatus")}</h4>
+        <div class="supplier-status-grid">
+          <article>
+            <span>${t("summary.researchQueue")}</span>
+            <strong>${statusText(detail.statuses?.research_queue)}</strong>
+          </article>
+          <article>
+            <span>${t("summary.amazonMatches")}</span>
+            <strong>${statusText(detail.statuses?.amazon_matches)}</strong>
+          </article>
+          <article>
+            <span>${t("summary.dealCandidates")}</span>
+            <strong>${statusText(detail.statuses?.deal_candidates)}</strong>
+          </article>
+        </div>
+      </article>
+    </section>
+
+    <section class="supplier-detail-section">
+      <h4>${t("panel.importHistory")}</h4>
+      <div class="table-wrap scroll-table compact-table">
+        <table>
+          <thead>
+            <tr>
+              <th>${t("table.file")}</th>
+              <th>${t("table.rows")}</th>
+              <th>${t("table.valid")}</th>
+              <th>${t("table.failed")}</th>
+              <th>${t("field.mapped")}</th>
+              <th>${t("table.status")}</th>
+              <th>${t("metric.createdAt")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${imports.length
+              ? imports.map((run) => `
+                <tr>
+                  <td>${escapeHtml(run.filename)}</td>
+                  <td>${formatNumber(run.rows_total)}</td>
+                  <td>${formatNumber(run.rows_valid)}</td>
+                  <td>${formatNumber(run.rows_failed)}</td>
+                  <td>${importMappingSummary(run)}</td>
+                  <td><span class="badge ${statusClass(run.status)}">${escapeHtml(run.status)}</span></td>
+                  <td>${formatDate(run.created_at)}</td>
+                </tr>
+              `).join("")
+              : `<tr><td colspan="7">${t("message.noRecords")}</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="supplier-detail-section">
+      <h4>${t("panel.recentOffers")}</h4>
+      <div class="table-wrap scroll-table compact-table">
+        <table>
+          <thead>
+            <tr>
+              <th>EAN</th>
+              <th>${t("table.sku")}</th>
+              <th>${t("table.brand")}</th>
+              <th>${t("table.title")}</th>
+              <th>${t("table.cost")}</th>
+              <th>${t("table.stock")}</th>
+              <th>${t("table.importedAt")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${offers.length
+              ? offers.map((offer) => `
+                <tr>
+                  <td>${escapeHtml(offer.ean) || "-"}</td>
+                  <td>${escapeHtml(offer.supplier_sku) || "-"}</td>
+                  <td>${escapeHtml(offer.brand) || "-"}</td>
+                  <td>${escapeHtml(offer.title) || "-"}</td>
+                  <td>${formatNumber(offer.cost)} ${escapeHtml(offer.currency) || ""}</td>
+                  <td>${formatNumber(offer.stock)}</td>
+                  <td>${formatDate(offer.imported_at)}</td>
+                </tr>
+              `).join("")
+              : `<tr><td colspan="7">${t("message.noRecords")}</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function qualityTone(count) {
+  return count > 0 ? "bad" : "ok";
+}
+
+function renderQualityChecks(report = {}) {
+  const grid = document.querySelector("#quality-grid");
+  const details = document.querySelector("#quality-details");
+  const checks = [
+    ["quality.missingEan", report.missing_ean_count || 0],
+    ["quality.missingPrice", report.missing_price_count || 0],
+    ["quality.duplicateEan", report.duplicate_ean_count || 0],
+    ["quality.suspiciousPrice", report.suspicious_price_count || 0],
+    ["quality.unmappedColumns", (report.unmapped_columns || []).length],
+    ["quality.weakMappings", (report.weak_mappings || []).length],
+  ];
+
+  grid.innerHTML = checks
+    .map(([label, count]) => `
+      <article class="quality-card ${qualityTone(count)}">
+        <span>${t(label)}</span>
+        <strong>${formatNumber(count)}</strong>
+      </article>
+    `)
+    .join("");
+
+  const detailItems = [];
+  const exampleLabels = {
+    missing_ean: "quality.missingEan",
+    missing_price: "quality.missingPrice",
+    duplicate_ean: "quality.duplicateEan",
+    suspicious_price: "quality.suspiciousPrice",
+  };
+
+  if (report.unmapped_columns?.length) {
+    detailItems.push(`
+      <article>
+        <span>${t("quality.unmappedColumns")}</span>
+        <strong>${report.unmapped_columns.map(escapeHtml).join(", ")}</strong>
+      </article>
+    `);
+  }
+
+  if (report.weak_mappings?.length) {
+    detailItems.push(`
+      <article>
+        <span>${t("quality.weakMappings")}</span>
+        <strong>${report.weak_mappings
+          .map((item) => `${escapeHtml(item.column)} -> ${escapeHtml(item.mapped_to)} (${formatNumber(item.confidence)}%)`)
+          .join(", ")}</strong>
+      </article>
+    `);
+  }
+
+  Object.entries(report.examples || {}).forEach(([key, rows]) => {
+    if (!rows?.length) return;
+
+    detailItems.push(`
+      <article>
+        <span>${t(exampleLabels[key] || key)}</span>
+        <strong>${rows
+          .map((row) => Object.entries(row)
+            .map(([name, value]) => `${escapeHtml(name)}: ${escapeHtml(value) || "-"}`)
+            .join(" | "))
+          .join(" / ")}</strong>
+      </article>
+    `);
+  });
+
+  details.innerHTML = detailItems.join("");
 }
 
 function statusCount(section, status) {
@@ -1047,7 +1556,13 @@ async function loadSummary() {
 }
 
 async function loadSuppliers() {
-  state.suppliers = await api("/suppliers/");
+  const [visibleSuppliers, allSuppliers] = await Promise.all([
+    api("/suppliers/"),
+    api("/suppliers/?include_hidden=true"),
+  ]);
+
+  state.suppliers = visibleSuppliers;
+  state.supplierManagement = allSuppliers;
 
   if (
     state.supplierId
@@ -1058,11 +1573,51 @@ async function loadSuppliers() {
   }
 
   renderSupplierSelect();
+  renderSupplierManagement();
 }
 
 async function loadSuppliersDashboard() {
   state.supplierDashboard = await api("/suppliers/dashboard");
   renderSuppliersDashboard();
+
+  if (state.supplierDetail?.id) {
+    await loadSupplierDetail(state.supplierDetail.id, { silent: true });
+  }
+}
+
+async function loadSupplierDetail(supplierId, options = {}) {
+  if (!options.silent) {
+    document.querySelector("#supplier-detail").classList.remove("hidden");
+    document.querySelector("#supplier-detail").innerHTML = `
+      <div class="panel-header">
+        <h3>${t("panel.supplierDetails")}</h3>
+        <span class="badge warn">${t("status.running")}</span>
+      </div>
+    `;
+  }
+
+  state.supplierDetail = await api(`/suppliers/${supplierId}`);
+  renderSupplierDetail(state.supplierDetail);
+}
+
+async function toggleSupplierVisibility(supplierId, isVisible) {
+  await api(`/suppliers/${supplierId}/visibility`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_visible: isVisible }),
+  });
+
+  if (!isVisible && String(supplierId) === state.supplierId) {
+    state.supplierId = "";
+    localStorage.removeItem("oaSupplierId");
+  }
+
+  await Promise.all([
+    loadSuppliers(),
+    loadSuppliersDashboard(),
+    loadSummary(),
+    loadDeals(),
+    loadResearch(),
+  ]);
 }
 
 async function loadConfig() {
@@ -1185,6 +1740,42 @@ async function runResearch() {
   }
 }
 
+async function runSupplierResearch(supplierId, button) {
+  const previousSupplierId = state.supplierId;
+
+  button.disabled = true;
+
+  try {
+    await setSupplierScope(supplierId);
+    const result = await api(scopedPath("/pipeline/run-research"), {
+      method: "POST",
+    });
+    showAlert(t("message.researchRun", {
+      count: result.amazon_processed?.processed_count || 0,
+    }));
+    await Promise.all([
+      loadSummary(),
+      loadResearch(),
+      loadDeals(),
+      loadSuppliersDashboard(),
+      loadSupplierDetail(supplierId, { silent: true }),
+    ]);
+  } catch (error) {
+    if (previousSupplierId) {
+      state.supplierId = previousSupplierId;
+      localStorage.setItem("oaSupplierId", state.supplierId);
+    } else {
+      state.supplierId = "";
+      localStorage.removeItem("oaSupplierId");
+    }
+
+    renderSupplierSelect();
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function saveForm(form, endpoint) {
   const payload = formPayload(form);
   const result = await api(endpoint, {
@@ -1245,6 +1836,8 @@ function renderImportPreview(result) {
       <strong>${formatNumber(mappedColumns)}</strong>
     </article>
   `;
+
+  renderQualityChecks(result.quality_report || {});
 
   tableHead.innerHTML = `
     <tr>
@@ -1475,7 +2068,18 @@ function bindActions() {
     openIssueModal(button.dataset.issueKey);
   });
   document.querySelector("#suppliers-dashboard").addEventListener("click", async (event) => {
+    const detailButton = event.target.closest("[data-open-supplier-details]");
     const button = event.target.closest("[data-select-supplier]");
+
+    if (detailButton) {
+      try {
+        await loadSupplierDetail(detailButton.dataset.openSupplierDetails);
+      } catch (error) {
+        showAlert(error.message, true);
+      }
+
+      return;
+    }
 
     if (!button) return;
 
@@ -1490,6 +2094,71 @@ function bindActions() {
     } catch (error) {
       showAlert(error.message, true);
     }
+  });
+  document.querySelector("#supplier-management").addEventListener("click", async (event) => {
+    const detailButton = event.target.closest("[data-open-supplier-details]");
+    const visibilityButton = event.target.closest("[data-toggle-supplier-visibility]");
+
+    if (detailButton) {
+      try {
+        await loadSupplierDetail(detailButton.dataset.openSupplierDetails);
+      } catch (error) {
+        showAlert(error.message, true);
+      }
+
+      return;
+    }
+
+    if (!visibilityButton) return;
+
+    visibilityButton.disabled = true;
+
+    try {
+      await toggleSupplierVisibility(
+        visibilityButton.dataset.toggleSupplierVisibility,
+        visibilityButton.dataset.visible === "true",
+      );
+    } catch (error) {
+      showAlert(error.message, true);
+    } finally {
+      visibilityButton.disabled = false;
+    }
+  });
+  document.querySelector("#supplier-detail").addEventListener("click", (event) => {
+    const closeButton = event.target.closest("[data-close-supplier-details]");
+    const scopeButton = event.target.closest("[data-supplier-scope]");
+    const navButton = event.target.closest("[data-supplier-nav]");
+    const researchButton = event.target.closest("[data-run-supplier-research]");
+
+    if (scopeButton) {
+      setSupplierScope(scopeButton.dataset.supplierScope)
+        .catch((error) => showAlert(error.message, true));
+      return;
+    }
+
+    if (navButton) {
+      setSupplierScope(navButton.dataset.supplierId)
+        .then(() => {
+          state.supplierDetail = null;
+          renderSupplierDetail(null);
+          navigateToView(navButton.dataset.supplierNav);
+        })
+        .catch((error) => showAlert(error.message, true));
+      return;
+    }
+
+    if (researchButton) {
+      runSupplierResearch(
+        researchButton.dataset.runSupplierResearch,
+        researchButton,
+      );
+      return;
+    }
+
+    if (!closeButton) return;
+
+    state.supplierDetail = null;
+    renderSupplierDetail(null);
   });
   document.querySelectorAll("[data-close-modal]").forEach((element) => {
     element.addEventListener("click", closeIssueModal);
@@ -1563,7 +2232,7 @@ function bindActions() {
       setImportDraft(null);
       renderImportPreview(result);
       showAlert(t("message.savedImport", { count: result.offers_saved }));
-      await Promise.all([loadSummary(), loadResearch()]);
+      await Promise.all([loadSummary(), loadResearch(), loadSuppliers(), loadSuppliersDashboard()]);
     } catch (error) {
       showAlert(error.message, true);
     } finally {
