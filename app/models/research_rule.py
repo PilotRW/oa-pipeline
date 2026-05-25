@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Integer, Numeric, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.database import Base
@@ -11,6 +11,10 @@ class ResearchRule(Base):
     __tablename__ = "research_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    supplier_id: Mapped[int | None] = mapped_column(
+        ForeignKey("suppliers.id"),
+        nullable=True,
+    )
 
     min_priority_score: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),

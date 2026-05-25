@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
     <link rel="icon" type="image/png" href="/ui/favicon.png">
-    <link rel="stylesheet" href="/ui/styles.css?v=20260525-9">
+    <link rel="stylesheet" href="/ui/styles.css?v=20260525-19">
   </head>
   <body>
     <div class="app-shell">
@@ -21,6 +21,7 @@
           <button class="nav-item" data-view="settings" data-i18n="nav.settings" type="button">Settings</button>
           <button class="nav-item" data-view="rules" data-i18n="nav.rules" type="button">Rules</button>
           <button class="nav-item" data-view="research" data-i18n="nav.research" type="button">Research</button>
+          <button class="nav-item" data-view="keepa" data-i18n="nav.keepa" type="button">Keepa</button>
           <button class="nav-item" data-view="suppliers" data-i18n="nav.suppliers" type="button">Suppliers</button>
           <button class="nav-item" data-view="upload" data-i18n="nav.upload" type="button">Upload</button>
         </nav>
@@ -49,13 +50,27 @@
         <section class="view active" id="view-overview">
           <div class="summary-grid" id="summary-grid"></div>
 
-          <section class="panel">
-            <div class="panel-header">
-              <h3 data-i18n="panel.pipelineIssues">Pipeline Issues</h3>
-              <button class="ghost-button" id="refresh-issues-button" data-i18n="action.refresh" type="button">Refresh</button>
-            </div>
-            <div class="issue-grid" id="pipeline-issues"></div>
-          </section>
+          <div class="overview-workbench">
+            <section class="panel">
+              <div class="panel-header">
+                <h3 data-i18n="panel.pipelineIssues">Pipeline Issues</h3>
+                <button class="ghost-button" id="refresh-issues-button" data-i18n="action.refresh" type="button">Refresh</button>
+              </div>
+              <div class="issue-grid" id="pipeline-issues"></div>
+            </section>
+
+            <section class="panel overview-actions-panel">
+              <div class="panel-header">
+                <h3 data-i18n="panel.nextActions">Next Actions</h3>
+              </div>
+              <div class="overview-actions">
+                <button class="primary-button" data-overview-action="upload" data-i18n="action.uploadFeed" type="button">Upload feed</button>
+                <button class="ghost-button" data-overview-action="research" data-i18n="action.runResearch" type="button">Run research</button>
+                <button class="ghost-button" data-overview-action="keepa" data-i18n="action.runKeepa" type="button">Run Keepa</button>
+                <button class="ghost-button" data-overview-action="pipeline" data-i18n="nav.pipeline" type="button">Pipeline</button>
+              </div>
+            </section>
+          </div>
 
           <section class="panel overview-deals-panel">
             <div class="panel-header">
@@ -131,7 +146,10 @@
           <form class="panel form-grid dense" id="research-rules-form">
             <div class="panel-header full-span">
               <h3 data-i18n="panel.researchRules">Research Rules</h3>
-              <button class="primary-button" data-i18n="action.save" type="submit">Save</button>
+              <div class="button-row">
+                <button class="ghost-button" id="reset-research-rules-button" type="button">Reset</button>
+                <button class="primary-button" id="save-research-rules-button" type="submit">Save</button>
+              </div>
             </div>
 
             <section class="rule-section full-span">
@@ -231,6 +249,40 @@
           </div>
         </section>
 
+        <section class="view" id="view-keepa">
+          <section class="panel">
+            <div class="panel-header">
+              <div class="panel-title-row">
+                <h3 data-i18n="panel.keepaMetrics">Keepa Metrics</h3>
+                <span id="keepa-mode-badge" class="badge warn" data-i18n="keepa.modeMock">Mock mode</span>
+              </div>
+              <div class="button-row">
+                <label class="inline-toggle">
+                  <span data-i18n="field.realKeepa">Real Keepa</span>
+                  <input id="keepa-real-toggle" type="checkbox">
+                </label>
+                <button class="primary-button" id="run-keepa-button" data-i18n="action.runKeepa" type="button">Run Keepa</button>
+              </div>
+            </div>
+            <div class="table-wrap scroll-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="table.supplier">Supplier</th>
+                    <th>ASIN</th>
+                    <th data-i18n="table.status">Status</th>
+                    <th data-i18n="table.source">Source</th>
+                    <th data-i18n="table.buyBox">Buy Box</th>
+                    <th data-i18n="table.salesRank">Sales rank</th>
+                    <th data-i18n="table.sales">Sales</th>
+                  </tr>
+                </thead>
+                <tbody id="keepa-table"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
         <section class="view" id="view-suppliers">
           <section class="panel supplier-management" id="supplier-management">
             <div class="panel-header">
@@ -324,6 +376,6 @@
       </section>
     </div>
 
-    <script src="/ui/app.js?v=20260525-9"></script>
+    <script src="/ui/app.js?v=20260525-19"></script>
   </body>
 </html>

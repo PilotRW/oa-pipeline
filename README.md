@@ -24,11 +24,13 @@ Implemented:
 - Supplier detail page with offer stats, pipeline status, import history, recent
   offers, supplier scope actions, and supplier-scoped research.
 - Supplier-scoped Overview, Research, Pipeline, Deals, and issue exports.
+- Supplier-specific research rule profiles with reset-to-default behavior.
 - Research queue population, priority scoring, and rejection reasons.
 - Configurable `pipeline_settings` and `research_rules`.
 - Help buttons for each research-rule metric in the UI.
 - Mock Amazon EAN to ASIN matching.
-- Keepa wrapper with mock mode and real Keepa mode.
+- Keepa wrapper with mock mode, real Keepa mode, status checks, and
+  not-configured handling.
 - Mock fee estimation and deal candidate generation.
 - Pipeline orchestration endpoints.
 - Pipeline issue modals with CSV and real XLSX downloads.
@@ -47,7 +49,7 @@ Still not production-grade:
 - Keepa metrics are mock unless real Keepa mode is enabled.
 - Fee estimation is still simplified.
 - No real FBA/VAT/shipping fee engine yet.
-- No supplier-specific rule profiles yet.
+- No Grafana dashboards or candidate review enrichment tables yet.
 
 ## Pipeline Flow
 
@@ -93,12 +95,18 @@ Main UI areas:
 - `Settings`: technical pipeline settings.
 - `Rules`: business and scoring rules, grouped by function, with help buttons.
 - `Research`: research queue and Amazon match results.
+- `Keepa`: explicit Keepa enrichment step, mode badge, and real/mock toggle.
 - `Suppliers`: supplier management, details, import history, and visibility.
 - `Upload`: supplier feed upload, preview, quality checks, and save.
 
 The top supplier selector scopes Overview, Research, Deals, Pipeline issue
 exports, and pipeline actions to one supplier. Hidden suppliers do not appear in
 this selector.
+
+The current UI is intentionally lightweight and FastAPI-hosted while the
+pipeline concept is still being validated. Future UI rewrite preference:
+React + Mantine, styled as a Grafana-like operations dashboard. Defer that work
+until real Keepa/Amazon results prove the workflow.
 
 ## Supplier Management
 
@@ -186,9 +194,66 @@ Current provider behavior:
 - If real Keepa mode is enabled without a valid `KEEPA_API_KEY`, processing
   returns a controlled `not_configured` result instead of falling back to mock
   data or raising a server error.
+- The Keepa UI shows the active mode, disables the run action when real mode is
+  selected but not configured, and displays the metric source (`keepa_mock` or
+  `keepa_real`) in the metrics table.
 
 Temporary mock values should stay inside provider/mock code, not become
 user-facing business settings.
+
+Longer-term provider direction:
+
+- Keepa is a research accelerator, not the strategic foundation for the whole
+  product.
+- Keep provider boundaries explicit so Keepa can be replaced or complemented by
+  Amazon SP-API modules later.
+- Planned provider boundaries:
+  - product matcher provider;
+  - market metrics provider;
+  - fee provider;
+  - future sales management provider.
+- Amazon SP-API should be added module-by-module when needed: fees, catalog /
+  listings, pricing, inventory, orders, and reports.
+
+## Analytics And Grafana Direction
+
+The Mirenelle UI should remain the operator workflow surface. Grafana is the
+preferred future layer for dashboards and visual analysis.
+
+Planned Grafana usage:
+
+- pipeline health and processing trends;
+- supplier performance and import quality;
+- Keepa / market metric health;
+- deal funnel and rejection trends;
+- final candidate decision dashboards.
+
+Do not pull deep Keepa history for every imported product. Detailed historical
+Keepa data should be fetched only for deal candidates that pass filters and need
+manual final review.
+
+Future candidate-review flow:
+
+```text
+Deal candidate passed filters
+    -> operator opens / prepares review
+    -> fetch deeper Keepa history for this candidate only
+    -> persist candidate metric snapshots / events
+    -> open Grafana decision dashboard from the UI
+```
+
+Candidate review dashboards should help evaluate:
+
+- Buy Box price history;
+- supplier cost history;
+- ROI / profit history;
+- sales rank and sales velocity;
+- Amazon in-stock periods;
+- offer count changes;
+- import and manual adjustment events.
+
+This keeps Keepa token usage focused on products that are worth a human
+decision, while Grafana handles the visual analysis.
 
 ## API Endpoints
 
@@ -237,6 +302,7 @@ Keepa:
 ```text
 POST /keepa/create-pending
 POST /keepa/process-pending
+GET  /keepa/status
 GET  /keepa/
 ```
 
@@ -411,10 +477,18 @@ oa-pipeline/
   data should remain available through explicit supplier detail/scope access.
 - Comparison engine work is postponed until multiple overlapping supplier
   catalogs exist.
+- Keepa detailed history should be a candidate-review feature, not part of
+  default catalog processing.
+- Analytics should be designed for Grafana views or dashboards rather than
+  bloating the operator UI.
 
 ## Near-Term Roadmap
 
-1. Supplier-specific rule profiles.
-2. Separate explicit Keepa step in the UI.
-3. Real Keepa-based Amazon matching and metric enrichment hardening.
-4. Real fee engine for FBA/VAT/shipping/marketplace rules.
+1. Provider abstraction cleanup for mock / Keepa / future Amazon SP-API.
+2. Real Keepa-based Amazon matching and metric enrichment.
+3. Deal Candidate enrichment: title, brand, cost, Amazon price, filters.
+4. Candidate review enrichment for final manual decisions, with Grafana links.
+5. Real fee engine for FBA/VAT/shipping/marketplace rules.
+6. Grafana dashboard layer backed by SQL views or snapshot/event tables.
+7. Future UI rewrite after concept validation: React + Mantine,
+   Grafana-like operations dashboard.

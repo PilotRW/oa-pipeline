@@ -108,7 +108,7 @@ class DealService:
 
         rules = await ConfigService(
             self.db
-        ).get_research_rules()
+        ).get_research_rules(supplier_id=supplier_id)
 
         deal_rows = []
 

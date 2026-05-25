@@ -59,7 +59,9 @@ class ResearchQueueService:
         supplier_id: int | None = None,
     ) -> int:
         config_service = ConfigService(self.db)
-        rules = await config_service.get_research_rules()
+        rules = await config_service.get_research_rules(
+            supplier_id=supplier_id
+        )
 
         existing_offer_ids_subquery = select(
             OfferResearchQueue.supplier_offer_id
@@ -108,7 +110,6 @@ class ResearchQueueService:
 
     async def recalculate_priority_scores(self) -> int:
         config_service = ConfigService(self.db)
-        rules = await config_service.get_research_rules()
 
         query = (
             select(OfferResearchQueue, SupplierOffer)
@@ -122,11 +123,19 @@ class ResearchQueueService:
         rows = result.all()
 
         updated = 0
+        rules_by_supplier: dict[int | None, ResearchRule] = {}
 
         for queue_item, offer in rows:
+            if offer.supplier_id not in rules_by_supplier:
+                rules_by_supplier[offer.supplier_id] = (
+                    await config_service.get_research_rules(
+                        supplier_id=offer.supplier_id
+                    )
+                )
+
             queue_item.priority_score = self.calculate_priority_score(
                 offer=offer,
-                rules=rules,
+                rules=rules_by_supplier[offer.supplier_id],
             )
             updated += 1
 

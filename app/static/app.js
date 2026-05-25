@@ -1,6 +1,7 @@
 const state = {
   summary: null,
   settings: null,
+  keepaStatus: null,
   rules: null,
   suppliers: [],
   supplierManagement: [],
@@ -21,10 +22,16 @@ const translations = {
     "action.preview": "Preview",
     "action.refresh": "Refresh",
     "action.runBatch": "Run batch",
+    "action.runKeepa": "Run Keepa",
     "action.runResearch": "Run research",
     "action.save": "Save",
+    "action.saveDefaultRules": "Save default rules",
+    "action.saveSupplierRules": "Save supplier rules",
+    "action.resetToDefault": "Reset to default",
+    "action.resetToSystemDefaults": "Reset to system defaults",
     "action.saveImport": "Save import",
     "action.upload": "Upload",
+    "action.uploadFeed": "Upload feed",
     "action.close": "Close",
     "action.downloadCsv": "CSV",
     "action.downloadXls": "XLSX",
@@ -88,12 +95,17 @@ const translations = {
     "message.createdQueueItems": "Created {count} queue items",
     "message.noRecords": "No records",
     "message.processedMatches": "Processed {count} matches",
+    "message.keepaRun": "Keepa completed: {created} queued, {processed} processed",
+    "message.keepaRunWithSource": "Keepa completed via {source}: {created} queued, {processed} processed",
+    "message.keepaNotConfigured": "Real Keepa is enabled, but KEEPA_API_KEY is not configured",
     "message.researchRun": "Research completed: {count} matches processed",
     "message.previewReady": "Preview ready: {count} rows",
     "message.saved": "Saved",
+    "message.rulesReset": "Rules reset",
     "message.savedImport": "Saved {count} offers",
     "message.uploaded": "Uploaded",
     "nav.pipeline": "Pipeline",
+    "nav.keepa": "Keepa",
     "nav.overview": "Overview",
     "nav.research": "Research",
     "nav.rules": "Rules",
@@ -115,9 +127,11 @@ const translations = {
     "panel.supplierDetails": "Supplier Details",
     "panel.supplierManagement": "Supplier Management",
     "panel.importHistory": "Import History",
+    "panel.keepaMetrics": "Keepa Metrics",
     "panel.offerStats": "Offer Stats",
     "panel.recentOffers": "Recent Offers",
     "panel.pipelineStatus": "Pipeline Status",
+    "panel.nextActions": "Next Actions",
     "status.done": "Done",
     "status.failed": "Failed",
     "status.idle": "Idle",
@@ -134,7 +148,14 @@ const translations = {
     "issue.open": "Open",
     "issue.rejectedLowRoi": "Rejected low ROI",
     "issue.rejectedUnprofitable": "Rejected unprofitable",
+    "keepa.modeMock": "Mock mode",
+    "keepa.modeReal": "Real Keepa",
+    "keepa.modeRealMissing": "Real Keepa not configured",
+    "keepa.sourceMock": "Mock",
+    "keepa.sourceReal": "Real",
+    "keepa.sourceUnknown": "Unknown",
     "table.brand": "Brand",
+    "table.buyBox": "Buy Box",
     "table.confidence": "Confidence",
     "table.detectedAs": "Detected as",
     "table.fileColumn": "File column",
@@ -143,6 +164,8 @@ const translations = {
     "table.reason": "Reason",
     "table.roi": "ROI",
     "table.sales": "Sales",
+    "table.salesRank": "Sales rank",
+    "table.source": "Source",
     "table.stock": "Stock",
     "table.status": "Status",
     "table.supplier": "Supplier",
@@ -172,10 +195,16 @@ const translations = {
     "action.preview": "Vorschau",
     "action.refresh": "Aktualisieren",
     "action.runBatch": "Batch starten",
+    "action.runKeepa": "Keepa starten",
     "action.runResearch": "Recherche starten",
     "action.save": "Speichern",
+    "action.saveDefaultRules": "Standardregeln speichern",
+    "action.saveSupplierRules": "Lieferantenregeln speichern",
+    "action.resetToDefault": "Auf Standard zurücksetzen",
+    "action.resetToSystemDefaults": "Auf Systemstandard zurücksetzen",
     "action.saveImport": "Import speichern",
     "action.upload": "Hochladen",
+    "action.uploadFeed": "Feed hochladen",
     "action.close": "Schließen",
     "action.downloadCsv": "CSV",
     "action.downloadXls": "XLSX",
@@ -239,12 +268,17 @@ const translations = {
     "message.createdQueueItems": "{count} Queue-Einträge erstellt",
     "message.noRecords": "Keine Einträge",
     "message.processedMatches": "{count} Matches verarbeitet",
+    "message.keepaRun": "Keepa fertig: {created} vorbereitet, {processed} verarbeitet",
+    "message.keepaRunWithSource": "Keepa fertig über {source}: {created} vorbereitet, {processed} verarbeitet",
+    "message.keepaNotConfigured": "Echtes Keepa ist aktiv, aber KEEPA_API_KEY ist nicht konfiguriert",
     "message.researchRun": "Recherche fertig: {count} Matches verarbeitet",
     "message.previewReady": "Vorschau bereit: {count} Zeilen",
     "message.saved": "Gespeichert",
+    "message.rulesReset": "Regeln zurückgesetzt",
     "message.savedImport": "{count} Angebote gespeichert",
     "message.uploaded": "Hochgeladen",
     "nav.pipeline": "Pipeline",
+    "nav.keepa": "Keepa",
     "nav.overview": "Übersicht",
     "nav.research": "Recherche",
     "nav.rules": "Regeln",
@@ -266,9 +300,11 @@ const translations = {
     "panel.supplierDetails": "Lieferanten-Details",
     "panel.supplierManagement": "Lieferantenverwaltung",
     "panel.importHistory": "Importhistorie",
+    "panel.keepaMetrics": "Keepa-Metriken",
     "panel.offerStats": "Angebotsstatistik",
     "panel.recentOffers": "Letzte Angebote",
     "panel.pipelineStatus": "Pipeline-Status",
+    "panel.nextActions": "Nächste Aktionen",
     "status.done": "Fertig",
     "status.failed": "Fehlgeschlagen",
     "status.idle": "Bereit",
@@ -285,7 +321,14 @@ const translations = {
     "issue.open": "Offen",
     "issue.rejectedLowRoi": "Abgelehnt: niedriger ROI",
     "issue.rejectedUnprofitable": "Abgelehnt: unprofitabel",
+    "keepa.modeMock": "Mock-Modus",
+    "keepa.modeReal": "Echte Keepa",
+    "keepa.modeRealMissing": "Echte Keepa nicht konfiguriert",
+    "keepa.sourceMock": "Mock",
+    "keepa.sourceReal": "Echt",
+    "keepa.sourceUnknown": "Unbekannt",
     "table.brand": "Marke",
+    "table.buyBox": "Buy Box",
     "table.confidence": "Konfidenz",
     "table.detectedAs": "Erkannt als",
     "table.fileColumn": "Dateispalte",
@@ -294,6 +337,8 @@ const translations = {
     "table.reason": "Grund",
     "table.roi": "ROI",
     "table.sales": "Verkäufe",
+    "table.salesRank": "Sales Rank",
+    "table.source": "Quelle",
     "table.stock": "Bestand",
     "table.status": "Status",
     "table.supplier": "Lieferant",
@@ -323,10 +368,16 @@ const translations = {
     "action.preview": "Превʼю",
     "action.refresh": "Оновити",
     "action.runBatch": "Запустити batch",
+    "action.runKeepa": "Запустити Keepa",
     "action.runResearch": "Запустити research",
     "action.save": "Зберегти",
+    "action.saveDefaultRules": "Зберегти дефолтні правила",
+    "action.saveSupplierRules": "Зберегти правила постачальника",
+    "action.resetToDefault": "Скинути до дефолту",
+    "action.resetToSystemDefaults": "Скинути до системного дефолту",
     "action.saveImport": "Зберегти імпорт",
     "action.upload": "Завантажити",
+    "action.uploadFeed": "Завантажити фід",
     "action.close": "Закрити",
     "action.downloadCsv": "CSV",
     "action.downloadXls": "XLSX",
@@ -390,12 +441,17 @@ const translations = {
     "message.createdQueueItems": "Створено {count} елементів черги",
     "message.noRecords": "Немає записів",
     "message.processedMatches": "Оброблено {count} matches",
+    "message.keepaRun": "Keepa завершено: {created} поставлено в чергу, {processed} оброблено",
+    "message.keepaRunWithSource": "Keepa завершено через {source}: {created} поставлено в чергу, {processed} оброблено",
+    "message.keepaNotConfigured": "Real Keepa увімкнена, але KEEPA_API_KEY не налаштований",
     "message.researchRun": "Research завершено: оброблено {count} matches",
     "message.previewReady": "Превʼю готове: {count} рядків",
     "message.saved": "Збережено",
+    "message.rulesReset": "Правила скинуто",
     "message.savedImport": "Збережено {count} offers",
     "message.uploaded": "Завантажено",
     "nav.pipeline": "Pipeline",
+    "nav.keepa": "Keepa",
     "nav.overview": "Огляд",
     "nav.research": "Дослідження",
     "nav.rules": "Правила",
@@ -417,9 +473,11 @@ const translations = {
     "panel.supplierDetails": "Деталі постачальника",
     "panel.supplierManagement": "Керування постачальниками",
     "panel.importHistory": "Історія імпортів",
+    "panel.keepaMetrics": "Keepa метрики",
     "panel.offerStats": "Статистика offers",
     "panel.recentOffers": "Останні offers",
     "panel.pipelineStatus": "Pipeline статус",
+    "panel.nextActions": "Наступні дії",
     "status.done": "Готово",
     "status.failed": "Помилка",
     "status.idle": "Очікує",
@@ -436,7 +494,14 @@ const translations = {
     "issue.open": "Відкрито",
     "issue.rejectedLowRoi": "Відхилено: низький ROI",
     "issue.rejectedUnprofitable": "Відхилено: без прибутку",
+    "keepa.modeMock": "Mock mode",
+    "keepa.modeReal": "Real Keepa",
+    "keepa.modeRealMissing": "Real Keepa не налаштована",
+    "keepa.sourceMock": "Mock",
+    "keepa.sourceReal": "Real",
+    "keepa.sourceUnknown": "Невідомо",
     "table.brand": "Бренд",
+    "table.buyBox": "Buy Box",
     "table.confidence": "Впевненість",
     "table.detectedAs": "Розпізнано як",
     "table.fileColumn": "Колонка файлу",
@@ -445,6 +510,8 @@ const translations = {
     "table.reason": "Причина",
     "table.roi": "ROI",
     "table.sales": "Продажі",
+    "table.salesRank": "Sales rank",
+    "table.source": "Джерело",
     "table.stock": "Stock",
     "table.status": "Статус",
     "table.supplier": "Постачальник",
@@ -607,6 +674,57 @@ function renderRuleHelpButtons() {
     });
 }
 
+function renderResearchRulesActions() {
+  const saveButton = document.querySelector("#save-research-rules-button");
+  const resetButton = document.querySelector("#reset-research-rules-button");
+
+  if (!saveButton || !resetButton) return;
+
+  saveButton.textContent = state.supplierId
+    ? t("action.saveSupplierRules")
+    : t("action.saveDefaultRules");
+  resetButton.textContent = state.supplierId
+    ? t("action.resetToDefault")
+    : t("action.resetToSystemDefaults");
+}
+
+function renderKeepaModeBadge() {
+  const badge = document.querySelector("#keepa-mode-badge");
+  const toggle = document.querySelector("#keepa-real-toggle");
+  const runButton = document.querySelector("#run-keepa-button");
+
+  if (!badge && !toggle && !runButton) return;
+
+  const useRealKeepa = Boolean(state.settings?.use_real_keepa);
+  const notConfigured = Boolean(
+    useRealKeepa
+    && state.keepaStatus
+    && !state.keepaStatus.api_key_configured,
+  );
+
+  if (badge) {
+    badge.textContent = notConfigured
+      ? t("keepa.modeRealMissing")
+      : (
+        useRealKeepa
+          ? t("keepa.modeReal")
+          : t("keepa.modeMock")
+      );
+    badge.classList.toggle("ok", useRealKeepa && !notConfigured);
+    badge.classList.toggle("warn", !useRealKeepa);
+    badge.classList.toggle("bad", notConfigured);
+  }
+
+  if (toggle) {
+    toggle.checked = useRealKeepa;
+  }
+
+  if (runButton) {
+    runButton.disabled = notConfigured;
+    runButton.title = notConfigured ? t("message.keepaNotConfigured") : "";
+  }
+}
+
 function applyLanguage() {
   document.documentElement.lang = state.language;
   document.querySelector("#language-select").value = state.language;
@@ -636,6 +754,8 @@ function applyLanguage() {
 
   renderSupplierSelect();
   renderRuleHelpButtons();
+  renderResearchRulesActions();
+  renderKeepaModeBadge();
   updateSupplierScopeVisibility();
 }
 
@@ -717,7 +837,13 @@ async function setSupplierScope(supplierId) {
   state.supplierId = String(supplierId);
   localStorage.setItem("oaSupplierId", state.supplierId);
   renderSupplierSelect();
-  await Promise.all([loadSummary(), loadDeals(), loadResearch()]);
+  await Promise.all([
+    loadSummary(),
+    loadDeals(),
+    loadResearch(),
+    loadKeepa(),
+    loadConfig(),
+  ]);
 }
 
 function navigateToView(view) {
@@ -746,6 +872,13 @@ function statusClass(status) {
   if (String(status).includes("candidate") || status === "completed") return "ok";
   if (String(status).includes("reject") || String(status).includes("not")) return "bad";
   return "warn";
+}
+
+function keepaSourceLabel(source) {
+  if (source === "keepa_mock") return t("keepa.sourceMock");
+  if (source === "keepa_real") return t("keepa.sourceReal");
+
+  return t("keepa.sourceUnknown");
 }
 
 function renderSummary() {
@@ -1574,6 +1707,7 @@ async function loadSuppliers() {
 
   renderSupplierSelect();
   renderSupplierManagement();
+  renderResearchRulesActions();
 }
 
 async function loadSuppliersDashboard() {
@@ -1617,20 +1751,25 @@ async function toggleSupplierVisibility(supplierId, isVisible) {
     loadSummary(),
     loadDeals(),
     loadResearch(),
+    loadKeepa(),
   ]);
 }
 
 async function loadConfig() {
-  const [settings, rules] = await Promise.all([
+  const [settings, rules, keepaStatus] = await Promise.all([
     api("/config/pipeline-settings"),
-    api("/config/research-rules"),
+    api(scopedPath("/config/research-rules")),
+    api("/keepa/status"),
   ]);
 
   state.settings = settings;
   state.rules = rules;
+  state.keepaStatus = keepaStatus;
 
   fillForm(document.querySelector("#pipeline-settings-form"), settings);
   fillForm(document.querySelector("#research-rules-form"), rules);
+  renderResearchRulesActions();
+  renderKeepaModeBadge();
 }
 
 async function loadDeals() {
@@ -1676,6 +1815,31 @@ async function loadResearch() {
   ]);
 }
 
+async function loadKeepa() {
+  const metrics = await api(scopedPath("/keepa/?limit=500"));
+
+  renderRows("#keepa-table", metrics, [
+    { key: "supplier_name" },
+    { key: "asin" },
+    {
+      key: "data_status",
+      render: (row) => `<span class="badge ${statusClass(row.data_status)}">${escapeHtml(row.data_status)}</span>`,
+    },
+    {
+      key: "data_source",
+      render: (row) => `<span class="badge ${row.data_source === "keepa_real" ? "ok" : "warn"}">${keepaSourceLabel(row.data_source)}</span>`,
+    },
+    {
+      key: "buy_box_price",
+      render: (row) => [formatNumber(row.buy_box_price), escapeHtml(row.currency)]
+        .filter(Boolean)
+        .join(" "),
+    },
+    { key: "sales_rank", render: (row) => formatNumber(row.sales_rank) },
+    { key: "estimated_monthly_sales", render: (row) => formatNumber(row.estimated_monthly_sales) },
+  ]);
+}
+
 async function refreshAll() {
   try {
     await api("/");
@@ -1686,6 +1850,7 @@ async function refreshAll() {
       loadConfig(),
       loadDeals(),
       loadResearch(),
+      loadKeepa(),
       loadSuppliersDashboard(),
     ]);
   } catch (error) {
@@ -1710,7 +1875,7 @@ async function runBatch() {
     output.textContent = JSON.stringify(result, null, 2);
     status.textContent = result.status || t("status.done");
     status.className = `badge ${result.status === "ok" ? "ok" : "warn"}`;
-    await Promise.all([loadSummary(), loadDeals(), loadResearch()]);
+    await Promise.all([loadSummary(), loadDeals(), loadResearch(), loadKeepa()]);
   } catch (error) {
     status.textContent = t("status.failed");
     status.className = "badge bad";
@@ -1720,8 +1885,8 @@ async function runBatch() {
   }
 }
 
-async function runResearch() {
-  const button = document.querySelector("#run-research-button");
+async function runResearch(triggerButton = null) {
+  const button = triggerButton || document.querySelector("#run-research-button");
 
   button.disabled = true;
 
@@ -1732,11 +1897,77 @@ async function runResearch() {
     showAlert(t("message.researchRun", {
       count: result.amazon_processed?.processed_count || 0,
     }));
-    await Promise.all([loadSummary(), loadResearch(), loadDeals()]);
+    await Promise.all([loadSummary(), loadResearch(), loadDeals(), loadKeepa()]);
   } catch (error) {
     showAlert(error.message, true);
   } finally {
     button.disabled = false;
+  }
+}
+
+async function runKeepa(triggerButton = null) {
+  const button = triggerButton || document.querySelector("#run-keepa-button");
+
+  if (
+    state.settings?.use_real_keepa
+    && state.keepaStatus
+    && !state.keepaStatus.api_key_configured
+  ) {
+    showAlert(t("message.keepaNotConfigured"), true);
+    renderKeepaModeBadge();
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const pendingResult = await api(scopedPath("/keepa/create-pending"), {
+      method: "POST",
+    });
+    const processResult = await api(scopedPath("/keepa/process-pending"), {
+      method: "POST",
+    });
+
+    if (processResult.status === "not_configured") {
+      showAlert(
+        processResult.reason || t("message.keepaNotConfigured"),
+        true,
+      );
+    } else {
+      showAlert(t("message.keepaRunWithSource", {
+        source: keepaSourceLabel(processResult.data_source),
+        created: pendingResult.created_count || 0,
+        processed: processResult.processed_count || 0,
+      }));
+    }
+
+    await Promise.all([loadSummary(), loadConfig(), loadKeepa(), loadDeals()]);
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function saveKeepaMode(useRealKeepa, toggle) {
+  toggle.disabled = true;
+
+  try {
+    const result = await api("/config/pipeline-settings", {
+      method: "PATCH",
+      body: JSON.stringify({ use_real_keepa: useRealKeepa }),
+    });
+
+    state.settings = result;
+    state.keepaStatus = await api("/keepa/status");
+    fillForm(document.querySelector("#pipeline-settings-form"), result);
+    renderKeepaModeBadge();
+    showAlert(t("message.saved"));
+  } catch (error) {
+    toggle.checked = !useRealKeepa;
+    showAlert(error.message, true);
+  } finally {
+    toggle.disabled = false;
   }
 }
 
@@ -1756,6 +1987,7 @@ async function runSupplierResearch(supplierId, button) {
     await Promise.all([
       loadSummary(),
       loadResearch(),
+      loadKeepa(),
       loadDeals(),
       loadSuppliersDashboard(),
       loadSupplierDetail(supplierId, { silent: true }),
@@ -1784,8 +2016,33 @@ async function saveForm(form, endpoint) {
   });
 
   fillForm(form, result);
+  if (form.id === "pipeline-settings-form") {
+    state.settings = result;
+    state.keepaStatus = await api("/keepa/status");
+    renderKeepaModeBadge();
+  }
   showAlert(t("message.saved"));
   await loadSummary();
+}
+
+async function resetResearchRules(button) {
+  button.disabled = true;
+
+  try {
+    const result = await api(scopedPath("/config/research-rules/reset"), {
+      method: "POST",
+    });
+    state.rules = result;
+    fillForm(document.querySelector("#research-rules-form"), result);
+    renderRuleHelpButtons();
+    renderResearchRulesActions();
+    showAlert(t("message.rulesReset"));
+    await loadSummary();
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function setImportDraft(draft) {
@@ -2051,13 +2308,48 @@ function bindActions() {
     }
 
     try {
-      await Promise.all([loadSummary(), loadDeals(), loadResearch()]);
+      await Promise.all([
+        loadSummary(),
+        loadDeals(),
+        loadResearch(),
+        loadKeepa(),
+        loadConfig(),
+      ]);
     } catch (error) {
       showAlert(error.message, true);
     }
   });
   document.querySelector("#run-batch-button").addEventListener("click", runBatch);
-  document.querySelector("#run-research-button").addEventListener("click", runResearch);
+  document.querySelector("#run-research-button").addEventListener("click", (event) => {
+    runResearch(event.currentTarget);
+  });
+  document.querySelector("#run-keepa-button").addEventListener("click", (event) => {
+    runKeepa(event.currentTarget);
+  });
+  document.querySelector("#keepa-real-toggle").addEventListener("change", (event) => {
+    saveKeepaMode(event.currentTarget.checked, event.currentTarget);
+  });
+  document.querySelector(".overview-actions").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-overview-action]");
+
+    if (!button) return;
+
+    const action = button.dataset.overviewAction;
+
+    if (action === "upload" || action === "pipeline") {
+      navigateToView(action);
+      return;
+    }
+
+    if (action === "research") {
+      runResearch(button);
+      return;
+    }
+
+    if (action === "keepa") {
+      runKeepa(button);
+    }
+  });
   document.querySelector("#refresh-deals-button").addEventListener("click", loadDeals);
   document.querySelector("#refresh-issues-button").addEventListener("click", loadSummary);
   document.querySelector("#pipeline-issues").addEventListener("click", (event) => {
@@ -2090,7 +2382,7 @@ function bindActions() {
     document.querySelector('[data-view="overview"]').click();
 
     try {
-      await Promise.all([loadSummary(), loadDeals(), loadResearch()]);
+      await Promise.all([loadSummary(), loadDeals(), loadResearch(), loadKeepa()]);
     } catch (error) {
       showAlert(error.message, true);
     }
@@ -2182,10 +2474,17 @@ function bindActions() {
   document.querySelector("#research-rules-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
-      await saveForm(event.currentTarget, "/config/research-rules");
+      await saveForm(
+        event.currentTarget,
+        scopedPath("/config/research-rules"),
+      );
+      await loadConfig();
     } catch (error) {
       showAlert(error.message, true);
     }
+  });
+  document.querySelector("#reset-research-rules-button").addEventListener("click", (event) => {
+    resetResearchRules(event.currentTarget);
   });
 
   document.querySelector("#upload-form").addEventListener("submit", async (event) => {
@@ -2232,7 +2531,13 @@ function bindActions() {
       setImportDraft(null);
       renderImportPreview(result);
       showAlert(t("message.savedImport", { count: result.offers_saved }));
-      await Promise.all([loadSummary(), loadResearch(), loadSuppliers(), loadSuppliersDashboard()]);
+      await Promise.all([
+        loadSummary(),
+        loadResearch(),
+        loadKeepa(),
+        loadSuppliers(),
+        loadSuppliersDashboard(),
+      ]);
     } catch (error) {
       showAlert(error.message, true);
     } finally {

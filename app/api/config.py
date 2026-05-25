@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.config_schemas import (
@@ -28,6 +28,8 @@ def serialize_pipeline_settings(settings):
 def serialize_research_rules(rules):
     return {
         "id": rules.id,
+        "supplier_id": rules.supplier_id,
+        "is_supplier_profile": rules.supplier_id is not None,
         "min_priority_score": float(rules.min_priority_score),
         "min_stock": rules.min_stock,
         "low_stock_threshold": rules.low_stock_threshold,
@@ -89,10 +91,22 @@ async def update_pipeline_settings(
 
 @router.get("/research-rules")
 async def get_research_rules(
+    supplier_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
 ):
     service = ConfigService(db)
-    rules = await service.get_research_rules()
+    rules = await service.get_research_rules(supplier_id=supplier_id)
+
+    return serialize_research_rules(rules)
+
+
+@router.post("/research-rules/reset")
+async def reset_research_rules(
+    supplier_id: int | None = Query(default=None, ge=1),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ConfigService(db)
+    rules = await service.reset_research_rules(supplier_id=supplier_id)
 
     return serialize_research_rules(rules)
 
@@ -100,11 +114,13 @@ async def get_research_rules(
 @router.patch("/research-rules")
 async def update_research_rules(
     values: ResearchRulesUpdate,
+    supplier_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
 ):
     service = ConfigService(db)
     rules = await service.update_research_rules(
-        values.model_dump(exclude_unset=True)
+        values.model_dump(exclude_unset=True),
+        supplier_id=supplier_id,
     )
 
     return serialize_research_rules(rules)

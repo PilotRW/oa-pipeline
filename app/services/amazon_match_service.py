@@ -30,7 +30,9 @@ class AmazonMatchService:
             settings = await config_service.get_pipeline_settings()
 
         if min_priority_score is None:
-            rules = await config_service.get_research_rules()
+            rules = await config_service.get_research_rules(
+                supplier_id=supplier_id
+            )
 
         batch_limit = (
             limit

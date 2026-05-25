@@ -18,6 +18,29 @@ class KeepaService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_status(self) -> dict:
+        settings = await ConfigService(
+            self.db
+        ).get_pipeline_settings()
+        api_key_configured = KeepaMetricsClient.is_api_key_configured()
+
+        return {
+            "use_real_keepa": settings.use_real_keepa,
+            "default_marketplace": settings.default_marketplace,
+            "api_key_configured": api_key_configured,
+            "can_run_real": settings.use_real_keepa and api_key_configured,
+            "data_source": (
+                "keepa_real"
+                if settings.use_real_keepa
+                else "keepa_mock"
+            ),
+            "status": (
+                "ready"
+                if not settings.use_real_keepa or api_key_configured
+                else "not_configured"
+            ),
+        }
+
     async def create_pending_metrics(
         self,
         limit: int | None = None,
@@ -217,6 +240,7 @@ class KeepaService:
                 "processed_count": processed,
                 "data_source": "keepa_real",
                 "not_found_count": not_found,
+                "status": "ok",
             }
 
         for metric, match, queue_item in rows:
@@ -242,6 +266,7 @@ class KeepaService:
         return {
             "processed_count": processed,
             "data_source": "keepa_mock",
+            "status": "ok",
         }
 
     async def list_metrics(
@@ -308,6 +333,11 @@ class KeepaService:
                 "amazon_in_stock": m.amazon_in_stock,
                 "estimated_monthly_sales": m.estimated_monthly_sales,
                 "data_status": m.data_status,
+                "data_source": (
+                    (m.raw_data or {}).get("source")
+                    if m.raw_data
+                    else None
+                ),
             }
             for m, supplier_name in rows
         ]

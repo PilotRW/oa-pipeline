@@ -13,16 +13,24 @@ class KeepaConfigurationError(ValueError):
 
 
 class KeepaMetricsClient:
+    @staticmethod
+    def is_api_key_configured(
+        api_key: str | None = None,
+    ) -> bool:
+        key = api_key or settings.KEEPA_API_KEY
+
+        return bool(
+            key
+            and key != "your_keepa_api_key_here"
+        )
+
     def __init__(
         self,
         api_key: str | None = None,
     ):
         self.api_key = api_key or settings.KEEPA_API_KEY
 
-        if (
-            not self.api_key
-            or self.api_key == "your_keepa_api_key_here"
-        ):
+        if not self.is_api_key_configured(self.api_key):
             raise KeepaConfigurationError(
                 "KEEPA_API_KEY is not configured"
             )

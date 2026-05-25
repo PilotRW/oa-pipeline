@@ -48,6 +48,15 @@ async def process_pending_keepa_metrics(
     }
 
 
+@router.get("/status")
+async def get_keepa_status(
+    db: AsyncSession = Depends(get_db),
+):
+    service = KeepaService(db)
+
+    return await service.get_status()
+
+
 @router.get("/")
 async def list_keepa_metrics(
     data_status: str | None = Query(default=None),

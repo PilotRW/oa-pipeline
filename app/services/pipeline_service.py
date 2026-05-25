@@ -19,7 +19,9 @@ class PipelineService:
         supplier_id: int | None = None,
     ) -> dict:
         settings = await self.config_service.get_pipeline_settings()
-        rules = await self.config_service.get_research_rules()
+        rules = await self.config_service.get_research_rules(
+            supplier_id=supplier_id
+        )
 
         batch_limit = (
             limit
@@ -90,7 +92,9 @@ class PipelineService:
         supplier_id: int | None = None,
     ) -> dict:
         settings = await self.config_service.get_pipeline_settings()
-        rules = await self.config_service.get_research_rules()
+        rules = await self.config_service.get_research_rules(
+            supplier_id=supplier_id
+        )
 
         batch_limit = (
             limit
