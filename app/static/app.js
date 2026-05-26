@@ -9,8 +9,11 @@ const state = {
   supplierDetail: null,
   supplierId: localStorage.getItem("oaSupplierId") || "",
   importDraft: null,
+  importFiltersConfirmed: false,
   importPreview: null,
   issueExport: null,
+  lookupPreview: null,
+  lookupPlanDirty: false,
   language: localStorage.getItem("oaLanguage") || "en",
   activeView: "overview",
 };
@@ -18,8 +21,10 @@ const state = {
 const translations = {
   en: {
     "action.populate": "Populate",
+    "action.applyFilters": "Apply filters preview",
     "action.process": "Process",
     "action.preview": "Preview",
+    "action.updateLookupPlan": "Apply research criteria",
     "action.refresh": "Refresh",
     "action.runBatch": "Run batch",
     "action.runKeepa": "Run Keepa",
@@ -51,6 +56,10 @@ const translations = {
     "field.excludeAmazonStock": "Exclude Amazon stock",
     "field.feedFile": "CSV or Excel file",
     "field.file": "File",
+    "field.filterBrands": "Exclude brands",
+    "field.filterKeywords": "Exclude title keywords",
+    "field.excludeMissingEan": "Exclude missing EAN",
+    "field.excludeNonNew": "Exclude non-new / refurbished",
     "field.fulfillmentFee": "Fulfillment fee",
     "field.highStock": "High stock",
     "field.lowStock": "Low stock",
@@ -59,6 +68,7 @@ const translations = {
     "field.mediumCostMax": "Medium cost max",
     "field.mediumStock": "Medium stock",
     "field.minCost": "Min cost",
+    "field.maxCost": "Max cost",
     "field.minMonthlySales": "Min monthly sales",
     "field.minPriority": "Min priority",
     "field.minProfit": "Min profit",
@@ -99,7 +109,11 @@ const translations = {
     "message.keepaRunWithSource": "Keepa completed via {source}: {created} queued, {processed} processed",
     "message.keepaNotConfigured": "Real Keepa is enabled, but KEEPA_API_KEY is not configured",
     "message.researchRun": "Research completed: {count} matches processed",
+    "message.lookupPlanHint": "These criteria define the next research run. Applying them updates the plan only; it does not call external APIs.",
+    "message.lookupFilterResult": "{eligible} eligible, {batch} in next lookup batch",
     "message.previewReady": "Preview ready: {count} rows",
+    "message.importFilterResult": "{after} of {before} rows will be imported",
+    "message.filteredPreviewReady": "Filtered preview ready: {count} rows",
     "message.saved": "Saved",
     "message.rulesReset": "Rules reset",
     "message.savedImport": "Saved {count} offers",
@@ -127,6 +141,9 @@ const translations = {
     "panel.supplierDetails": "Supplier Details",
     "panel.supplierManagement": "Supplier Management",
     "panel.importHistory": "Import History",
+    "panel.importFilters": "Import Filters",
+    "panel.externalLookupPreview": "Research lookup plan",
+    "panel.lookupSample": "Lookup sample",
     "panel.keepaMetrics": "Keepa Metrics",
     "panel.offerStats": "Offer Stats",
     "panel.recentOffers": "Recent Offers",
@@ -139,6 +156,9 @@ const translations = {
     "summary.amazonMatches": "Amazon Matches",
     "summary.dealCandidates": "Deal Candidates",
     "summary.keepaMetrics": "Keepa Metrics",
+    "summary.eligibleExternal": "Eligible",
+    "summary.willRequest": "Will request",
+    "summary.estimatedRequests": "Estimated API calls",
     "summary.researchQueue": "Research Queue",
     "issue.amazonNotFound": "Amazon not found",
     "issue.available": "Available",
@@ -166,6 +186,7 @@ const translations = {
     "table.sales": "Sales",
     "table.salesRank": "Sales rank",
     "table.source": "Source",
+    "table.keywords": "Keywords",
     "table.stock": "Stock",
     "table.status": "Status",
     "table.supplier": "Supplier",
@@ -180,6 +201,8 @@ const translations = {
     "table.title": "Title",
     "table.visibility": "Visibility",
     "status.hidden": "Hidden",
+    "status.lookupPlanApplied": "Criteria applied to research plan",
+    "status.lookupPlanChanged": "Criteria changed, apply to refresh the plan",
     "status.visible": "Visible",
     "metric.avgCost": "Avg cost",
     "metric.createdAt": "Created at",
@@ -191,8 +214,10 @@ const translations = {
   },
   de: {
     "action.populate": "Befüllen",
+    "action.applyFilters": "Filtervorschau anwenden",
     "action.process": "Verarbeiten",
     "action.preview": "Vorschau",
+    "action.updateLookupPlan": "Recherchekriterien anwenden",
     "action.refresh": "Aktualisieren",
     "action.runBatch": "Batch starten",
     "action.runKeepa": "Keepa starten",
@@ -224,6 +249,10 @@ const translations = {
     "field.excludeAmazonStock": "Amazon-Bestand ausschließen",
     "field.feedFile": "CSV- oder Excel-Datei",
     "field.file": "Datei",
+    "field.filterBrands": "Marken ausschließen",
+    "field.filterKeywords": "Titel-Keywords ausschließen",
+    "field.excludeMissingEan": "Fehlende EAN ausschließen",
+    "field.excludeNonNew": "Nicht neue / refurbished ausschließen",
     "field.fulfillmentFee": "Fulfillment-Gebühr",
     "field.highStock": "Hoher Bestand",
     "field.lowStock": "Niedriger Bestand",
@@ -232,6 +261,7 @@ const translations = {
     "field.mediumCostMax": "Mittlere Kosten max.",
     "field.mediumStock": "Mittlerer Bestand",
     "field.minCost": "Min. Kosten",
+    "field.maxCost": "Max. Kosten",
     "field.minMonthlySales": "Min. Monatsverkäufe",
     "field.minPriority": "Min. Priorität",
     "field.minProfit": "Min. Gewinn",
@@ -272,7 +302,11 @@ const translations = {
     "message.keepaRunWithSource": "Keepa fertig über {source}: {created} vorbereitet, {processed} verarbeitet",
     "message.keepaNotConfigured": "Echtes Keepa ist aktiv, aber KEEPA_API_KEY ist nicht konfiguriert",
     "message.researchRun": "Recherche fertig: {count} Matches verarbeitet",
+    "message.lookupPlanHint": "Diese Kriterien definieren den nächsten Recherchelauf. Anwenden aktualisiert nur den Plan und ruft keine externen APIs auf.",
+    "message.lookupFilterResult": "{eligible} geeignet, {batch} im nächsten Lookup-Batch",
     "message.previewReady": "Vorschau bereit: {count} Zeilen",
+    "message.importFilterResult": "{after} von {before} Zeilen werden importiert",
+    "message.filteredPreviewReady": "Gefilterte Vorschau bereit: {count} Zeilen",
     "message.saved": "Gespeichert",
     "message.rulesReset": "Regeln zurückgesetzt",
     "message.savedImport": "{count} Angebote gespeichert",
@@ -300,6 +334,9 @@ const translations = {
     "panel.supplierDetails": "Lieferanten-Details",
     "panel.supplierManagement": "Lieferantenverwaltung",
     "panel.importHistory": "Importhistorie",
+    "panel.importFilters": "Importfilter",
+    "panel.externalLookupPreview": "Recherche-Lookup-Plan",
+    "panel.lookupSample": "Lookup-Beispiele",
     "panel.keepaMetrics": "Keepa-Metriken",
     "panel.offerStats": "Angebotsstatistik",
     "panel.recentOffers": "Letzte Angebote",
@@ -312,6 +349,9 @@ const translations = {
     "summary.amazonMatches": "Amazon Matches",
     "summary.dealCandidates": "Deal-Kandidaten",
     "summary.keepaMetrics": "Keepa-Metriken",
+    "summary.eligibleExternal": "Geeignet",
+    "summary.willRequest": "Wird angefragt",
+    "summary.estimatedRequests": "Geschätzte API-Calls",
     "summary.researchQueue": "Recherche-Queue",
     "issue.amazonNotFound": "Amazon nicht gefunden",
     "issue.available": "Verfügbar",
@@ -339,6 +379,7 @@ const translations = {
     "table.sales": "Verkäufe",
     "table.salesRank": "Sales Rank",
     "table.source": "Quelle",
+    "table.keywords": "Keywords",
     "table.stock": "Bestand",
     "table.status": "Status",
     "table.supplier": "Lieferant",
@@ -353,6 +394,8 @@ const translations = {
     "table.title": "Titel",
     "table.visibility": "Sichtbarkeit",
     "status.hidden": "Ausgeblendet",
+    "status.lookupPlanApplied": "Kriterien im Rechercheplan angewendet",
+    "status.lookupPlanChanged": "Kriterien geändert, anwenden zum Aktualisieren",
     "status.visible": "Sichtbar",
     "metric.avgCost": "Ø Kosten",
     "metric.createdAt": "Erstellt am",
@@ -364,8 +407,10 @@ const translations = {
   },
   uk: {
     "action.populate": "Заповнити",
+    "action.applyFilters": "Застосувати фільтри для превʼю",
     "action.process": "Обробити",
     "action.preview": "Превʼю",
+    "action.updateLookupPlan": "Застосувати критерії research",
     "action.refresh": "Оновити",
     "action.runBatch": "Запустити batch",
     "action.runKeepa": "Запустити Keepa",
@@ -397,6 +442,10 @@ const translations = {
     "field.excludeAmazonStock": "Виключати Amazon in stock",
     "field.feedFile": "CSV або Excel файл",
     "field.file": "Файл",
+    "field.filterBrands": "Виключити бренди",
+    "field.filterKeywords": "Виключити keywords у назві",
+    "field.excludeMissingEan": "Виключити рядки без EAN",
+    "field.excludeNonNew": "Виключити не нові / refurbished",
     "field.fulfillmentFee": "Fulfillment fee",
     "field.highStock": "Високий stock",
     "field.lowStock": "Низький stock",
@@ -405,6 +454,7 @@ const translations = {
     "field.mediumCostMax": "Середня ціна макс.",
     "field.mediumStock": "Середній stock",
     "field.minCost": "Мін. ціна",
+    "field.maxCost": "Макс. ціна",
     "field.minMonthlySales": "Мін. продажі/міс.",
     "field.minPriority": "Мін. пріоритет",
     "field.minProfit": "Мін. profit",
@@ -445,7 +495,11 @@ const translations = {
     "message.keepaRunWithSource": "Keepa завершено через {source}: {created} поставлено в чергу, {processed} оброблено",
     "message.keepaNotConfigured": "Real Keepa увімкнена, але KEEPA_API_KEY не налаштований",
     "message.researchRun": "Research завершено: оброблено {count} matches",
+    "message.lookupPlanHint": "Ці критерії задають наступний research run. Застосування оновлює тільки план і не викликає зовнішні API.",
+    "message.lookupFilterResult": "{eligible} підходять, {batch} у наступному lookup batch",
     "message.previewReady": "Превʼю готове: {count} рядків",
+    "message.importFilterResult": "Буде імпортовано {after} з {before} рядків",
+    "message.filteredPreviewReady": "Відфільтроване превʼю готове: {count} рядків",
     "message.saved": "Збережено",
     "message.rulesReset": "Правила скинуто",
     "message.savedImport": "Збережено {count} offers",
@@ -473,6 +527,9 @@ const translations = {
     "panel.supplierDetails": "Деталі постачальника",
     "panel.supplierManagement": "Керування постачальниками",
     "panel.importHistory": "Історія імпортів",
+    "panel.importFilters": "Фільтри імпорту",
+    "panel.externalLookupPreview": "План research lookup",
+    "panel.lookupSample": "Приклад lookup",
     "panel.keepaMetrics": "Keepa метрики",
     "panel.offerStats": "Статистика offers",
     "panel.recentOffers": "Останні offers",
@@ -485,6 +542,9 @@ const translations = {
     "summary.amazonMatches": "Amazon збіги",
     "summary.dealCandidates": "Кандидати угод",
     "summary.keepaMetrics": "Keepa метрики",
+    "summary.eligibleExternal": "Підходять",
+    "summary.willRequest": "Піде в запит",
+    "summary.estimatedRequests": "Оцінка API calls",
     "summary.researchQueue": "Черга дослідження",
     "issue.amazonNotFound": "Amazon не знайдено",
     "issue.available": "Доступно",
@@ -512,6 +572,7 @@ const translations = {
     "table.sales": "Продажі",
     "table.salesRank": "Sales rank",
     "table.source": "Джерело",
+    "table.keywords": "Keywords",
     "table.stock": "Stock",
     "table.status": "Статус",
     "table.supplier": "Постачальник",
@@ -526,6 +587,8 @@ const translations = {
     "table.title": "Назва",
     "table.visibility": "Видимість",
     "status.hidden": "Приховано",
+    "status.lookupPlanApplied": "Критерії застосовані до research plan",
+    "status.lookupPlanChanged": "Критерії змінені, застосуй щоб оновити план",
     "status.visible": "Видимий",
     "metric.avgCost": "Середня ціна",
     "metric.createdAt": "Створено",
@@ -787,6 +850,21 @@ function scopedPath(path) {
   const separator = path.includes("?") ? "&" : "?";
 
   return `${path}${separator}supplier_id=${encodeURIComponent(state.supplierId)}`;
+}
+
+function withQuery(path, params = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    query.set(key, value);
+  });
+
+  const queryString = query.toString();
+
+  if (!queryString) return path;
+
+  return `${path}${path.includes("?") ? "&" : "?"}${queryString}`;
 }
 
 function showAlert(message, isError = false) {
@@ -1770,6 +1848,7 @@ async function loadConfig() {
   fillForm(document.querySelector("#research-rules-form"), rules);
   renderResearchRulesActions();
   renderKeepaModeBadge();
+  renderResearchControls();
 }
 
 async function loadDeals() {
@@ -1787,10 +1866,14 @@ async function loadDeals() {
 }
 
 async function loadResearch() {
-  const [queue, matches] = await Promise.all([
+  const researchParams = researchLookupParams();
+  const [queue, matches, lookupPreview] = await Promise.all([
     api(scopedPath("/research-queue/?limit=12")),
     api(scopedPath("/amazon-matches/?limit=12")),
+    api(scopedPath(withQuery("/pipeline/external-lookup-preview", researchParams))),
   ]);
+
+  renderLookupPreview(lookupPreview);
 
   renderRows("#queue-table", queue, [
     { key: "ean" },
@@ -1813,6 +1896,96 @@ async function loadResearch() {
     },
     { key: "match_confidence", render: (row) => formatNumber(row.match_confidence) },
   ]);
+}
+
+function researchLookupParams() {
+  const limit = document.querySelector("#lookup-limit")?.value;
+  const minPriorityScore = document.querySelector("#lookup-min-priority")?.value;
+
+  return {
+    limit,
+    min_priority_score: minPriorityScore,
+    exclude_brands: selectedFilterValues("[data-lookup-filter-brand]"),
+    exclude_title_keywords: selectedFilterValues("[data-lookup-filter-keyword]"),
+  };
+}
+
+function renderResearchControls(preview = state.lookupPreview) {
+  const limitInput = document.querySelector("#lookup-limit");
+  const minPriorityInput = document.querySelector("#lookup-min-priority");
+
+  if (!limitInput || !minPriorityInput) return;
+
+  const settings = preview?.settings || {};
+
+  limitInput.placeholder = settings.limit ?? state.settings?.default_batch_size ?? "";
+  minPriorityInput.placeholder = settings.min_priority_score ?? state.rules?.min_priority_score ?? "";
+  renderLookupPlanStatus();
+}
+
+function renderLookupPlanStatus() {
+  const status = document.querySelector("#lookup-plan-status");
+
+  if (!status) return;
+
+  status.textContent = state.lookupPlanDirty
+    ? t("status.lookupPlanChanged")
+    : t("status.lookupPlanApplied");
+  status.className = `badge ${state.lookupPlanDirty ? "warn" : "ok"}`;
+}
+
+function markLookupPlanDirty() {
+  state.lookupPlanDirty = true;
+  renderLookupPlanStatus();
+}
+
+function renderCountList(items = []) {
+  if (!items.length) return t("message.noRecords");
+
+  return items
+    .map((item) => `${escapeHtml(item.value)}: ${formatNumber(item.count)}`)
+    .join(" | ");
+}
+
+function renderLookupPreview(preview = {}) {
+  const grid = document.querySelector("#lookup-preview");
+
+  if (!grid) return;
+
+  state.lookupPreview = preview;
+  state.lookupPlanDirty = false;
+  renderResearchControls(preview);
+  renderLookupFilters(preview);
+  renderRows("#lookup-sample-table", preview.sample || [], [
+    { key: "supplier_name" },
+    { key: "ean" },
+    { key: "brand" },
+    { key: "title" },
+    { key: "priority_score", render: (row) => formatNumber(row.priority_score) },
+  ]);
+
+  grid.innerHTML = `
+    <article class="metric">
+      <span>${t("summary.eligibleExternal")}</span>
+      <strong>${formatNumber(preview.total_eligible || 0)}</strong>
+      <small>${t("field.minPriority")}: ${formatNumber(preview.min_priority_score)}</small>
+    </article>
+    <article class="metric">
+      <span>${t("summary.willRequest")}</span>
+      <strong>${formatNumber(preview.will_request || 0)}</strong>
+      <small>${t("field.batchSize")}: ${formatNumber(preview.limit)}</small>
+    </article>
+    <article class="metric">
+      <span>${t("summary.estimatedRequests")}</span>
+      <strong>${formatNumber(preview.estimated_external_requests || 0)}</strong>
+      <small>${preview.settings?.use_real_keepa ? "Keepa" : "Mock"}</small>
+    </article>
+    <article class="metric lookup-list">
+      <span>${t("table.brand")}</span>
+      <strong>${renderCountList(preview.top_brands)}</strong>
+      <small>${t("table.keywords")}: ${renderCountList(preview.top_title_keywords)}</small>
+    </article>
+  `;
 }
 
 async function loadKeepa() {
@@ -1887,11 +2060,12 @@ async function runBatch() {
 
 async function runResearch(triggerButton = null) {
   const button = triggerButton || document.querySelector("#run-research-button");
+  const researchParams = researchLookupParams();
 
   button.disabled = true;
 
   try {
-    const result = await api(scopedPath("/pipeline/run-research"), {
+    const result = await api(scopedPath(withQuery("/pipeline/run-research", researchParams)), {
       method: "POST",
     });
     showAlert(t("message.researchRun", {
@@ -1978,7 +2152,7 @@ async function runSupplierResearch(supplierId, button) {
 
   try {
     await setSupplierScope(supplierId);
-    const result = await api(scopedPath("/pipeline/run-research"), {
+    const result = await api(scopedPath(withQuery("/pipeline/run-research", researchLookupParams())), {
       method: "POST",
     });
     showAlert(t("message.researchRun", {
@@ -2047,12 +2221,14 @@ async function resetResearchRules(button) {
 
 function setImportDraft(draft) {
   state.importDraft = draft;
+  state.importFiltersConfirmed = Boolean(draft?.is_filtered_preview);
   document.querySelector("#save-import-button").classList.toggle(
     "hidden",
-    !draft,
+    !draft || !state.importFiltersConfirmed,
   );
 
   if (!draft) {
+    state.importFiltersConfirmed = false;
     state.importPreview = null;
     document.querySelector("#upload-preview").classList.add("hidden");
   }
@@ -2095,6 +2271,7 @@ function renderImportPreview(result) {
   `;
 
   renderQualityChecks(result.quality_report || {});
+  renderImportFilters(result);
 
   tableHead.innerHTML = `
     <tr>
@@ -2134,6 +2311,252 @@ function renderImportPreview(result) {
     .join("");
 
   preview.classList.remove("hidden");
+}
+
+function selectedFilterValues(selector) {
+  return [...document.querySelectorAll(`${selector}:checked`)]
+    .map((element) => element.value);
+}
+
+function importFilterPayload() {
+  const minPrice = document.querySelector("#import-filter-min-price")?.value;
+  const maxPrice = document.querySelector("#import-filter-max-price")?.value;
+
+  return {
+    excluded_brands: selectedFilterValues("[data-import-filter-brand]"),
+    excluded_keywords: selectedFilterValues("[data-import-filter-keyword]"),
+    exclude_missing_ean: Boolean(
+      document.querySelector("#import-filter-missing-ean")?.checked,
+    ),
+    exclude_non_new: Boolean(
+      document.querySelector("#import-filter-non-new")?.checked,
+    ),
+    min_price: minPrice ? Number(minPrice) : null,
+    max_price: maxPrice ? Number(maxPrice) : null,
+  };
+}
+
+function estimateImportFilterResult() {
+  const summary = document.querySelector("#import-filter-summary");
+  const result = state.importPreview;
+
+  if (!summary || !result) return;
+
+  if (result.filter_summary) {
+    summary.innerHTML = `
+      <article>
+        <span>${t("field.rows")}</span>
+        <strong>${t("message.importFilterResult", {
+          before: formatNumber(result.filter_summary.rows_before),
+          after: formatNumber(result.filter_summary.rows_after),
+        })}</strong>
+      </article>
+    `;
+    state.importFiltersConfirmed = Boolean(result.is_filtered_preview);
+    document.querySelector("#save-import-button").classList.toggle(
+      "hidden",
+      !state.importDraft || !state.importFiltersConfirmed,
+    );
+    return;
+  }
+
+  const filters = importFilterPayload();
+  const suggestions = result.filter_suggestions || {};
+  const rows = result.rows || 0;
+
+  const estimatedExcluded = [
+    ...(suggestions.brands || [])
+      .filter((item) => filters.excluded_brands.includes(item.value))
+      .map((item) => item.count),
+    ...(suggestions.title_keywords || [])
+      .filter((item) => filters.excluded_keywords.includes(item.value))
+      .map((item) => item.count),
+    filters.exclude_missing_ean
+      ? suggestions.missing_ean_count || 0
+      : 0,
+    filters.exclude_non_new
+      ? suggestions.non_new_count || 0
+      : 0,
+  ].reduce((total, count) => total + count, 0);
+
+  const after = Math.max(0, rows - estimatedExcluded);
+
+  summary.innerHTML = `
+    <article>
+      <span>${t("field.rows")}</span>
+      <strong>${t("message.importFilterResult", {
+        before: formatNumber(rows),
+        after: formatNumber(after),
+      })}</strong>
+    </article>
+  `;
+
+  state.importFiltersConfirmed = Boolean(result.is_filtered_preview);
+  document.querySelector("#save-import-button").classList.toggle(
+    "hidden",
+    !state.importDraft || !state.importFiltersConfirmed,
+  );
+}
+
+function renderFilterChoices(items, attribute, emptyLabel, selectedValues = []) {
+  const selected = new Set(selectedValues);
+  const choices = [...(items || [])];
+
+  selectedValues.forEach((value) => {
+    if (!choices.some((item) => item.value === value)) {
+      choices.unshift({ value, count: 0 });
+    }
+  });
+
+  if (!choices.length) {
+    return `<p class="muted-note">${emptyLabel}</p>`;
+  }
+
+  return choices
+    .map((item) => `
+      <label class="filter-choice">
+        <input ${attribute} type="checkbox" value="${escapeHtml(item.value)}" ${selected.has(item.value) ? "checked" : ""}>
+        <span>${escapeHtml(item.value)}</span>
+        <strong>${formatNumber(item.count)}</strong>
+      </label>
+    `)
+    .join("");
+}
+
+function renderImportFilters(result) {
+  const controls = document.querySelector("#import-filter-controls");
+  const suggestions = result.filter_suggestions || {};
+
+  if (!controls) return;
+
+  controls.innerHTML = `
+    <section class="filter-panel">
+      <h5>${t("field.filterBrands")}</h5>
+      <div class="filter-choice-list">
+        ${renderFilterChoices(suggestions.brands, "data-import-filter-brand", t("message.noRecords"))}
+      </div>
+    </section>
+    <section class="filter-panel">
+      <h5>${t("field.filterKeywords")}</h5>
+      <div class="filter-choice-list">
+        ${renderFilterChoices(suggestions.title_keywords, "data-import-filter-keyword", t("message.noRecords"))}
+      </div>
+    </section>
+    <section class="filter-panel">
+      <h5>${t("field.rows")}</h5>
+      <label class="filter-choice">
+        <input id="import-filter-missing-ean" type="checkbox">
+        <span>${t("field.excludeMissingEan")}</span>
+        <strong>${formatNumber(suggestions.missing_ean_count || 0)}</strong>
+      </label>
+      <label class="filter-choice">
+        <input id="import-filter-non-new" type="checkbox">
+        <span>${t("field.excludeNonNew")}</span>
+        <strong>${formatNumber(suggestions.non_new_count || 0)}</strong>
+      </label>
+      <div class="price-filter-row">
+        <label>
+          <span>${t("field.minCost")}</span>
+          <input id="import-filter-min-price" type="number" min="0" step="0.01" placeholder="${formatNumber(suggestions.price?.min)}">
+        </label>
+        <label>
+          <span>${t("field.maxCost")}</span>
+          <input id="import-filter-max-price" type="number" min="0" step="0.01" placeholder="${formatNumber(suggestions.price?.max)}">
+        </label>
+      </div>
+    </section>
+  `;
+
+  controls.querySelectorAll("input").forEach((input) => {
+    input.addEventListener("input", () => {
+      state.importFiltersConfirmed = false;
+      estimateImportFilterResult();
+    });
+    input.addEventListener("change", () => {
+      state.importFiltersConfirmed = false;
+      estimateImportFilterResult();
+    });
+  });
+
+  estimateImportFilterResult();
+}
+
+function renderLookupFilters(preview) {
+  const summary = document.querySelector("#lookup-filter-summary");
+  const controls = document.querySelector("#lookup-filter-controls");
+  const filters = preview.external_filters || {};
+  const excludedBrands = filters.exclude_brands || [];
+  const excludedKeywords = filters.exclude_title_keywords || [];
+
+  if (!summary || !controls) return;
+
+  summary.innerHTML = `
+    <article>
+      <span>${t("field.rows")}</span>
+      <strong>${t("message.lookupFilterResult", {
+        eligible: formatNumber(preview.total_eligible || 0),
+        batch: formatNumber(preview.will_request || 0),
+      })}</strong>
+    </article>
+    <article>
+      <span>${t("summary.estimatedRequests")}</span>
+      <strong>${formatNumber(preview.estimated_external_requests || 0)}</strong>
+    </article>
+  `;
+
+  controls.innerHTML = `
+    <section class="filter-panel">
+      <h5>${t("field.filterBrands")}</h5>
+      <div class="filter-choice-list">
+        ${renderFilterChoices(
+          preview.top_brands,
+          "data-lookup-filter-brand",
+          t("message.noRecords"),
+          excludedBrands,
+        )}
+      </div>
+    </section>
+    <section class="filter-panel">
+      <h5>${t("field.filterKeywords")}</h5>
+      <div class="filter-choice-list">
+        ${renderFilterChoices(
+          preview.top_title_keywords,
+          "data-lookup-filter-keyword",
+          t("message.noRecords"),
+          excludedKeywords,
+        )}
+      </div>
+    </section>
+  `;
+
+  controls.querySelectorAll("input").forEach((input) => {
+    input.addEventListener("input", markLookupPlanDirty);
+    input.addEventListener("change", markLookupPlanDirty);
+  });
+}
+
+async function applyImportFilters(button) {
+  if (!state.importDraft?.import_token) return;
+
+  button.disabled = true;
+
+  try {
+    const result = await api("/upload/filter-preview", {
+      method: "POST",
+      body: JSON.stringify({
+        import_token: state.importDraft.import_token,
+        filters: importFilterPayload(),
+      }),
+    });
+
+    setImportDraft(result);
+    renderImportPreview(result);
+    showAlert(t("message.filteredPreviewReady", { count: result.rows }));
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function closeIssueModal() {
@@ -2326,6 +2749,20 @@ function bindActions() {
   document.querySelector("#run-keepa-button").addEventListener("click", (event) => {
     runKeepa(event.currentTarget);
   });
+  document.querySelector("#refresh-lookup-preview-button").addEventListener("click", () => {
+    loadResearch().catch((error) => showAlert(error.message, true));
+  });
+  document.querySelector("#apply-lookup-controls-button").addEventListener("click", () => {
+    loadResearch().catch((error) => showAlert(error.message, true));
+  });
+  document.querySelectorAll("#lookup-limit, #lookup-min-priority").forEach((input) => {
+    input.addEventListener("input", markLookupPlanDirty);
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      loadResearch().catch((error) => showAlert(error.message, true));
+    });
+  });
   document.querySelector("#keepa-real-toggle").addEventListener("change", (event) => {
     saveKeepaMode(event.currentTarget.checked, event.currentTarget);
   });
@@ -2512,6 +2949,10 @@ function bindActions() {
     } catch (error) {
       showAlert(error.message, true);
     }
+  });
+
+  document.querySelector("#apply-import-filters-button").addEventListener("click", (event) => {
+    applyImportFilters(event.currentTarget);
   });
 
   document.querySelector("#save-import-button").addEventListener("click", async (event) => {

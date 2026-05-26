@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
     <link rel="icon" type="image/png" href="/ui/favicon.png">
-    <link rel="stylesheet" href="/ui/styles.css?v=20260525-19">
+    <link rel="stylesheet" href="/ui/styles.css?v=20260526-10">
   </head>
   <body>
     <div class="app-shell">
@@ -205,6 +205,47 @@
         </section>
 
         <section class="view" id="view-research">
+          <section class="panel lookup-preview-panel">
+            <div class="panel-header">
+              <h3 data-i18n="panel.externalLookupPreview">External Lookup Preview</h3>
+              <button class="ghost-button" id="refresh-lookup-preview-button" data-i18n="action.refresh" type="button">Refresh</button>
+            </div>
+            <div class="lookup-controls">
+              <label>
+                <span data-i18n="field.batchSize">Batch size</span>
+                <input id="lookup-limit" min="1" max="500" step="1" type="number">
+              </label>
+              <label>
+                <span data-i18n="field.minPriority">Min priority</span>
+                <input id="lookup-min-priority" min="0" step="1" type="number">
+              </label>
+              <button class="ghost-button" id="apply-lookup-controls-button" data-i18n="action.updateLookupPlan" type="button">Apply research criteria</button>
+            </div>
+            <div class="lookup-plan-note">
+              <span data-i18n="message.lookupPlanHint">These criteria define the next research run. Applying them updates the plan only; it does not call external APIs.</span>
+              <span class="badge ok" id="lookup-plan-status" data-i18n="status.lookupPlanApplied">Criteria applied to research plan</span>
+            </div>
+            <div class="filter-summary" id="lookup-filter-summary"></div>
+            <div class="filter-controls" id="lookup-filter-controls"></div>
+            <div class="lookup-preview-grid" id="lookup-preview"></div>
+            <div class="lookup-sample">
+              <h4 data-i18n="panel.lookupSample">Lookup sample</h4>
+              <div class="table-wrap compact">
+                <table>
+                  <thead>
+                    <tr>
+                      <th data-i18n="table.supplier">Supplier</th>
+                      <th>EAN</th>
+                      <th data-i18n="table.brand">Brand</th>
+                      <th data-i18n="table.title">Title</th>
+                      <th data-i18n="table.priority">Priority</th>
+                    </tr>
+                  </thead>
+                  <tbody id="lookup-sample-table"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
           <div class="split-layout">
             <section class="panel">
               <div class="panel-header">
@@ -336,8 +377,17 @@
               </div>
 
               <div class="preview-section">
+                <h4 data-i18n="panel.importFilters">Import Filters</h4>
+                <div class="filter-summary" id="import-filter-summary"></div>
+                <div class="filter-controls" id="import-filter-controls"></div>
+                <div class="button-row">
+                  <button class="ghost-button" id="apply-import-filters-button" data-i18n="action.applyFilters" type="button">Apply filters preview</button>
+                </div>
+              </div>
+
+              <div class="preview-section">
                 <h4 data-i18n="panel.previewRows">Preview Rows</h4>
-                <div class="table-wrap">
+                <div class="table-wrap preview-table-wrap">
                   <table>
                     <thead id="preview-table-head"></thead>
                     <tbody id="preview-table-body"></tbody>
@@ -376,6 +426,6 @@
       </section>
     </div>
 
-    <script src="/ui/app.js?v=20260525-19"></script>
+    <script src="/ui/app.js?v=20260526-10"></script>
   </body>
 </html>

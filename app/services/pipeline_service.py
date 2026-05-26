@@ -90,6 +90,8 @@ class PipelineService:
         min_priority_score: float | None = None,
         limit: int | None = None,
         supplier_id: int | None = None,
+        exclude_brands: list[str] | None = None,
+        exclude_title_keywords: list[str] | None = None,
     ) -> dict:
         settings = await self.config_service.get_pipeline_settings()
         rules = await self.config_service.get_research_rules(
@@ -119,6 +121,8 @@ class PipelineService:
             min_priority_score=priority_score,
             limit=batch_limit,
             supplier_id=supplier_id,
+            exclude_brands=exclude_brands,
+            exclude_title_keywords=exclude_title_keywords,
         )
 
         amazon_processed = await amazon_service.process_pending_matches(
@@ -136,8 +140,60 @@ class PipelineService:
                 "use_real_keepa": settings.use_real_keepa,
                 "marketplace": settings.default_marketplace,
                 "supplier_id": supplier_id,
+                "external_filters": {
+                    "exclude_brands": amazon_service.normalize_filter_terms(
+                        exclude_brands
+                    ),
+                    "exclude_title_keywords": amazon_service.normalize_filter_terms(
+                        exclude_title_keywords
+                    ),
+                },
             },
             "queue_created": queue_created,
             "amazon_pending_created": amazon_pending_created,
             "amazon_processed": amazon_processed,
+        }
+
+    async def preview_external_lookup(
+        self,
+        min_priority_score: float | None = None,
+        limit: int | None = None,
+        supplier_id: int | None = None,
+        exclude_brands: list[str] | None = None,
+        exclude_title_keywords: list[str] | None = None,
+    ) -> dict:
+        settings = await self.config_service.get_pipeline_settings()
+        rules = await self.config_service.get_research_rules(
+            supplier_id=supplier_id
+        )
+        batch_limit = (
+            limit
+            if limit is not None
+            else settings.default_batch_size
+        )
+        priority_score = (
+            min_priority_score
+            if min_priority_score is not None
+            else float(rules.min_priority_score)
+        )
+
+        amazon_service = AmazonMatchService(self.db)
+        preview = await amazon_service.preview_pending_matches(
+            min_priority_score=priority_score,
+            limit=batch_limit,
+            supplier_id=supplier_id,
+            exclude_brands=exclude_brands,
+            exclude_title_keywords=exclude_title_keywords,
+        )
+
+        return {
+            "status": "ok",
+            "settings": {
+                "limit": batch_limit,
+                "min_priority_score": priority_score,
+                "use_real_keepa": settings.use_real_keepa,
+                "marketplace": settings.default_marketplace,
+                "supplier_id": supplier_id,
+            },
+            **preview,
         }

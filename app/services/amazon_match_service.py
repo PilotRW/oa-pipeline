@@ -1,6 +1,7 @@
 from datetime import datetime
+import re
 
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.amazon_product_match import AmazonProductMatch
@@ -16,11 +17,216 @@ class AmazonMatchService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    def normalize_filter_terms(
+        self,
+        values: list[str] | None = None,
+    ) -> list[str]:
+        terms = []
+
+        for value in values or []:
+            for part in str(value or "").split(","):
+                term = part.strip()
+
+                if term:
+                    terms.append(term)
+
+        return sorted(set(terms), key=str.casefold)
+
+    def pending_match_query(
+        self,
+        min_priority_score: float,
+        supplier_id: int | None = None,
+        exclude_brands: list[str] | None = None,
+        exclude_title_keywords: list[str] | None = None,
+    ):
+        excluded_brands = self.normalize_filter_terms(exclude_brands)
+        excluded_keywords = self.normalize_filter_terms(exclude_title_keywords)
+        existing_queue_ids_subquery = select(
+            AmazonProductMatch.queue_id
+        )
+
+        query = (
+            select(
+                OfferResearchQueue,
+                SupplierOffer,
+                Supplier.name.label("supplier_name"),
+            )
+            .join(
+                SupplierOffer,
+                SupplierOffer.id == OfferResearchQueue.supplier_offer_id,
+            )
+            .join(
+                Supplier,
+                Supplier.id == OfferResearchQueue.supplier_id,
+            )
+            .where(OfferResearchQueue.status == "needs_amazon_match")
+            .where(OfferResearchQueue.priority_score >= min_priority_score)
+            .where(OfferResearchQueue.id.not_in(existing_queue_ids_subquery))
+        )
+
+        if supplier_id is not None:
+            query = query.where(OfferResearchQueue.supplier_id == supplier_id)
+        else:
+            query = query.where(Supplier.is_visible.is_(True))
+
+        for brand in excluded_brands:
+            query = query.where(
+                (SupplierOffer.brand.is_(None))
+                | (~SupplierOffer.brand.ilike(f"%{brand}%"))
+            )
+
+        for keyword in excluded_keywords:
+            query = query.where(
+                (SupplierOffer.title.is_(None))
+                | (~SupplierOffer.title.ilike(f"%{keyword}%"))
+            )
+
+        return query
+
+    def title_keywords(
+        self,
+        titles: list[str | None],
+        limit: int = 12,
+    ) -> list[dict]:
+        counts: dict[str, int] = {}
+
+        for title in titles:
+            seen = set()
+
+            for token in re.findall(r"[A-Za-zÀ-ž0-9]+", str(title or "").lower()):
+                if len(token) < 4:
+                    continue
+
+                seen.add(token)
+
+            for token in seen:
+                counts[token] = counts.get(token, 0) + 1
+
+        return [
+            {
+                "value": value,
+                "count": count,
+            }
+            for value, count in sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )[:limit]
+        ]
+
+    async def preview_pending_matches(
+        self,
+        min_priority_score: float | None = None,
+        limit: int | None = None,
+        supplier_id: int | None = None,
+        exclude_brands: list[str] | None = None,
+        exclude_title_keywords: list[str] | None = None,
+    ) -> dict:
+        config_service = ConfigService(self.db)
+        settings = None
+        rules = None
+
+        if limit is None:
+            settings = await config_service.get_pipeline_settings()
+
+        if min_priority_score is None:
+            rules = await config_service.get_research_rules(
+                supplier_id=supplier_id
+            )
+
+        batch_limit = (
+            limit
+            if limit is not None
+            else settings.default_batch_size
+        )
+        priority_score = (
+            min_priority_score
+            if min_priority_score is not None
+            else float(rules.min_priority_score)
+        )
+        excluded_brands = self.normalize_filter_terms(exclude_brands)
+        excluded_keywords = self.normalize_filter_terms(exclude_title_keywords)
+
+        base_query = self.pending_match_query(
+            min_priority_score=priority_score,
+            supplier_id=supplier_id,
+            exclude_brands=excluded_brands,
+            exclude_title_keywords=excluded_keywords,
+        )
+        total_result = await self.db.execute(
+            select(func.count()).select_from(base_query.subquery())
+        )
+        total_eligible = int(total_result.scalar() or 0)
+
+        batch_query = (
+            base_query
+            .order_by(
+                OfferResearchQueue.priority_score.desc().nullslast(),
+                OfferResearchQueue.created_at.desc(),
+            )
+            .limit(batch_limit)
+        )
+        result = await self.db.execute(batch_query)
+        rows = result.all()
+
+        brands: dict[str, int] = {}
+        titles = []
+        sample = []
+
+        for queue_item, offer, supplier_name in rows:
+            if offer.brand:
+                brands[offer.brand] = brands.get(offer.brand, 0) + 1
+
+            titles.append(offer.title)
+
+            if len(sample) < 10:
+                sample.append(
+                    {
+                        "supplier_name": supplier_name,
+                        "ean": offer.ean,
+                        "brand": offer.brand,
+                        "title": offer.title,
+                        "priority_score": (
+                            float(queue_item.priority_score)
+                            if queue_item.priority_score is not None
+                            else None
+                        ),
+                    }
+                )
+
+        top_brands = [
+            {
+                "value": value,
+                "count": count,
+            }
+            for value, count in sorted(
+                brands.items(),
+                key=lambda item: (-item[1], item[0] or ""),
+            )[:12]
+        ]
+
+        return {
+            "supplier_id": supplier_id,
+            "min_priority_score": priority_score,
+            "limit": batch_limit,
+            "total_eligible": total_eligible,
+            "will_request": len(rows),
+            "estimated_external_requests": len(rows),
+            "external_filters": {
+                "exclude_brands": excluded_brands,
+                "exclude_title_keywords": excluded_keywords,
+            },
+            "top_brands": top_brands,
+            "top_title_keywords": self.title_keywords(titles),
+            "sample": sample,
+        }
+
     async def create_pending_matches(
         self,
         min_priority_score: float | None = None,
         limit: int | None = None,
         supplier_id: int | None = None,
+        exclude_brands: list[str] | None = None,
+        exclude_title_keywords: list[str] | None = None,
     ) -> int:
         config_service = ConfigService(self.db)
         settings = None
@@ -45,30 +251,16 @@ class AmazonMatchService:
             if min_priority_score is not None
             else float(rules.min_priority_score)
         )
-
-        existing_queue_ids_subquery = select(
-            AmazonProductMatch.queue_id
-        )
+        excluded_brands = self.normalize_filter_terms(exclude_brands)
+        excluded_keywords = self.normalize_filter_terms(exclude_title_keywords)
 
         query = (
-            select(
-                OfferResearchQueue,
-                SupplierOffer,
+            self.pending_match_query(
+                min_priority_score=priority_score,
+                supplier_id=supplier_id,
+                exclude_brands=excluded_brands,
+                exclude_title_keywords=excluded_keywords,
             )
-            .join(
-                SupplierOffer,
-                SupplierOffer.id == OfferResearchQueue.supplier_offer_id,
-            )
-            .where(OfferResearchQueue.status == "needs_amazon_match")
-            .where(OfferResearchQueue.priority_score >= priority_score)
-            .where(OfferResearchQueue.id.not_in(existing_queue_ids_subquery))
-        )
-
-        if supplier_id is not None:
-            query = query.where(OfferResearchQueue.supplier_id == supplier_id)
-
-        query = (
-            query
             .order_by(
                 OfferResearchQueue.priority_score.desc().nullslast(),
                 OfferResearchQueue.created_at.desc(),
@@ -84,7 +276,7 @@ class AmazonMatchService:
 
         match_rows = []
 
-        for queue_item, offer in rows:
+        for queue_item, offer, _supplier_name in rows:
             match_rows.append(
                 {
                     "queue_id": queue_item.id,

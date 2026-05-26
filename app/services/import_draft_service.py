@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import re
 from uuid import uuid4
 
 import pandas as pd
@@ -11,6 +12,48 @@ _drafts: dict[str, dict] = {}
 WEAK_MAPPING_CONFIDENCE = 90
 SUSPICIOUS_LOW_PRICE = 0.01
 SUSPICIOUS_HIGH_PRICE = 10000
+FILTER_SUGGESTION_LIMIT = 12
+MIN_KEYWORD_LENGTH = 4
+NON_NEW_PATTERNS = [
+    "refurbished",
+    "renewed",
+    "remanufactured",
+    "used",
+    "used like new",
+    "like new",
+    "open box",
+    "open-box",
+    "pre-owned",
+    "preowned",
+    "second hand",
+    "second-hand",
+    "gebraucht",
+    "generaluberholt",
+    "generalüberholt",
+    "erneuert",
+    "wie neu",
+    "b-ware",
+    "retoure",
+    "rückläufer",
+    "rucklaufer",
+    "reconditioned",
+]
+TITLE_KEYWORD_STOPWORDS = {
+    "with",
+    "from",
+    "for",
+    "und",
+    "oder",
+    "eine",
+    "einer",
+    "the",
+    "and",
+    "der",
+    "die",
+    "das",
+    "von",
+    "mit",
+}
 
 
 def _now() -> datetime:
@@ -163,8 +206,212 @@ def build_quality_report(
     return report
 
 
+def _top_text_values(
+    df: pd.DataFrame,
+    column: str,
+    limit: int = FILTER_SUGGESTION_LIMIT,
+) -> list[dict]:
+    if column not in df.columns:
+        return []
+
+    values = df[column].astype(str).str.strip()
+    values = values[values != ""]
+
+    if values.empty:
+        return []
+
+    counts = values.value_counts().head(limit)
+
+    return [
+        {
+            "value": str(value),
+            "count": int(count),
+        }
+        for value, count in counts.items()
+    ]
+
+
+def _title_keywords(
+    df: pd.DataFrame,
+    limit: int = FILTER_SUGGESTION_LIMIT,
+) -> list[dict]:
+    if "title" not in df.columns:
+        return []
+
+    counts: dict[str, int] = {}
+
+    for title in df["title"].astype(str):
+        seen = set()
+
+        for token in re.findall(r"[A-Za-zÀ-ž0-9]+", title.lower()):
+            if (
+                len(token) < MIN_KEYWORD_LENGTH
+                or token in TITLE_KEYWORD_STOPWORDS
+            ):
+                continue
+
+            seen.add(token)
+
+        for token in seen:
+            counts[token] = counts.get(token, 0) + 1
+
+    return [
+        {
+            "value": value,
+            "count": count,
+        }
+        for value, count in sorted(
+            counts.items(),
+            key=lambda item: (-item[1], item[0]),
+        )[:limit]
+    ]
+
+
+def _price_summary(df: pd.DataFrame) -> dict:
+    if "price" not in df.columns:
+        return {
+            "min": None,
+            "max": None,
+            "median": None,
+        }
+
+    prices = pd.to_numeric(
+        df["price"],
+        errors="coerce",
+    ).dropna()
+
+    if prices.empty:
+        return {
+            "min": None,
+            "max": None,
+            "median": None,
+        }
+
+    return {
+        "min": float(prices.min()),
+        "max": float(prices.max()),
+        "median": float(prices.median()),
+    }
+
+
+def non_new_mask(df: pd.DataFrame) -> pd.Series:
+    mask = pd.Series(False, index=df.index)
+    fields = [
+        column
+        for column in ["condition", "title", "description"]
+        if column in df.columns
+    ]
+
+    if not fields:
+        return mask
+
+    pattern = "|".join(
+        re.escape(value.casefold())
+        for value in NON_NEW_PATTERNS
+    )
+
+    for field in fields:
+        values = df[field].astype(str).str.casefold()
+        mask |= values.str.contains(pattern, na=False)
+
+    return mask
+
+
+def build_filter_suggestions(df: pd.DataFrame) -> dict:
+    return {
+        "brands": _top_text_values(df, "brand"),
+        "title_keywords": _title_keywords(df),
+        "missing_ean_count": _missing_count(df, "ean"),
+        "non_new_count": int(non_new_mask(df).sum()),
+        "price": _price_summary(df),
+    }
+
+
+def apply_import_filters(
+    df: pd.DataFrame,
+    filters: dict | None,
+) -> tuple[pd.DataFrame, dict]:
+    filters = filters or {}
+    include_mask = pd.Series(True, index=df.index)
+
+    excluded_brands = {
+        str(value).strip().casefold()
+        for value in filters.get("excluded_brands", [])
+        if str(value).strip()
+    }
+
+    if excluded_brands and "brand" in df.columns:
+        brands = df["brand"].astype(str).str.strip().str.casefold()
+        brand_mask = pd.Series(False, index=df.index)
+
+        for brand in excluded_brands:
+            brand_mask |= brands.str.contains(
+                re.escape(brand),
+                na=False,
+            )
+
+        include_mask &= ~brand_mask
+
+    excluded_keywords = [
+        str(value).strip().casefold()
+        for value in filters.get("excluded_keywords", [])
+        if str(value).strip()
+    ]
+
+    if excluded_keywords and "title" in df.columns:
+        titles = df["title"].astype(str).str.casefold()
+        keyword_mask = pd.Series(False, index=df.index)
+
+        for keyword in excluded_keywords:
+            keyword_mask |= titles.str.contains(
+                re.escape(keyword),
+                na=False,
+            )
+
+        include_mask &= ~keyword_mask
+
+    if filters.get("exclude_missing_ean") and "ean" in df.columns:
+        ean = df["ean"].astype(str).str.strip()
+        include_mask &= ean != ""
+
+    if filters.get("exclude_non_new"):
+        include_mask &= ~non_new_mask(df)
+
+    if "price" in df.columns:
+        prices = pd.to_numeric(
+            df["price"],
+            errors="coerce",
+        )
+        min_price = filters.get("min_price")
+        max_price = filters.get("max_price")
+
+        if min_price not in (None, ""):
+            include_mask &= prices.ge(float(min_price)).fillna(False)
+
+        if max_price not in (None, ""):
+            include_mask &= prices.le(float(max_price)).fillna(False)
+
+    filtered_df = df.loc[include_mask].copy()
+
+    return filtered_df, {
+        "rows_before": int(len(df)),
+        "rows_after": int(len(filtered_df)),
+        "rows_excluded": int(len(df) - len(filtered_df)),
+        "filters": {
+            "excluded_brands": sorted(excluded_brands),
+            "excluded_keywords": excluded_keywords,
+            "exclude_missing_ean": bool(filters.get("exclude_missing_ean")),
+            "exclude_non_new": bool(filters.get("exclude_non_new")),
+            "min_price": filters.get("min_price"),
+            "max_price": filters.get("max_price"),
+        },
+    }
+
+
 def serialize_import_draft(draft: dict, preview_rows: int = 10) -> dict:
     df = draft["df"]
+
+    filter_summary = draft.get("filter_summary")
 
     return {
         "import_token": draft["token"],
@@ -176,7 +423,13 @@ def serialize_import_draft(draft: dict, preview_rows: int = 10) -> dict:
         "original_columns": draft["original_columns"],
         "normalized_columns": list(df.columns),
         "normalization_report": draft["normalization_report"],
-        "quality_report": draft["quality_report"],
+        "quality_report": build_quality_report(
+            df=df,
+            normalization_report=draft["normalization_report"],
+        ),
+        "filter_suggestions": build_filter_suggestions(df),
+        "filter_summary": filter_summary,
+        "is_filtered_preview": filter_summary is not None,
         "preview": df.head(preview_rows).to_dict(orient="records"),
         "expires_at": draft["expires_at"].isoformat(),
     }

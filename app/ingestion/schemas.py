@@ -5,6 +5,7 @@ CANONICAL_COLUMNS = [
     "brand",
     "stock",
     "moq",
+    "condition",
 ]
 
 REQUIRED_COLUMNS = [
@@ -17,4 +18,5 @@ OPTIONAL_COLUMNS = [
     "brand",
     "stock",
     "moq",
+    "condition",
 ]

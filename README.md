@@ -18,6 +18,8 @@ Implemented:
 - Two-step import flow: preview first, then save.
 - Human-readable import preview table, column mapping preview, and quality
   checks.
+- Preview-driven import filters for excluding brands, title keywords, missing
+  EAN rows, and supplier price ranges before commit.
 - Multilingual semantic column normalization and fuzzy matching.
 - Supplier offer persistence, feed refresh, and duplicate prevention.
 - Supplier management with visible/hidden toggle.
@@ -31,6 +33,8 @@ Implemented:
 - Mock Amazon EAN to ASIN matching.
 - Keepa wrapper with mock mode, real Keepa mode, status checks, and
   not-configured handling.
+- External lookup preflight showing eligible queue count, request batch size,
+  estimated API calls, top brands, and top title keywords before provider calls.
 - Mock fee estimation and deal candidate generation.
 - Pipeline orchestration endpoints.
 - Pipeline issue modals with CSV and real XLSX downloads.
@@ -53,6 +57,8 @@ Still not production-grade:
 
 ## Pipeline Flow
 
+Current simplified flow:
+
 ```text
 Supplier feeds
     -> supplier_offers
@@ -61,6 +67,37 @@ Supplier feeds
     -> keepa_product_metrics
     -> deal_candidates
 ```
+
+Target decision funnel:
+
+```text
+Supplier price file
+    -> import preview
+    -> operator-selected import filters
+    -> supplier_offers
+    -> local eligibility / scoring prefilter
+    -> external lookup preview and API budget check
+    -> Amazon / Keepa / provider lookup
+    -> market metrics enrichment
+    -> deal candidate calculation
+    -> manual candidate review
+    -> optional deep Keepa history for finalists only
+    -> Grafana decision dashboard link
+    -> approve / reject / postpone
+```
+
+Principles for this funnel:
+
+- Use local data first and avoid external API calls until rows pass local
+  filters.
+- Do not hardcode blocked brands or product types in code. Surface actual
+  brands, keywords, product types, price ranges, and row counts in preview, then
+  let the operator decide what to exclude.
+- Keepa/API budget must be visible before calls are made.
+- Deep Keepa history is not part of default processing. Fetch it only for final
+  candidates that need manual decision support.
+- Grafana is for visualization and decision dashboards; Mirenelle UI is for
+  workflow and actions.
 
 Main queue status flow:
 
@@ -78,6 +115,19 @@ Alternative states:
 amazon_match_not_found
 rejected_low_roi
 rejected_unprofitable
+```
+
+Planned future review states:
+
+```text
+local_prefiltered
+external_lookup_pending
+external_lookup_skipped
+manual_review_pending
+manual_review_ready
+review_approved
+review_rejected
+review_postponed
 ```
 
 ## UI
@@ -134,6 +184,7 @@ Preferred UI/API flow:
 
 ```text
 POST /upload/preview
+POST /upload/filter-preview
 POST /upload/commit
 ```
 
@@ -157,6 +208,23 @@ Legacy direct import is still available:
 ```text
 POST /upload
 ```
+
+Future import filtering direction:
+
+- Import should remain preview-first.
+- After preview, the UI analyzes actual file values and proposes filters with
+  row counts before commit.
+- Operators can manually exclude brands, title keywords, rows without EAN,
+  non-new/refurbished offers, and supplier price ranges.
+- Import saves only the rows that remain after selected preview filters.
+- After changing filters, the operator must apply a filtered preview before
+  saving. The save action should commit the last confirmed filtered preview, not
+  unconfirmed checkbox/input changes.
+- Selected filters may optionally be saved as reusable supplier/global rules.
+
+This must not be hardcoded as a static list of forbidden brands or categories.
+The file preview should surface what is present in the supplier feed, and the
+operator chooses what to exclude.
 
 ## Configuration Model
 
@@ -200,6 +268,29 @@ Current provider behavior:
 
 Temporary mock values should stay inside provider/mock code, not become
 user-facing business settings.
+
+Before any paid or limited 3rd-party lookup, there should be a second preview
+gate. Initial read-only preflight is implemented for Amazon/Keepa matching:
+
+```text
+Imported offers
+    -> local scoring / prefilter
+    -> external lookup preview with counts
+    -> operator adjusts filters / batch size
+    -> only then call Keepa / Amazon / other providers
+```
+
+This should show:
+
+- how many offers will be sent to external providers;
+- top brands/product types in the lookup batch;
+- supplier scope and priority ranges;
+- estimated API/token usage where possible;
+- exclusions applied before the call.
+
+The goal is to avoid wasting Keepa tokens or future Amazon API quota on brands,
+product types, or categories that the operator already knows are not worth
+analyzing.
 
 Longer-term provider direction:
 
@@ -261,6 +352,7 @@ Upload:
 
 ```text
 POST /upload/preview
+POST /upload/filter-preview
 POST /upload/commit
 POST /upload
 ```
@@ -319,6 +411,7 @@ Pipeline:
 POST /pipeline/run-research
 POST /pipeline/run-batch
 GET  /pipeline/summary
+GET  /pipeline/external-lookup-preview
 ```
 
 Config:
@@ -481,14 +574,38 @@ oa-pipeline/
   default catalog processing.
 - Analytics should be designed for Grafana views or dashboards rather than
   bloating the operator UI.
+- Preview-driven filters should be used before import commit and before
+  external provider calls. Avoid hardcoded exclusion lists unless they are
+  operator-managed rules created from preview.
 
 ## Near-Term Roadmap
 
-1. Provider abstraction cleanup for mock / Keepa / future Amazon SP-API.
-2. Real Keepa-based Amazon matching and metric enrichment.
-3. Deal Candidate enrichment: title, brand, cost, Amazon price, filters.
-4. Candidate review enrichment for final manual decisions, with Grafana links.
-5. Real fee engine for FBA/VAT/shipping/marketplace rules.
-6. Grafana dashboard layer backed by SQL views or snapshot/event tables.
-7. Future UI rewrite after concept validation: React + Mantine,
+1. Add preview-driven import filters:
+   show brands, title keywords, price ranges, missing EAN, and row counts before
+   import commit. Initial MVP is implemented with an explicit filtered preview
+   confirmation step; saved reusable rules are still future work.
+2. Add local eligibility / scoring prefilter before external lookups:
+   exclude operator-selected brands and product types, keep external API usage
+   focused on viable rows.
+3. Expand external lookup preflight:
+   show supplier scope, top brands/product types, priority ranges, batch size,
+   and estimated Keepa/API usage before calling providers. Initial read-only
+   preview is implemented; operator-adjustable lookup filters are still future
+   work.
+4. Clean up provider abstraction for mock / Keepa / future Amazon SP-API:
+   product matcher provider, market metrics provider, fee provider, future sales
+   management provider.
+5. Real Keepa-based Amazon matching and metric enrichment with token-aware
+   batching and controlled failure states.
+6. Deal Candidate enrichment:
+   title, brand, supplier cost, Amazon price, Buy Box presence, seller count,
+   max sell price, margin/ROI clarity, rejection reasons, and filters.
+7. Candidate review workflow:
+   manual review states, reviewer notes, approve/reject/postpone actions, and
+   final decision support.
+8. Candidate review enrichment for finalists only:
+   deep Keepa history, snapshots/events, and Grafana dashboard links.
+9. Real fee engine for FBA/VAT/shipping/marketplace rules.
+10. Grafana dashboard layer backed by SQL views or snapshot/event tables.
+11. Future UI rewrite after concept validation: React + Mantine,
    Grafana-like operations dashboard.

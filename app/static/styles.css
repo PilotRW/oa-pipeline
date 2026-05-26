@@ -254,6 +254,40 @@ select:focus-visible {
   margin-top: 18px;
 }
 
+.lookup-preview-panel {
+  margin-bottom: 18px;
+}
+
+.lookup-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 190px)) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.lookup-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lookup-plan-note {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: -2px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.lookup-plan-note .badge {
+  white-space: nowrap;
+}
+
 .overview-workbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
@@ -288,6 +322,35 @@ select:focus-visible {
   display: block;
   margin-top: 8px;
   color: var(--muted);
+}
+
+.lookup-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lookup-list strong,
+.lookup-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lookup-sample {
+  margin-top: 16px;
+}
+
+.lookup-sample h4 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.table-wrap.compact {
+  max-height: 260px;
 }
 
 .issue-grid {
@@ -480,6 +543,16 @@ button.badge:hover {
 }
 
 .scroll-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.preview-table-wrap {
+  max-height: 460px;
+}
+
+.preview-table-wrap thead th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -763,6 +836,93 @@ select:focus {
   padding: 11px 12px;
 }
 
+.filter-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.filter-summary article {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  padding: 11px 12px;
+}
+
+.filter-summary span,
+.filter-choice span,
+.muted-note {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.filter-summary strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 15px;
+}
+
+.filter-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.filter-panel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 12px;
+}
+
+.filter-panel h5 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.filter-choice-list {
+  display: grid;
+  gap: 7px;
+  max-height: 230px;
+  overflow: auto;
+}
+
+.filter-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-choice input {
+  width: 18px;
+  height: 18px;
+  min-height: auto;
+  padding: 0;
+}
+
+.filter-choice span {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-choice strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.price-filter-row {
+  display: grid;
+  gap: 10px;
+}
+
 .mapping-list {
   display: grid;
   gap: 8px;
@@ -918,9 +1078,13 @@ select:focus {
 
   .summary-grid,
   .issue-grid,
+  .lookup-preview-grid,
+  .lookup-controls,
+  .lookup-plan-note,
   .overview-workbench,
   .supplier-status-grid,
   .quality-grid,
+  .filter-controls,
   .split-layout,
   .preview-summary,
   .rule-section-grid,
@@ -965,9 +1129,13 @@ select:focus {
 
   .summary-grid,
   .issue-grid,
+  .lookup-preview-grid,
+  .lookup-controls,
+  .lookup-plan-note,
   .overview-workbench,
   .supplier-status-grid,
   .quality-grid,
+  .filter-controls,
   .split-layout,
   .preview-summary,
   .rule-section-grid,

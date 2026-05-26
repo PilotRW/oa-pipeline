@@ -38,6 +38,8 @@ async def run_research(
     min_priority_score: float | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1, le=500),
     supplier_id: int | None = Query(default=None, ge=1),
+    exclude_brands: list[str] | None = Query(default=None),
+    exclude_title_keywords: list[str] | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
     service = PipelineService(db)
@@ -46,6 +48,28 @@ async def run_research(
         min_priority_score=min_priority_score,
         limit=limit,
         supplier_id=supplier_id,
+        exclude_brands=exclude_brands,
+        exclude_title_keywords=exclude_title_keywords,
+    )
+
+
+@router.get("/external-lookup-preview")
+async def external_lookup_preview(
+    min_priority_score: float | None = Query(default=None),
+    limit: int | None = Query(default=None, ge=1, le=500),
+    supplier_id: int | None = Query(default=None, ge=1),
+    exclude_brands: list[str] | None = Query(default=None),
+    exclude_title_keywords: list[str] | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    service = PipelineService(db)
+
+    return await service.preview_external_lookup(
+        min_priority_score=min_priority_score,
+        limit=limit,
+        supplier_id=supplier_id,
+        exclude_brands=exclude_brands,
+        exclude_title_keywords=exclude_title_keywords,
     )
 
 
