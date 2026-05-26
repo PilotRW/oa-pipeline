@@ -40,6 +40,8 @@ async def run_research(
     supplier_id: int | None = Query(default=None, ge=1),
     exclude_brands: list[str] | None = Query(default=None),
     exclude_title_keywords: list[str] | None = Query(default=None),
+    min_cost: float | None = Query(default=None, ge=0),
+    max_cost: float | None = Query(default=None, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     service = PipelineService(db)
@@ -50,6 +52,8 @@ async def run_research(
         supplier_id=supplier_id,
         exclude_brands=exclude_brands,
         exclude_title_keywords=exclude_title_keywords,
+        min_cost=min_cost,
+        max_cost=max_cost,
     )
 
 
@@ -60,6 +64,8 @@ async def external_lookup_preview(
     supplier_id: int | None = Query(default=None, ge=1),
     exclude_brands: list[str] | None = Query(default=None),
     exclude_title_keywords: list[str] | None = Query(default=None),
+    min_cost: float | None = Query(default=None, ge=0),
+    max_cost: float | None = Query(default=None, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
     service = PipelineService(db)
@@ -70,6 +76,8 @@ async def external_lookup_preview(
         supplier_id=supplier_id,
         exclude_brands=exclude_brands,
         exclude_title_keywords=exclude_title_keywords,
+        min_cost=min_cost,
+        max_cost=max_cost,
     )
 
 

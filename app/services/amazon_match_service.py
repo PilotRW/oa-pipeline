@@ -38,6 +38,8 @@ class AmazonMatchService:
         supplier_id: int | None = None,
         exclude_brands: list[str] | None = None,
         exclude_title_keywords: list[str] | None = None,
+        min_cost: float | None = None,
+        max_cost: float | None = None,
     ):
         excluded_brands = self.normalize_filter_terms(exclude_brands)
         excluded_keywords = self.normalize_filter_terms(exclude_title_keywords)
@@ -81,6 +83,12 @@ class AmazonMatchService:
                 | (~SupplierOffer.title.ilike(f"%{keyword}%"))
             )
 
+        if min_cost is not None:
+            query = query.where(SupplierOffer.cost >= min_cost)
+
+        if max_cost is not None:
+            query = query.where(SupplierOffer.cost <= max_cost)
+
         return query
 
     def title_keywords(
@@ -120,6 +128,8 @@ class AmazonMatchService:
         supplier_id: int | None = None,
         exclude_brands: list[str] | None = None,
         exclude_title_keywords: list[str] | None = None,
+        min_cost: float | None = None,
+        max_cost: float | None = None,
     ) -> dict:
         config_service = ConfigService(self.db)
         settings = None
@@ -151,6 +161,8 @@ class AmazonMatchService:
             supplier_id=supplier_id,
             exclude_brands=excluded_brands,
             exclude_title_keywords=excluded_keywords,
+            min_cost=min_cost,
+            max_cost=max_cost,
         )
         total_result = await self.db.execute(
             select(func.count()).select_from(base_query.subquery())
@@ -185,6 +197,12 @@ class AmazonMatchService:
                         "ean": offer.ean,
                         "brand": offer.brand,
                         "title": offer.title,
+                        "cost": (
+                            float(offer.cost)
+                            if offer.cost is not None
+                            else None
+                        ),
+                        "currency": offer.currency,
                         "priority_score": (
                             float(queue_item.priority_score)
                             if queue_item.priority_score is not None
@@ -203,6 +221,11 @@ class AmazonMatchService:
                 key=lambda item: (-item[1], item[0] or ""),
             )[:12]
         ]
+        costs = [
+            float(offer.cost)
+            for _queue_item, offer, _supplier_name in rows
+            if offer.cost is not None
+        ]
 
         return {
             "supplier_id": supplier_id,
@@ -214,6 +237,12 @@ class AmazonMatchService:
             "external_filters": {
                 "exclude_brands": excluded_brands,
                 "exclude_title_keywords": excluded_keywords,
+                "min_cost": min_cost,
+                "max_cost": max_cost,
+            },
+            "price": {
+                "min": min(costs) if costs else None,
+                "max": max(costs) if costs else None,
             },
             "top_brands": top_brands,
             "top_title_keywords": self.title_keywords(titles),
@@ -227,6 +256,8 @@ class AmazonMatchService:
         supplier_id: int | None = None,
         exclude_brands: list[str] | None = None,
         exclude_title_keywords: list[str] | None = None,
+        min_cost: float | None = None,
+        max_cost: float | None = None,
     ) -> int:
         config_service = ConfigService(self.db)
         settings = None
@@ -260,6 +291,8 @@ class AmazonMatchService:
                 supplier_id=supplier_id,
                 exclude_brands=excluded_brands,
                 exclude_title_keywords=excluded_keywords,
+                min_cost=min_cost,
+                max_cost=max_cost,
             )
             .order_by(
                 OfferResearchQueue.priority_score.desc().nullslast(),

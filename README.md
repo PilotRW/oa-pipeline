@@ -34,7 +34,10 @@ Implemented:
 - Keepa wrapper with mock mode, real Keepa mode, status checks, and
   not-configured handling.
 - External lookup preflight showing eligible queue count, request batch size,
-  estimated API calls, top brands, and top title keywords before provider calls.
+  estimated API calls, top brands, top title keywords, sample rows, and supplier
+  costs before provider calls.
+- Research lookup filters for excluding brands, title keywords, and supplier
+  cost ranges before external provider calls.
 - Mock fee estimation and deal candidate generation.
 - Pipeline orchestration endpoints.
 - Pipeline issue modals with CSV and real XLSX downloads.
@@ -144,7 +147,8 @@ Main UI areas:
 - `Pipeline`: batch pipeline run controls.
 - `Settings`: technical pipeline settings.
 - `Rules`: business and scoring rules, grouped by function, with help buttons.
-- `Research`: research queue and Amazon match results.
+- `Research`: lookup plan, pre-provider filters, research queue, and Amazon
+  match results.
 - `Keepa`: explicit Keepa enrichment step, mode badge, and real/mock toggle.
 - `Suppliers`: supplier management, details, import history, and visibility.
 - `Upload`: supplier feed upload, preview, quality checks, and save.
@@ -269,22 +273,23 @@ Current provider behavior:
 Temporary mock values should stay inside provider/mock code, not become
 user-facing business settings.
 
-Before any paid or limited 3rd-party lookup, there should be a second preview
-gate. Initial read-only preflight is implemented for Amazon/Keepa matching:
+Before any paid or limited 3rd-party lookup, there is a second preview gate for
+Amazon/Keepa matching:
 
 ```text
 Imported offers
     -> local scoring / prefilter
-    -> external lookup preview with counts
-    -> operator adjusts filters / batch size
+    -> external lookup plan with counts
+    -> operator adjusts filters, supplier cost range, and batch size
     -> only then call Keepa / Amazon / other providers
 ```
 
 This should show:
 
 - how many offers will be sent to external providers;
-- top brands/product types in the lookup batch;
+- top brands and title keywords in the lookup batch;
 - supplier scope and priority ranges;
+- supplier cost ranges and sample row costs;
 - estimated API/token usage where possible;
 - exclusions applied before the call.
 
@@ -585,13 +590,14 @@ oa-pipeline/
    import commit. Initial MVP is implemented with an explicit filtered preview
    confirmation step; saved reusable rules are still future work.
 2. Add local eligibility / scoring prefilter before external lookups:
-   exclude operator-selected brands and product types, keep external API usage
-   focused on viable rows.
+   exclude operator-selected brands, keywords, and supplier cost ranges, keeping
+   external API usage focused on viable rows. Initial UI/API support is
+   implemented in the Research lookup plan.
 3. Expand external lookup preflight:
    show supplier scope, top brands/product types, priority ranges, batch size,
-   and estimated Keepa/API usage before calling providers. Initial read-only
-   preview is implemented; operator-adjustable lookup filters are still future
-   work.
+   sample rows, supplier costs, and estimated Keepa/API usage before calling
+   providers. Initial operator-adjustable lookup filters are implemented; saved
+   reusable filter profiles are still future work.
 4. Clean up provider abstraction for mock / Keepa / future Amazon SP-API:
    product matcher provider, market metrics provider, fee provider, future sales
    management provider.

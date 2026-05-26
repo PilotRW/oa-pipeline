@@ -1901,12 +1901,16 @@ async function loadResearch() {
 function researchLookupParams() {
   const limit = document.querySelector("#lookup-limit")?.value;
   const minPriorityScore = document.querySelector("#lookup-min-priority")?.value;
+  const minCost = document.querySelector("#lookup-filter-min-cost")?.value;
+  const maxCost = document.querySelector("#lookup-filter-max-cost")?.value;
 
   return {
     limit,
     min_priority_score: minPriorityScore,
     exclude_brands: selectedFilterValues("[data-lookup-filter-brand]"),
     exclude_title_keywords: selectedFilterValues("[data-lookup-filter-keyword]"),
+    min_cost: minCost,
+    max_cost: maxCost,
   };
 }
 
@@ -1961,6 +1965,12 @@ function renderLookupPreview(preview = {}) {
     { key: "ean" },
     { key: "brand" },
     { key: "title" },
+    {
+      key: "cost",
+      render: (row) => [formatNumber(row.cost), escapeHtml(row.currency)]
+        .filter(Boolean)
+        .join(" "),
+    },
     { key: "priority_score", render: (row) => formatNumber(row.priority_score) },
   ]);
 
@@ -2487,6 +2497,8 @@ function renderLookupFilters(preview) {
   const filters = preview.external_filters || {};
   const excludedBrands = filters.exclude_brands || [];
   const excludedKeywords = filters.exclude_title_keywords || [];
+  const minCost = filters.min_cost ?? "";
+  const maxCost = filters.max_cost ?? "";
 
   if (!summary || !controls) return;
 
@@ -2525,6 +2537,19 @@ function renderLookupFilters(preview) {
           t("message.noRecords"),
           excludedKeywords,
         )}
+      </div>
+    </section>
+    <section class="filter-panel">
+      <h5>${t("table.cost")}</h5>
+      <div class="price-filter-row">
+        <label>
+          <span>${t("field.minCost")}</span>
+          <input id="lookup-filter-min-cost" type="number" min="0" step="0.01" value="${escapeHtml(minCost)}" placeholder="${formatNumber(preview.price?.min)}">
+        </label>
+        <label>
+          <span>${t("field.maxCost")}</span>
+          <input id="lookup-filter-max-cost" type="number" min="0" step="0.01" value="${escapeHtml(maxCost)}" placeholder="${formatNumber(preview.price?.max)}">
+        </label>
       </div>
     </section>
   `;

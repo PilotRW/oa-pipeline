@@ -92,6 +92,8 @@ class PipelineService:
         supplier_id: int | None = None,
         exclude_brands: list[str] | None = None,
         exclude_title_keywords: list[str] | None = None,
+        min_cost: float | None = None,
+        max_cost: float | None = None,
     ) -> dict:
         settings = await self.config_service.get_pipeline_settings()
         rules = await self.config_service.get_research_rules(
@@ -123,6 +125,8 @@ class PipelineService:
             supplier_id=supplier_id,
             exclude_brands=exclude_brands,
             exclude_title_keywords=exclude_title_keywords,
+            min_cost=min_cost,
+            max_cost=max_cost,
         )
 
         amazon_processed = await amazon_service.process_pending_matches(
@@ -147,6 +151,8 @@ class PipelineService:
                     "exclude_title_keywords": amazon_service.normalize_filter_terms(
                         exclude_title_keywords
                     ),
+                    "min_cost": min_cost,
+                    "max_cost": max_cost,
                 },
             },
             "queue_created": queue_created,
@@ -161,6 +167,8 @@ class PipelineService:
         supplier_id: int | None = None,
         exclude_brands: list[str] | None = None,
         exclude_title_keywords: list[str] | None = None,
+        min_cost: float | None = None,
+        max_cost: float | None = None,
     ) -> dict:
         settings = await self.config_service.get_pipeline_settings()
         rules = await self.config_service.get_research_rules(
@@ -184,6 +192,8 @@ class PipelineService:
             supplier_id=supplier_id,
             exclude_brands=exclude_brands,
             exclude_title_keywords=exclude_title_keywords,
+            min_cost=min_cost,
+            max_cost=max_cost,
         )
 
         return {
