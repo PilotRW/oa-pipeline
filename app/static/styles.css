@@ -288,6 +288,28 @@ select:focus-visible {
   white-space: nowrap;
 }
 
+.lookup-save-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.lookup-save-row > div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lookup-save-row small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
 .overview-workbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
@@ -1081,6 +1103,7 @@ select:focus {
   .lookup-preview-grid,
   .lookup-controls,
   .lookup-plan-note,
+  .lookup-save-row,
   .overview-workbench,
   .supplier-status-grid,
   .quality-grid,
@@ -1132,6 +1155,7 @@ select:focus {
   .lookup-preview-grid,
   .lookup-controls,
   .lookup-plan-note,
+  .lookup-save-row,
   .overview-workbench,
   .supplier-status-grid,
   .quality-grid,

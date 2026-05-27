@@ -8,6 +8,10 @@ evaluates profitability, and produces ranked deal candidates.
 
 ## Current Status
 
+Project is currently paused after the Research prefilter and skipped-reason
+accounting work. See `PROJECT_STATE.md` for the exact resume point and current
+working-tree expectations.
+
 Implemented:
 
 - FastAPI backend with PostgreSQL, async SQLAlchemy models, and Alembic
@@ -36,8 +40,16 @@ Implemented:
 - External lookup preflight showing eligible queue count, request batch size,
   estimated API calls, top brands, top title keywords, sample rows, and supplier
   costs before provider calls.
+- Skipped-reason breakdown for Research lookup filters, so excluded rows are
+  explainable without being stored as rejected deals.
+- Research lookup preflight includes existing pending queue rows and
+  not-yet-queued supplier offers, so newly imported offers are visible before
+  mutating queue state.
 - Research lookup filters for excluding brands, title keywords, and supplier
   cost ranges before external provider calls.
+- Saved Research lookup filter defaults with status/helper UI, scoped globally
+  or to the selected supplier through `research_rules`, plus a clear action for
+  returning the scope to an unfiltered lookup plan.
 - Mock fee estimation and deal candidate generation.
 - Pipeline orchestration endpoints.
 - Pipeline issue modals with CSV and real XLSX downloads.
@@ -250,6 +262,8 @@ Business rules live in `research_rules`:
 - fee assumptions;
 - sales rank and monthly sales filters;
 - Amazon-in-stock exclusion.
+- saved Research lookup filter defaults for brands, title keywords, and supplier
+  cost ranges.
 
 Stock is intentionally not a hard blocker for research queue population. Some
 suppliers may allow ordering even when stock appears unavailable, so stock only
@@ -287,6 +301,8 @@ Imported offers
 This should show:
 
 - how many offers will be sent to external providers;
+- how many offers were filtered out before external lookup;
+- why offers were filtered out by the active Research filters;
 - top brands and title keywords in the lookup batch;
 - supplier scope and priority ranges;
 - supplier cost ranges and sample row costs;
@@ -592,7 +608,7 @@ oa-pipeline/
 2. Add local eligibility / scoring prefilter before external lookups:
    exclude operator-selected brands, keywords, and supplier cost ranges, keeping
    external API usage focused on viable rows. Initial UI/API support is
-   implemented in the Research lookup plan.
+   implemented in the Research lookup plan, including saved defaults.
 3. Expand external lookup preflight:
    show supplier scope, top brands/product types, priority ranges, batch size,
    sample rows, supplier costs, and estimated Keepa/API usage before calling

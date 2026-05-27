@@ -114,6 +114,34 @@ class PipelineService:
 
         queue_service = ResearchQueueService(self.db)
         amazon_service = AmazonMatchService(self.db)
+        effective_exclude_brands = (
+            exclude_brands
+            if exclude_brands is not None
+            else rules.lookup_excluded_brands
+        )
+        effective_exclude_keywords = (
+            exclude_title_keywords
+            if exclude_title_keywords is not None
+            else rules.lookup_excluded_title_keywords
+        )
+        effective_min_cost = (
+            min_cost
+            if min_cost is not None
+            else (
+                float(rules.lookup_min_cost)
+                if rules.lookup_min_cost is not None
+                else None
+            )
+        )
+        effective_max_cost = (
+            max_cost
+            if max_cost is not None
+            else (
+                float(rules.lookup_max_cost)
+                if rules.lookup_max_cost is not None
+                else None
+            )
+        )
 
         queue_created = await queue_service.populate_queue_from_supplier_offers(
             supplier_id=supplier_id,
@@ -123,10 +151,10 @@ class PipelineService:
             min_priority_score=priority_score,
             limit=batch_limit,
             supplier_id=supplier_id,
-            exclude_brands=exclude_brands,
-            exclude_title_keywords=exclude_title_keywords,
-            min_cost=min_cost,
-            max_cost=max_cost,
+            exclude_brands=effective_exclude_brands,
+            exclude_title_keywords=effective_exclude_keywords,
+            min_cost=effective_min_cost,
+            max_cost=effective_max_cost,
         )
 
         amazon_processed = await amazon_service.process_pending_matches(
@@ -146,13 +174,13 @@ class PipelineService:
                 "supplier_id": supplier_id,
                 "external_filters": {
                     "exclude_brands": amazon_service.normalize_filter_terms(
-                        exclude_brands
+                        effective_exclude_brands
                     ),
                     "exclude_title_keywords": amazon_service.normalize_filter_terms(
-                        exclude_title_keywords
+                        effective_exclude_keywords
                     ),
-                    "min_cost": min_cost,
-                    "max_cost": max_cost,
+                    "min_cost": effective_min_cost,
+                    "max_cost": effective_max_cost,
                 },
             },
             "queue_created": queue_created,
@@ -186,14 +214,42 @@ class PipelineService:
         )
 
         amazon_service = AmazonMatchService(self.db)
+        effective_exclude_brands = (
+            exclude_brands
+            if exclude_brands is not None
+            else rules.lookup_excluded_brands
+        )
+        effective_exclude_keywords = (
+            exclude_title_keywords
+            if exclude_title_keywords is not None
+            else rules.lookup_excluded_title_keywords
+        )
+        effective_min_cost = (
+            min_cost
+            if min_cost is not None
+            else (
+                float(rules.lookup_min_cost)
+                if rules.lookup_min_cost is not None
+                else None
+            )
+        )
+        effective_max_cost = (
+            max_cost
+            if max_cost is not None
+            else (
+                float(rules.lookup_max_cost)
+                if rules.lookup_max_cost is not None
+                else None
+            )
+        )
         preview = await amazon_service.preview_pending_matches(
             min_priority_score=priority_score,
             limit=batch_limit,
             supplier_id=supplier_id,
-            exclude_brands=exclude_brands,
-            exclude_title_keywords=exclude_title_keywords,
-            min_cost=min_cost,
-            max_cost=max_cost,
+            exclude_brands=effective_exclude_brands,
+            exclude_title_keywords=effective_exclude_keywords,
+            min_cost=effective_min_cost,
+            max_cost=effective_max_cost,
         )
 
         return {

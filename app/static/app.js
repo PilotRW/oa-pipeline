@@ -30,7 +30,9 @@ const translations = {
     "action.runKeepa": "Run Keepa",
     "action.runResearch": "Run research",
     "action.save": "Save",
+    "action.clearLookupFilters": "Clear saved filters",
     "action.saveDefaultRules": "Save default rules",
+    "action.saveLookupFilters": "Save filters as defaults",
     "action.saveSupplierRules": "Save supplier rules",
     "action.resetToDefault": "Reset to default",
     "action.resetToSystemDefaults": "Reset to system defaults",
@@ -110,6 +112,8 @@ const translations = {
     "message.keepaNotConfigured": "Real Keepa is enabled, but KEEPA_API_KEY is not configured",
     "message.researchRun": "Research completed: {count} matches processed",
     "message.lookupPlanHint": "These criteria define the next research run. Applying them updates the plan only; it does not call external APIs.",
+    "message.lookupSaveHint": "Saved filters are applied automatically for this scope. Batch size stays run-specific.",
+    "message.lookupFiltersCleared": "Research filters cleared",
     "message.lookupFilterResult": "{eligible} eligible, {batch} in next lookup batch",
     "message.previewReady": "Preview ready: {count} rows",
     "message.importFilterResult": "{after} of {before} rows will be imported",
@@ -157,8 +161,12 @@ const translations = {
     "summary.dealCandidates": "Deal Candidates",
     "summary.keepaMetrics": "Keepa Metrics",
     "summary.eligibleExternal": "Eligible",
+    "summary.filteredOut": "Filtered out",
     "summary.willRequest": "Will request",
     "summary.estimatedRequests": "Estimated API calls",
+    "summary.queuePending": "Queued",
+    "summary.skippedReasons": "Skipped reasons",
+    "summary.unqueuedOffers": "Not queued yet",
     "summary.researchQueue": "Research Queue",
     "issue.amazonNotFound": "Amazon not found",
     "issue.available": "Available",
@@ -203,7 +211,14 @@ const translations = {
     "status.hidden": "Hidden",
     "status.lookupPlanApplied": "Criteria applied to research plan",
     "status.lookupPlanChanged": "Criteria changed, apply to refresh the plan",
+    "status.lookupFiltersSaved": "Filters saved",
+    "status.lookupFiltersUnsaved": "Unsaved filters",
     "status.visible": "Visible",
+    "skip.above_max_cost": "Above max cost",
+    "skip.below_min_cost": "Below min cost",
+    "skip.excluded_brand": "Brand",
+    "skip.excluded_title_keyword": "Title keyword",
+    "skip.missing_cost": "Missing cost",
     "metric.avgCost": "Avg cost",
     "metric.createdAt": "Created at",
     "metric.totalOffers": "Total offers",
@@ -223,7 +238,9 @@ const translations = {
     "action.runKeepa": "Keepa starten",
     "action.runResearch": "Recherche starten",
     "action.save": "Speichern",
+    "action.clearLookupFilters": "Gespeicherte Filter löschen",
     "action.saveDefaultRules": "Standardregeln speichern",
+    "action.saveLookupFilters": "Filter als Standard speichern",
     "action.saveSupplierRules": "Lieferantenregeln speichern",
     "action.resetToDefault": "Auf Standard zurücksetzen",
     "action.resetToSystemDefaults": "Auf Systemstandard zurücksetzen",
@@ -303,6 +320,8 @@ const translations = {
     "message.keepaNotConfigured": "Echtes Keepa ist aktiv, aber KEEPA_API_KEY ist nicht konfiguriert",
     "message.researchRun": "Recherche fertig: {count} Matches verarbeitet",
     "message.lookupPlanHint": "Diese Kriterien definieren den nächsten Recherchelauf. Anwenden aktualisiert nur den Plan und ruft keine externen APIs auf.",
+    "message.lookupSaveHint": "Gespeicherte Filter werden automatisch für diesen Scope angewendet. Die Batchgröße bleibt laufbezogen.",
+    "message.lookupFiltersCleared": "Recherchefilter gelöscht",
     "message.lookupFilterResult": "{eligible} geeignet, {batch} im nächsten Lookup-Batch",
     "message.previewReady": "Vorschau bereit: {count} Zeilen",
     "message.importFilterResult": "{after} von {before} Zeilen werden importiert",
@@ -350,8 +369,12 @@ const translations = {
     "summary.dealCandidates": "Deal-Kandidaten",
     "summary.keepaMetrics": "Keepa-Metriken",
     "summary.eligibleExternal": "Geeignet",
+    "summary.filteredOut": "Ausgefiltert",
     "summary.willRequest": "Wird angefragt",
     "summary.estimatedRequests": "Geschätzte API-Calls",
+    "summary.queuePending": "In Queue",
+    "summary.skippedReasons": "Ausfilter-Gründe",
+    "summary.unqueuedOffers": "Noch nicht in Queue",
     "summary.researchQueue": "Recherche-Queue",
     "issue.amazonNotFound": "Amazon nicht gefunden",
     "issue.available": "Verfügbar",
@@ -396,7 +419,14 @@ const translations = {
     "status.hidden": "Ausgeblendet",
     "status.lookupPlanApplied": "Kriterien im Rechercheplan angewendet",
     "status.lookupPlanChanged": "Kriterien geändert, anwenden zum Aktualisieren",
+    "status.lookupFiltersSaved": "Filter gespeichert",
+    "status.lookupFiltersUnsaved": "Ungespeicherte Filter",
     "status.visible": "Sichtbar",
+    "skip.above_max_cost": "Über Max.-Kosten",
+    "skip.below_min_cost": "Unter Min.-Kosten",
+    "skip.excluded_brand": "Marke",
+    "skip.excluded_title_keyword": "Titel-Keyword",
+    "skip.missing_cost": "Fehlende Kosten",
     "metric.avgCost": "Ø Kosten",
     "metric.createdAt": "Erstellt am",
     "metric.totalOffers": "Angebote gesamt",
@@ -416,7 +446,9 @@ const translations = {
     "action.runKeepa": "Запустити Keepa",
     "action.runResearch": "Запустити research",
     "action.save": "Зберегти",
+    "action.clearLookupFilters": "Очистити збережені фільтри",
     "action.saveDefaultRules": "Зберегти дефолтні правила",
+    "action.saveLookupFilters": "Зберегти фільтри як дефолт",
     "action.saveSupplierRules": "Зберегти правила постачальника",
     "action.resetToDefault": "Скинути до дефолту",
     "action.resetToSystemDefaults": "Скинути до системного дефолту",
@@ -496,6 +528,8 @@ const translations = {
     "message.keepaNotConfigured": "Real Keepa увімкнена, але KEEPA_API_KEY не налаштований",
     "message.researchRun": "Research завершено: оброблено {count} matches",
     "message.lookupPlanHint": "Ці критерії задають наступний research run. Застосування оновлює тільки план і не викликає зовнішні API.",
+    "message.lookupSaveHint": "Збережені фільтри застосовуються автоматично для цього scope. Batch size лишається параметром конкретного запуску.",
+    "message.lookupFiltersCleared": "Research filters очищено",
     "message.lookupFilterResult": "{eligible} підходять, {batch} у наступному lookup batch",
     "message.previewReady": "Превʼю готове: {count} рядків",
     "message.importFilterResult": "Буде імпортовано {after} з {before} рядків",
@@ -543,8 +577,12 @@ const translations = {
     "summary.dealCandidates": "Кандидати угод",
     "summary.keepaMetrics": "Keepa метрики",
     "summary.eligibleExternal": "Підходять",
+    "summary.filteredOut": "Відфільтровано",
     "summary.willRequest": "Піде в запит",
     "summary.estimatedRequests": "Оцінка API calls",
+    "summary.queuePending": "У черзі",
+    "summary.skippedReasons": "Причини відсіву",
+    "summary.unqueuedOffers": "Ще не в черзі",
     "summary.researchQueue": "Черга дослідження",
     "issue.amazonNotFound": "Amazon не знайдено",
     "issue.available": "Доступно",
@@ -589,7 +627,14 @@ const translations = {
     "status.hidden": "Приховано",
     "status.lookupPlanApplied": "Критерії застосовані до research plan",
     "status.lookupPlanChanged": "Критерії змінені, застосуй щоб оновити план",
+    "status.lookupFiltersSaved": "Фільтри збережено",
+    "status.lookupFiltersUnsaved": "Є незбережені фільтри",
     "status.visible": "Видимий",
+    "skip.above_max_cost": "Вище макс. ціни",
+    "skip.below_min_cost": "Нижче мін. ціни",
+    "skip.excluded_brand": "Бренд",
+    "skip.excluded_title_keyword": "Keyword у назві",
+    "skip.missing_cost": "Без ціни",
     "metric.avgCost": "Середня ціна",
     "metric.createdAt": "Створено",
     "metric.totalOffers": "Усього offers",
@@ -857,6 +902,7 @@ function withQuery(path, params = {}) {
 
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null || value === "") return;
+    if (Array.isArray(value) && value.length === 0) return;
     query.set(key, value);
   });
 
@@ -1914,6 +1960,31 @@ function researchLookupParams() {
   };
 }
 
+function lookupFilterPayload() {
+  const params = researchLookupParams();
+
+  return {
+    lookup_excluded_brands: params.exclude_brands || [],
+    lookup_excluded_title_keywords: params.exclude_title_keywords || [],
+    lookup_min_cost: params.min_cost ? Number(params.min_cost) : null,
+    lookup_max_cost: params.max_cost ? Number(params.max_cost) : null,
+  };
+}
+
+function clearLookupFilterInputs() {
+  document
+    .querySelectorAll("[data-lookup-filter-brand], [data-lookup-filter-keyword]")
+    .forEach((input) => {
+      input.checked = false;
+    });
+
+  const minCost = document.querySelector("#lookup-filter-min-cost");
+  const maxCost = document.querySelector("#lookup-filter-max-cost");
+
+  if (minCost) minCost.value = "";
+  if (maxCost) maxCost.value = "";
+}
+
 function renderResearchControls(preview = state.lookupPreview) {
   const limitInput = document.querySelector("#lookup-limit");
   const minPriorityInput = document.querySelector("#lookup-min-priority");
@@ -1925,6 +1996,7 @@ function renderResearchControls(preview = state.lookupPreview) {
   limitInput.placeholder = settings.limit ?? state.settings?.default_batch_size ?? "";
   minPriorityInput.placeholder = settings.min_priority_score ?? state.rules?.min_priority_score ?? "";
   renderLookupPlanStatus();
+  renderLookupSaveStatus();
 }
 
 function renderLookupPlanStatus() {
@@ -1941,6 +2013,56 @@ function renderLookupPlanStatus() {
 function markLookupPlanDirty() {
   state.lookupPlanDirty = true;
   renderLookupPlanStatus();
+  renderLookupSaveStatus(false);
+}
+
+function normalizeStringList(values = []) {
+  return [...new Set((values || [])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function sameStringList(left = [], right = []) {
+  const leftList = normalizeStringList(left);
+  const rightList = normalizeStringList(right);
+
+  return leftList.length === rightList.length
+    && leftList.every((value, index) => value === rightList[index]);
+}
+
+function numericOrNull(value) {
+  return value === undefined || value === null || value === ""
+    ? null
+    : Number(value);
+}
+
+function lookupFiltersMatchSaved() {
+  if (!state.rules) return false;
+
+  const payload = lookupFilterPayload();
+
+  return sameStringList(
+    payload.lookup_excluded_brands,
+    state.rules.lookup_excluded_brands || [],
+  )
+    && sameStringList(
+      payload.lookup_excluded_title_keywords,
+      state.rules.lookup_excluded_title_keywords || [],
+    )
+    && numericOrNull(payload.lookup_min_cost) === numericOrNull(state.rules.lookup_min_cost)
+    && numericOrNull(payload.lookup_max_cost) === numericOrNull(state.rules.lookup_max_cost);
+}
+
+function renderLookupSaveStatus(isSaved = lookupFiltersMatchSaved()) {
+  const status = document.querySelector("#lookup-save-status");
+
+  if (!status) return;
+
+  status.textContent = isSaved
+    ? t("status.lookupFiltersSaved")
+    : t("status.lookupFiltersUnsaved");
+  status.className = `badge ${isSaved ? "ok" : "warn"}`;
 }
 
 function renderCountList(items = []) {
@@ -1948,6 +2070,25 @@ function renderCountList(items = []) {
 
   return items
     .map((item) => `${escapeHtml(item.value)}: ${formatNumber(item.count)}`)
+    .join(" | ");
+}
+
+function skippedReasonLabel(reason) {
+  return t(`skip.${reason}`);
+}
+
+function renderSkippedBreakdown(items = []) {
+  if (!items.length) return t("message.noRecords");
+
+  return items
+    .map((item) => {
+      const values = (item.values || [])
+        .map((value) => `${escapeHtml(value.value)}: ${formatNumber(value.count)}`)
+        .join(", ");
+      const details = values ? ` (${values})` : "";
+
+      return `${skippedReasonLabel(item.reason)}: ${formatNumber(item.count)}${details}`;
+    })
     .join(" | ");
 }
 
@@ -1972,13 +2113,19 @@ function renderLookupPreview(preview = {}) {
         .join(" "),
     },
     { key: "priority_score", render: (row) => formatNumber(row.priority_score) },
+    {
+      key: "source",
+      render: (row) => row.source === "supplier_offers"
+        ? t("summary.unqueuedOffers")
+        : t("summary.queuePending"),
+    },
   ]);
 
   grid.innerHTML = `
     <article class="metric">
       <span>${t("summary.eligibleExternal")}</span>
       <strong>${formatNumber(preview.total_eligible || 0)}</strong>
-      <small>${t("field.minPriority")}: ${formatNumber(preview.min_priority_score)}</small>
+      <small>${t("summary.filteredOut")}: ${formatNumber(preview.filtered_out || 0)}</small>
     </article>
     <article class="metric">
       <span>${t("summary.willRequest")}</span>
@@ -1994,6 +2141,11 @@ function renderLookupPreview(preview = {}) {
       <span>${t("table.brand")}</span>
       <strong>${renderCountList(preview.top_brands)}</strong>
       <small>${t("table.keywords")}: ${renderCountList(preview.top_title_keywords)}</small>
+    </article>
+    <article class="metric lookup-list">
+      <span>${t("summary.skippedReasons")}</span>
+      <strong>${renderSkippedBreakdown(preview.skipped_breakdown)}</strong>
+      <small>${t("summary.filteredOut")}: ${formatNumber(preview.filtered_out || 0)}</small>
     </article>
   `;
 }
@@ -2082,6 +2234,55 @@ async function runResearch(triggerButton = null) {
       count: result.amazon_processed?.processed_count || 0,
     }));
     await Promise.all([loadSummary(), loadResearch(), loadDeals(), loadKeepa()]);
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function saveLookupFilters(button) {
+  button.disabled = true;
+
+  try {
+    const result = await api(scopedPath("/config/research-rules"), {
+      method: "PATCH",
+      body: JSON.stringify(lookupFilterPayload()),
+    });
+
+    state.rules = result;
+    renderLookupSaveStatus(true);
+    showAlert(t("message.saved"));
+    await loadResearch();
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function clearLookupFilters(button) {
+  button.disabled = true;
+
+  try {
+    clearLookupFilterInputs();
+
+    const result = await api(scopedPath("/config/research-rules"), {
+      method: "PATCH",
+      body: JSON.stringify({
+        lookup_excluded_brands: [],
+        lookup_excluded_title_keywords: [],
+        lookup_min_cost: null,
+        lookup_max_cost: null,
+      }),
+    });
+
+    state.rules = result;
+    state.lookupPlanDirty = false;
+    renderLookupPlanStatus();
+    renderLookupSaveStatus(true);
+    showAlert(t("message.lookupFiltersCleared"));
+    await loadResearch();
   } catch (error) {
     showAlert(error.message, true);
   } finally {
@@ -2511,8 +2712,20 @@ function renderLookupFilters(preview) {
       })}</strong>
     </article>
     <article>
+      <span>${t("summary.filteredOut")}</span>
+      <strong>${formatNumber(preview.filtered_out || 0)}</strong>
+    </article>
+    <article>
       <span>${t("summary.estimatedRequests")}</span>
       <strong>${formatNumber(preview.estimated_external_requests || 0)}</strong>
+    </article>
+    <article>
+      <span>${t("summary.queuePending")}</span>
+      <strong>${formatNumber(preview.queue_pending_count || 0)}</strong>
+    </article>
+    <article>
+      <span>${t("summary.unqueuedOffers")}</span>
+      <strong>${formatNumber(preview.unqueued_offer_count || 0)}</strong>
     </article>
   `;
 
@@ -2558,6 +2771,7 @@ function renderLookupFilters(preview) {
     input.addEventListener("input", markLookupPlanDirty);
     input.addEventListener("change", markLookupPlanDirty);
   });
+  renderLookupSaveStatus();
 }
 
 async function applyImportFilters(button) {
@@ -2779,6 +2993,12 @@ function bindActions() {
   });
   document.querySelector("#apply-lookup-controls-button").addEventListener("click", () => {
     loadResearch().catch((error) => showAlert(error.message, true));
+  });
+  document.querySelector("#save-lookup-filters-button").addEventListener("click", (event) => {
+    saveLookupFilters(event.currentTarget);
+  });
+  document.querySelector("#clear-lookup-filters-button").addEventListener("click", (event) => {
+    clearLookupFilters(event.currentTarget);
   });
   document.querySelectorAll("#lookup-limit, #lookup-min-priority").forEach((input) => {
     input.addEventListener("input", markLookupPlanDirty);

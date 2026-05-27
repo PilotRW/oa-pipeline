@@ -46,6 +46,20 @@ def serialize_research_rules(rules):
         "max_sales_rank": rules.max_sales_rank,
         "min_monthly_sales": rules.min_monthly_sales,
         "exclude_amazon_in_stock": rules.exclude_amazon_in_stock,
+        "lookup_excluded_brands": rules.lookup_excluded_brands or [],
+        "lookup_excluded_title_keywords": (
+            rules.lookup_excluded_title_keywords or []
+        ),
+        "lookup_min_cost": (
+            float(rules.lookup_min_cost)
+            if rules.lookup_min_cost is not None
+            else None
+        ),
+        "lookup_max_cost": (
+            float(rules.lookup_max_cost)
+            if rules.lookup_max_cost is not None
+            else None
+        ),
 
         "score_stock_high": rules.score_stock_high,
         "score_stock_medium": rules.score_stock_medium,

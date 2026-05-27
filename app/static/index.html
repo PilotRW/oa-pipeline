@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
     <link rel="icon" type="image/png" href="/ui/favicon.png">
-    <link rel="stylesheet" href="/ui/styles.css?v=20260526-11">
+    <link rel="stylesheet" href="/ui/styles.css?v=20260527-4">
   </head>
   <body>
     <div class="app-shell">
@@ -225,6 +225,14 @@
               <span data-i18n="message.lookupPlanHint">These criteria define the next research run. Applying them updates the plan only; it does not call external APIs.</span>
               <span class="badge ok" id="lookup-plan-status" data-i18n="status.lookupPlanApplied">Criteria applied to research plan</span>
             </div>
+            <div class="lookup-save-row">
+              <div>
+                <button class="ghost-button" id="save-lookup-filters-button" data-i18n="action.saveLookupFilters" type="button">Save filters as defaults</button>
+                <button class="ghost-button" id="clear-lookup-filters-button" data-i18n="action.clearLookupFilters" type="button">Clear saved filters</button>
+                <span class="badge ok" id="lookup-save-status" data-i18n="status.lookupFiltersSaved">Filters saved</span>
+              </div>
+              <small data-i18n="message.lookupSaveHint">Saved filters are applied automatically for this scope. Batch size stays run-specific.</small>
+            </div>
             <div class="filter-summary" id="lookup-filter-summary"></div>
             <div class="filter-controls" id="lookup-filter-controls"></div>
             <div class="lookup-preview-grid" id="lookup-preview"></div>
@@ -240,6 +248,7 @@
                       <th data-i18n="table.title">Title</th>
                       <th data-i18n="table.cost">Cost</th>
                       <th data-i18n="table.priority">Priority</th>
+                      <th data-i18n="table.source">Source</th>
                     </tr>
                   </thead>
                   <tbody id="lookup-sample-table"></tbody>
@@ -427,6 +436,6 @@
       </section>
     </div>
 
-    <script src="/ui/app.js?v=20260526-11"></script>
+    <script src="/ui/app.js?v=20260527-4"></script>
   </body>
 </html>

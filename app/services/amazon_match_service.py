@@ -1,7 +1,7 @@
 from datetime import datetime
 import re
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.amazon_product_match import AmazonProductMatch
@@ -11,6 +11,7 @@ from app.models.supplier_offer import SupplierOffer
 from app.services.amazon_matchers.factory import get_amazon_matcher
 from app.services.config_service import ConfigService
 from app.services.keepa_client import KeepaConfigurationError
+from app.services.research_queue_service import ResearchQueueService
 
 
 class AmazonMatchService:
@@ -121,6 +122,229 @@ class AmazonMatchService:
             )[:limit]
         ]
 
+    def offer_matches_external_filters(
+        self,
+        offer: SupplierOffer,
+        exclude_brands: list[str] | None = None,
+        exclude_title_keywords: list[str] | None = None,
+        min_cost: float | None = None,
+        max_cost: float | None = None,
+    ) -> bool:
+        brand = str(offer.brand or "").casefold()
+        title = str(offer.title or "").casefold()
+        cost = float(offer.cost) if offer.cost is not None else None
+
+        for excluded_brand in self.normalize_filter_terms(exclude_brands):
+            if excluded_brand.casefold() in brand:
+                return False
+
+        for excluded_keyword in self.normalize_filter_terms(exclude_title_keywords):
+            if excluded_keyword.casefold() in title:
+                return False
+
+        if min_cost is not None and (cost is None or cost < min_cost):
+            return False
+
+        if max_cost is not None and (cost is None or cost > max_cost):
+            return False
+
+        return True
+
+    def external_filter_reasons(
+        self,
+        offer: SupplierOffer,
+        exclude_brands: list[str] | None = None,
+        exclude_title_keywords: list[str] | None = None,
+        min_cost: float | None = None,
+        max_cost: float | None = None,
+    ) -> list[dict]:
+        reasons = []
+        brand = str(offer.brand or "").casefold()
+        title = str(offer.title or "").casefold()
+        cost = float(offer.cost) if offer.cost is not None else None
+
+        for excluded_brand in self.normalize_filter_terms(exclude_brands):
+            if excluded_brand.casefold() in brand:
+                reasons.append(
+                    {
+                        "reason": "excluded_brand",
+                        "value": excluded_brand,
+                    }
+                )
+
+        for excluded_keyword in self.normalize_filter_terms(exclude_title_keywords):
+            if excluded_keyword.casefold() in title:
+                reasons.append(
+                    {
+                        "reason": "excluded_title_keyword",
+                        "value": excluded_keyword,
+                    }
+                )
+
+        if cost is None and (min_cost is not None or max_cost is not None):
+            reasons.append(
+                {
+                    "reason": "missing_cost",
+                    "value": None,
+                }
+            )
+        elif min_cost is not None and cost < min_cost:
+            reasons.append(
+                {
+                    "reason": "below_min_cost",
+                    "value": min_cost,
+                }
+            )
+        elif max_cost is not None and cost > max_cost:
+            reasons.append(
+                {
+                    "reason": "above_max_cost",
+                    "value": max_cost,
+                }
+            )
+
+        return reasons
+
+    def skipped_breakdown(
+        self,
+        candidates: list[dict],
+        exclude_brands: list[str] | None = None,
+        exclude_title_keywords: list[str] | None = None,
+        min_cost: float | None = None,
+        max_cost: float | None = None,
+    ) -> list[dict]:
+        counts: dict[str, int] = {}
+        values: dict[str, dict[str, int]] = {}
+
+        for candidate in candidates:
+            reasons = self.external_filter_reasons(
+                offer=candidate["offer"],
+                exclude_brands=exclude_brands,
+                exclude_title_keywords=exclude_title_keywords,
+                min_cost=min_cost,
+                max_cost=max_cost,
+            )
+
+            for reason in reasons:
+                reason_key = reason["reason"]
+                reason_value = reason["value"]
+                counts[reason_key] = counts.get(reason_key, 0) + 1
+
+                if reason_value is not None:
+                    value_key = str(reason_value)
+                    values.setdefault(reason_key, {})
+                    values[reason_key][value_key] = (
+                        values[reason_key].get(value_key, 0) + 1
+                    )
+
+        return [
+            {
+                "reason": reason,
+                "count": count,
+                "values": [
+                    {
+                        "value": value,
+                        "count": value_count,
+                    }
+                    for value, value_count in sorted(
+                        values.get(reason, {}).items(),
+                        key=lambda item: (-item[1], item[0]),
+                    )[:8]
+                ],
+            }
+            for reason, count in sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        ]
+
+    async def unqueued_offer_candidates(
+        self,
+        min_priority_score: float,
+        supplier_id: int | None = None,
+    ) -> list[dict]:
+        config_service = ConfigService(self.db)
+        rules = await config_service.get_research_rules(
+            supplier_id=supplier_id
+        )
+        queue_service = ResearchQueueService(self.db)
+        existing_offer_ids_subquery = select(
+            OfferResearchQueue.supplier_offer_id
+        )
+
+        query = (
+            select(
+                SupplierOffer,
+                Supplier.name.label("supplier_name"),
+            )
+            .join(
+                Supplier,
+                Supplier.id == SupplierOffer.supplier_id,
+            )
+            .where(SupplierOffer.ean.is_not(None))
+            .where(SupplierOffer.ean != "")
+            .where(SupplierOffer.cost.is_not(None))
+            .where(SupplierOffer.id.not_in(existing_offer_ids_subquery))
+        )
+
+        if supplier_id is not None:
+            query = query.where(SupplierOffer.supplier_id == supplier_id)
+        else:
+            query = query.where(Supplier.is_visible.is_(True))
+
+        result = await self.db.execute(query)
+        rows = result.all()
+        candidates = []
+
+        for offer, supplier_name in rows:
+            priority_score = queue_service.calculate_priority_score(
+                offer=offer,
+                rules=rules,
+            )
+
+            if priority_score < min_priority_score:
+                continue
+
+            candidates.append(
+                {
+                    "offer": offer,
+                    "supplier_name": supplier_name,
+                    "priority_score": priority_score,
+                    "sort_at": offer.imported_at,
+                    "source": "supplier_offers",
+                }
+            )
+
+        return candidates
+
+    async def pending_queue_candidates(
+        self,
+        min_priority_score: float,
+        supplier_id: int | None = None,
+    ) -> list[dict]:
+        result = await self.db.execute(
+            self.pending_match_query(
+                min_priority_score=min_priority_score,
+                supplier_id=supplier_id,
+            )
+        )
+        rows = result.all()
+
+        return [
+            {
+                "offer": offer,
+                "supplier_name": supplier_name,
+                "priority_score": (
+                    float(queue_item.priority_score)
+                    if queue_item.priority_score is not None
+                    else 0.0
+                ),
+                "sort_at": queue_item.created_at,
+                "source": "offer_research_queue",
+            }
+            for queue_item, offer, supplier_name in rows
+        ]
+
     async def preview_pending_matches(
         self,
         min_priority_score: float | None = None,
@@ -156,35 +380,48 @@ class AmazonMatchService:
         excluded_brands = self.normalize_filter_terms(exclude_brands)
         excluded_keywords = self.normalize_filter_terms(exclude_title_keywords)
 
-        base_query = self.pending_match_query(
-            min_priority_score=priority_score,
-            supplier_id=supplier_id,
-            exclude_brands=excluded_brands,
-            exclude_title_keywords=excluded_keywords,
-            min_cost=min_cost,
-            max_cost=max_cost,
-        )
-        total_result = await self.db.execute(
-            select(func.count()).select_from(base_query.subquery())
-        )
-        total_eligible = int(total_result.scalar() or 0)
+        candidates = [
+            *await self.pending_queue_candidates(
+                min_priority_score=priority_score,
+                supplier_id=supplier_id,
+            ),
+            *await self.unqueued_offer_candidates(
+                min_priority_score=priority_score,
+                supplier_id=supplier_id,
+            ),
+        ]
+        total_before_filters = len(candidates)
 
-        batch_query = (
-            base_query
-            .order_by(
-                OfferResearchQueue.priority_score.desc().nullslast(),
-                OfferResearchQueue.created_at.desc(),
+        filtered_candidates = [
+            candidate
+            for candidate in candidates
+            if self.offer_matches_external_filters(
+                offer=candidate["offer"],
+                exclude_brands=excluded_brands,
+                exclude_title_keywords=excluded_keywords,
+                min_cost=min_cost,
+                max_cost=max_cost,
             )
-            .limit(batch_limit)
-        )
-        result = await self.db.execute(batch_query)
-        rows = result.all()
+        ]
+        total_eligible = len(filtered_candidates)
+
+        rows = sorted(
+            filtered_candidates,
+            key=lambda candidate: (
+                candidate["priority_score"],
+                candidate["sort_at"],
+            ),
+            reverse=True,
+        )[:batch_limit]
 
         brands: dict[str, int] = {}
         titles = []
         sample = []
 
-        for queue_item, offer, supplier_name in rows:
+        for candidate in rows:
+            offer = candidate["offer"]
+            supplier_name = candidate["supplier_name"]
+
             if offer.brand:
                 brands[offer.brand] = brands.get(offer.brand, 0) + 1
 
@@ -203,11 +440,8 @@ class AmazonMatchService:
                             else None
                         ),
                         "currency": offer.currency,
-                        "priority_score": (
-                            float(queue_item.priority_score)
-                            if queue_item.priority_score is not None
-                            else None
-                        ),
+                        "priority_score": candidate["priority_score"],
+                        "source": candidate["source"],
                     }
                 )
 
@@ -222,16 +456,42 @@ class AmazonMatchService:
             )[:12]
         ]
         costs = [
-            float(offer.cost)
-            for _queue_item, offer, _supplier_name in rows
-            if offer.cost is not None
+            float(candidate["offer"].cost)
+            for candidate in rows
+            if candidate["offer"].cost is not None
         ]
+
+        queue_pending_count = len(
+            [
+                candidate
+                for candidate in candidates
+                if candidate["source"] == "offer_research_queue"
+            ]
+        )
+        unqueued_count = len(
+            [
+                candidate
+                for candidate in candidates
+                if candidate["source"] == "supplier_offers"
+            ]
+        )
 
         return {
             "supplier_id": supplier_id,
             "min_priority_score": priority_score,
             "limit": batch_limit,
+            "total_before_filters": total_before_filters,
             "total_eligible": total_eligible,
+            "filtered_out": max(0, total_before_filters - total_eligible),
+            "skipped_breakdown": self.skipped_breakdown(
+                candidates=candidates,
+                exclude_brands=excluded_brands,
+                exclude_title_keywords=excluded_keywords,
+                min_cost=min_cost,
+                max_cost=max_cost,
+            ),
+            "queue_pending_count": queue_pending_count,
+            "unqueued_offer_count": unqueued_count,
             "will_request": len(rows),
             "estimated_external_requests": len(rows),
             "external_filters": {

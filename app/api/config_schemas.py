@@ -117,6 +117,16 @@ class ResearchRulesUpdate(BaseModel):
         ge=0,
     )
     exclude_amazon_in_stock: bool | None = None
+    lookup_excluded_brands: list[str] | None = None
+    lookup_excluded_title_keywords: list[str] | None = None
+    lookup_min_cost: Decimal | None = Field(
+        default=None,
+        ge=0,
+    )
+    lookup_max_cost: Decimal | None = Field(
+        default=None,
+        ge=0,
+    )
 
     score_stock_high: int | None = None
     score_stock_medium: int | None = None
@@ -153,6 +163,26 @@ class ResearchRulesUpdate(BaseModel):
 
         return self
 
+    @field_validator(
+        "lookup_excluded_brands",
+        "lookup_excluded_title_keywords",
+    )
+    @classmethod
+    def normalize_lookup_terms(
+        cls,
+        value: list[str] | None,
+    ) -> list[str] | None:
+        if value is None:
+            return value
+
+        terms = {
+            str(item).strip()
+            for item in value
+            if str(item).strip()
+        }
+
+        return sorted(terms, key=str.casefold)
+
     @model_validator(mode="after")
     def validate_cost_ranges(self):
         ranges = [
@@ -171,5 +201,18 @@ class ResearchRulesUpdate(BaseModel):
                     "Cost ranges must be ordered: "
                     "preferred_min <= preferred_max <= medium_max"
                 )
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_lookup_cost_range(self):
+        if (
+            self.lookup_min_cost is not None
+            and self.lookup_max_cost is not None
+            and self.lookup_min_cost > self.lookup_max_cost
+        ):
+            raise ValueError(
+                "Lookup cost range must be ordered: min <= max"
+            )
 
         return self
