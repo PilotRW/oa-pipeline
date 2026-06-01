@@ -1,17 +1,20 @@
 # Mirenelle Automation - Project State
 
-Last updated: 2026-05-27
+Last updated: 2026-06-01
 
 ## Current Position
 
-Project is paused after implementing the preview-driven Research prefilter and
-the skipped-reason breakdown for Research lookup filters.
+Project is paused after hardening the Upload preview/filter flow against the
+large Jacob `haendler_netto.csv` feed and validating the Makita import path.
 
 Resume from here:
 
 1. Commit or review the current working tree.
-2. Continue with category/product-type filtering if enough source data exists.
-3. After local filters are stable, move toward real Keepa-based matching and
+2. Re-import the Jacob feed from a clean database and test the operator flow:
+   preview -> keep only Makita -> exclude non-new/refurbished -> apply filtered
+   preview -> export CSV -> save import.
+3. Continue with category/product-type filtering if enough source data exists.
+4. After local filters are stable, move toward real Keepa-based matching and
    enrichment with token-aware batching.
 
 The current local workflow is:
@@ -46,10 +49,45 @@ System defaults were kept:
 - default research rule profile;
 - pipeline settings.
 
-After cleanup, a new `makita` supplier/feed was imported and used for testing
-the Research prefilter.
+After cleanup, no supplier/product data should be considered persistent test
+state. The latest exported Makita preview from the Jacob feed was validated
+from Downloads, not relied on as durable DB state.
 
 ## Implemented Today
+
+### Jacob Upload / Makita Filter Checks
+
+The Jacob file checked during this pause:
+
+```text
+/Users/pilotrw/Downloads/haendler_netto.csv
+```
+
+Source file facts:
+
+- `849,971` rows.
+- One actual supplier price column: `Preis netto`.
+- `Preis netto` maps to canonical `price` with confidence `100`.
+- Price distribution includes very expensive enterprise/service/license rows,
+  so high `Max cost` values in the UI are real source data, not a price mapping
+  bug.
+- Overall source price max observed: `1,245,426.48`.
+- Makita subset: `2,143` rows, median `26.93`, max `1,708.45`.
+
+Exported filtered preview checked during this pause:
+
+```text
+/Users/pilotrw/Downloads/jacob-haendler-netto-csv-preview.csv
+```
+
+Validation result:
+
+- `2,143` rows.
+- Brand values: only `Makita`.
+- Non-new/refurbished keyword matches: `0`.
+- Price min/max: `4.14` / `1,708.45`.
+
+The large Makita max price is a real Makita row, not a parser issue.
 
 ### Import Preview Filters
 
@@ -61,8 +99,40 @@ commit:
 - exclude rows without EAN;
 - exclude non-new / refurbished rows;
 - min/max supplier cost.
+- CSV export of the full confirmed filtered preview, not only the visible
+  preview sample.
 
 The operator must apply a filtered preview before saving.
+
+The visible Upload preview sample was raised to 50 rows. If filter controls are
+changed after a confirmed preview, the UI marks the preview as stale and blocks
+CSV export/save until the operator applies the filtered preview again.
+
+Brand filters support both modes:
+
+- exclude selected brands;
+- keep only selected brands.
+
+The brand suggestion list was expanded so large feeds expose more real brand
+options, with select-all and clear-all controls.
+
+Price parsing was hardened for both decimal styles:
+
+```text
+1.234,56 -> 1234.56
+1,234.56 -> 1234.56
+```
+
+The explicit German synonym `preis netto` was added for `price`.
+
+Delivery-time mapping was also hardened:
+
+```text
+Min Lieferzeit Werktage -> lead_time_days
+Max Lieferzeit Werktage -> lead_time_days
+```
+
+This prevents those columns from being confused with MOQ-style fields.
 
 ### Research Lookup Plan
 
@@ -150,6 +220,8 @@ PATCH /config/research-rules
 Commands run:
 
 ```bash
+docker compose exec app python -m py_compile app/ingestion/synonyms.py app/ingestion/cleaners.py
+docker compose exec app python -m py_compile app/api/upload.py app/services/import_draft_service.py
 docker compose exec app python -m py_compile app/api/pipeline.py app/services/pipeline_service.py app/services/amazon_match_service.py
 node --check app/static/app.js
 git diff --check
@@ -175,6 +247,8 @@ Latest checks passed:
 
 ```bash
 node --check app/static/app.js
+docker compose exec app python -m py_compile app/ingestion/synonyms.py app/ingestion/cleaners.py
+docker compose exec app python -m py_compile app/api/upload.py app/services/import_draft_service.py
 docker compose exec app python -m py_compile app/services/amazon_match_service.py app/services/pipeline_service.py app/api/pipeline.py
 git diff --check
 ```
@@ -186,32 +260,25 @@ Expected modified files:
 ```text
 PROJECT_STATE.md
 README.md
-app/api/config.py
-app/api/config_schemas.py
-app/models/research_rule.py
-app/services/amazon_match_service.py
-app/services/config_service.py
-app/services/pipeline_service.py
+app/api/upload.py
+app/ingestion/cleaners.py
+app/ingestion/synonyms.py
+app/services/import_draft_service.py
 app/static/app.js
 app/static/index.html
 app/static/styles.css
 ```
 
-Expected untracked migration:
-
-```text
-alembic/versions/3f1a9c2d8b71_add_research_lookup_filters.py
-```
-
-The migration has already been applied locally with `alembic upgrade head`.
-
 ## Next Recommended Step
 
-Continue from Research UX / logic hardening:
+Continue from Upload/import validation:
 
-1. Add category/product-type filtering once product type can be detected or
+1. Re-import Jacob Makita with the confirmed filter flow.
+2. Use `Max cost` deliberately if the operator wants to avoid high-ticket
+   Makita rows before external lookup.
+3. Add category/product-type filtering once product type can be detected or
    inferred reliably from imported fields.
-2. Then proceed toward real Keepa-based matching/enrichment with token-aware
+4. Then proceed toward real Keepa-based matching/enrichment with token-aware
    batching.
 
 ## Important Product Decisions

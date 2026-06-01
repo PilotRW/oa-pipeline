@@ -50,7 +50,18 @@ def clean_price(value):
     value = value.replace("EUR", "")
     value = value.replace("eur", "")
     value = value.replace(" ", "")
-    value = value.replace(",", ".")
+
+    if "," in value and "." in value:
+        last_comma = value.rfind(",")
+        last_dot = value.rfind(".")
+
+        if last_comma > last_dot:
+            value = value.replace(".", "")
+            value = value.replace(",", ".")
+        else:
+            value = value.replace(",", "")
+    elif "," in value:
+        value = value.replace(",", ".")
 
     try:
         return float(value)

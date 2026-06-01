@@ -8,9 +8,9 @@ evaluates profitability, and produces ranked deal candidates.
 
 ## Current Status
 
-Project is currently paused after the Research prefilter and skipped-reason
-accounting work. See `PROJECT_STATE.md` for the exact resume point and current
-working-tree expectations.
+Project is currently paused after Upload preview/filter hardening and Jacob
+Makita import validation. See `PROJECT_STATE.md` for the exact resume point and
+current working-tree expectations.
 
 Implemented:
 
@@ -24,6 +24,12 @@ Implemented:
   checks.
 - Preview-driven import filters for excluding brands, title keywords, missing
   EAN rows, and supplier price ranges before commit.
+- Import brand filters can either exclude selected brands or keep only selected
+  brands, with select-all and clear-all controls.
+- Import preview CSV export downloads the full confirmed filtered preview, not
+  only the visible sample rows.
+- Import preview marks rows stale after filter changes until the filtered
+  preview is applied again.
 - Multilingual semantic column normalization and fuzzy matching.
 - Supplier offer persistence, feed refresh, and duplicate prevention.
 - Supplier management with visible/hidden toggle.
@@ -236,6 +242,7 @@ Future import filtering direction:
 - After changing filters, the operator must apply a filtered preview before
   saving. The save action should commit the last confirmed filtered preview, not
   unconfirmed checkbox/input changes.
+- CSV export should export that same confirmed filtered dataset.
 - Selected filters may optionally be saved as reusable supplier/global rules.
 
 This must not be hardcoded as a static list of forbidden brands or categories.

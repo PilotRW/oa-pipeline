@@ -12,7 +12,8 @@ _drafts: dict[str, dict] = {}
 WEAK_MAPPING_CONFIDENCE = 90
 SUSPICIOUS_LOW_PRICE = 0.01
 SUSPICIOUS_HIGH_PRICE = 10000
-FILTER_SUGGESTION_LIMIT = 12
+BRAND_FILTER_SUGGESTION_LIMIT = 250
+KEYWORD_FILTER_SUGGESTION_LIMIT = 40
 MIN_KEYWORD_LENGTH = 4
 NON_NEW_PATTERNS = [
     "refurbished",
@@ -209,7 +210,7 @@ def build_quality_report(
 def _top_text_values(
     df: pd.DataFrame,
     column: str,
-    limit: int = FILTER_SUGGESTION_LIMIT,
+    limit: int = BRAND_FILTER_SUGGESTION_LIMIT,
 ) -> list[dict]:
     if column not in df.columns:
         return []
@@ -231,9 +232,22 @@ def _top_text_values(
     ]
 
 
+def _unique_text_count(
+    df: pd.DataFrame,
+    column: str,
+) -> int:
+    if column not in df.columns:
+        return 0
+
+    values = df[column].astype(str).str.strip()
+    values = values[values != ""]
+
+    return int(values.nunique())
+
+
 def _title_keywords(
     df: pd.DataFrame,
-    limit: int = FILTER_SUGGESTION_LIMIT,
+    limit: int = KEYWORD_FILTER_SUGGESTION_LIMIT,
 ) -> list[dict]:
     if "title" not in df.columns:
         return []
@@ -318,9 +332,15 @@ def non_new_mask(df: pd.DataFrame) -> pd.Series:
 
 
 def build_filter_suggestions(df: pd.DataFrame) -> dict:
+    brand_values = _top_text_values(df, "brand")
+    keyword_values = _title_keywords(df)
+
     return {
-        "brands": _top_text_values(df, "brand"),
-        "title_keywords": _title_keywords(df),
+        "brands": brand_values,
+        "title_keywords": keyword_values,
+        "brand_total_unique": _unique_text_count(df, "brand"),
+        "brand_suggestion_limit": BRAND_FILTER_SUGGESTION_LIMIT,
+        "title_keyword_suggestion_limit": KEYWORD_FILTER_SUGGESTION_LIMIT,
         "missing_ean_count": _missing_count(df, "ean"),
         "non_new_count": int(non_new_mask(df).sum()),
         "price": _price_summary(df),
@@ -339,18 +359,35 @@ def apply_import_filters(
         for value in filters.get("excluded_brands", [])
         if str(value).strip()
     }
+    included_brands = {
+        str(value).strip().casefold()
+        for value in filters.get("included_brands", [])
+        if str(value).strip()
+    }
+    brand_filter_mode = str(
+        filters.get("brand_filter_mode") or "exclude"
+    ).strip().casefold()
 
-    if excluded_brands and "brand" in df.columns:
+    if (included_brands or excluded_brands) and "brand" in df.columns:
         brands = df["brand"].astype(str).str.strip().str.casefold()
         brand_mask = pd.Series(False, index=df.index)
 
-        for brand in excluded_brands:
+        active_brands = (
+            included_brands
+            if brand_filter_mode == "include"
+            else excluded_brands
+        )
+
+        for brand in active_brands:
             brand_mask |= brands.str.contains(
                 re.escape(brand),
                 na=False,
             )
 
-        include_mask &= ~brand_mask
+        if brand_filter_mode == "include":
+            include_mask &= brand_mask
+        else:
+            include_mask &= ~brand_mask
 
     excluded_keywords = [
         str(value).strip().casefold()
@@ -398,7 +435,9 @@ def apply_import_filters(
         "rows_after": int(len(filtered_df)),
         "rows_excluded": int(len(df) - len(filtered_df)),
         "filters": {
+            "brand_filter_mode": brand_filter_mode,
             "excluded_brands": sorted(excluded_brands),
+            "included_brands": sorted(included_brands),
             "excluded_keywords": excluded_keywords,
             "exclude_missing_ean": bool(filters.get("exclude_missing_ean")),
             "exclude_non_new": bool(filters.get("exclude_non_new")),
@@ -408,7 +447,7 @@ def apply_import_filters(
     }
 
 
-def serialize_import_draft(draft: dict, preview_rows: int = 10) -> dict:
+def serialize_import_draft(draft: dict, preview_rows: int = 50) -> dict:
     df = draft["df"]
 
     filter_summary = draft.get("filter_summary")

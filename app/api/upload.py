@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -36,6 +36,21 @@ class ImportCommitRequest(BaseModel):
 class ImportFilterPreviewRequest(BaseModel):
     import_token: str
     filters: dict | None = None
+
+
+class ImportPreviewExportRequest(BaseModel):
+    import_token: str
+    filters: dict | None = None
+
+
+def export_filename(value: str) -> str:
+    safe = "".join(
+        character.lower() if character.isalnum() else "-"
+        for character in value
+    )
+    safe = "-".join(part for part in safe.split("-") if part)
+
+    return safe or "import-preview"
 
 
 async def build_import_dataframe(file: UploadFile):
@@ -128,7 +143,7 @@ async def commit_import_draft(
         ),
         "filter_suggestions": build_filter_suggestions(df),
         "filter_summary": filter_summary,
-        "preview": df.head(3).to_dict(orient="records"),
+        "preview": df.head(50).to_dict(orient="records"),
     }
 
 
@@ -222,6 +237,47 @@ async def preview_import_filters(
     draft["filter_summary"] = filter_summary
 
     return serialize_import_draft(preview_draft)
+
+
+@router.post("/upload/export-preview")
+async def export_import_preview(
+    payload: ImportPreviewExportRequest,
+):
+    draft = get_import_draft(payload.import_token)
+
+    if not draft:
+        raise HTTPException(
+            status_code=404,
+            detail="Import preview expired or was already saved",
+        )
+
+    filters = (
+        payload.filters
+        if payload.filters is not None
+        else draft.get("confirmed_filters")
+    )
+    df, _filter_summary = apply_import_filters(
+        draft["df"],
+        filters,
+    )
+
+    if df.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="Selected filters excluded all rows",
+        )
+
+    filename = export_filename(
+        f"{draft['supplier_name']}-{draft['filename']}-preview"
+    )
+
+    return Response(
+        content=df.to_csv(index=False).encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}.csv"',
+        },
+    )
 
 
 @router.post("/upload")

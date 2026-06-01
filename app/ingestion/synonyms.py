@@ -100,6 +100,7 @@ COLUMN_SYNONYMS = {
 
         # german
         "preis",
+        "preis netto",
         "einkaufspreis",
         "nettopreis",
 
@@ -329,6 +330,8 @@ COLUMN_SYNONYMS = {
         "lieferzeit",
         "lieferzeit tage",
         "lieferzeit in tagen",
+        "min lieferzeit werktage",
+        "max lieferzeit werktage",
 
         # polish
         "czas dostawy",

@@ -12,6 +12,7 @@ const state = {
   importFiltersConfirmed: false,
   importPreview: null,
   issueExport: null,
+  tableExports: {},
   lookupPreview: null,
   lookupPlanDirty: false,
   language: localStorage.getItem("oaLanguage") || "en",
@@ -37,6 +38,10 @@ const translations = {
     "action.resetToDefault": "Reset to default",
     "action.resetToSystemDefaults": "Reset to system defaults",
     "action.saveImport": "Save import",
+    "action.selectAll": "Select all",
+    "action.clearAll": "Clear all",
+    "action.excludeSelected": "Exclude selected",
+    "action.keepOnlySelected": "Keep only selected",
     "action.upload": "Upload",
     "action.uploadFeed": "Upload feed",
     "action.close": "Close",
@@ -115,8 +120,10 @@ const translations = {
     "message.lookupSaveHint": "Saved filters are applied automatically for this scope. Batch size stays run-specific.",
     "message.lookupFiltersCleared": "Research filters cleared",
     "message.lookupFilterResult": "{eligible} eligible, {batch} in next lookup batch",
+    "message.suggestionsShown": "Showing {shown} of {total}",
     "message.previewReady": "Preview ready: {count} rows",
     "message.importFilterResult": "{after} of {before} rows will be imported",
+    "message.applyFiltersToUpdatePreview": "Apply filters preview to update rows",
     "message.filteredPreviewReady": "Filtered preview ready: {count} rows",
     "message.saved": "Saved",
     "message.rulesReset": "Rules reset",
@@ -245,6 +252,10 @@ const translations = {
     "action.resetToDefault": "Auf Standard zurücksetzen",
     "action.resetToSystemDefaults": "Auf Systemstandard zurücksetzen",
     "action.saveImport": "Import speichern",
+    "action.selectAll": "Alle auswählen",
+    "action.clearAll": "Alle abwählen",
+    "action.excludeSelected": "Ausgewählte ausschließen",
+    "action.keepOnlySelected": "Nur ausgewählte behalten",
     "action.upload": "Hochladen",
     "action.uploadFeed": "Feed hochladen",
     "action.close": "Schließen",
@@ -323,8 +334,10 @@ const translations = {
     "message.lookupSaveHint": "Gespeicherte Filter werden automatisch für diesen Scope angewendet. Die Batchgröße bleibt laufbezogen.",
     "message.lookupFiltersCleared": "Recherchefilter gelöscht",
     "message.lookupFilterResult": "{eligible} geeignet, {batch} im nächsten Lookup-Batch",
+    "message.suggestionsShown": "{shown} von {total} angezeigt",
     "message.previewReady": "Vorschau bereit: {count} Zeilen",
     "message.importFilterResult": "{after} von {before} Zeilen werden importiert",
+    "message.applyFiltersToUpdatePreview": "Filtervorschau anwenden, um Zeilen zu aktualisieren",
     "message.filteredPreviewReady": "Gefilterte Vorschau bereit: {count} Zeilen",
     "message.saved": "Gespeichert",
     "message.rulesReset": "Regeln zurückgesetzt",
@@ -453,6 +466,10 @@ const translations = {
     "action.resetToDefault": "Скинути до дефолту",
     "action.resetToSystemDefaults": "Скинути до системного дефолту",
     "action.saveImport": "Зберегти імпорт",
+    "action.selectAll": "Вибрати всі",
+    "action.clearAll": "Зняти всі",
+    "action.excludeSelected": "Виключити вибрані",
+    "action.keepOnlySelected": "Залишити тільки вибрані",
     "action.upload": "Завантажити",
     "action.uploadFeed": "Завантажити фід",
     "action.close": "Закрити",
@@ -531,8 +548,10 @@ const translations = {
     "message.lookupSaveHint": "Збережені фільтри застосовуються автоматично для цього scope. Batch size лишається параметром конкретного запуску.",
     "message.lookupFiltersCleared": "Research filters очищено",
     "message.lookupFilterResult": "{eligible} підходять, {batch} у наступному lookup batch",
+    "message.suggestionsShown": "Показано {shown} з {total}",
     "message.previewReady": "Превʼю готове: {count} рядків",
     "message.importFilterResult": "Буде імпортовано {after} з {before} рядків",
+    "message.applyFiltersToUpdatePreview": "Застосуй фільтри для оновлення рядків preview",
     "message.filteredPreviewReady": "Відфільтроване превʼю готове: {count} рядків",
     "message.saved": "Збережено",
     "message.rulesReset": "Правила скинуто",
@@ -1126,8 +1145,28 @@ function renderSupplierManagement() {
 
   if (!body) return;
 
-  body.innerHTML = state.supplierManagement.length
-    ? state.supplierManagement
+  const rows = state.supplierManagement || [];
+  const columns = [
+    { key: "name", label: t("table.supplier") },
+    { key: "offers_count", label: t("field.rows") },
+    {
+      key: "is_visible",
+      label: t("table.visibility"),
+      export: (supplier) => supplier.is_visible
+        ? t("status.visible")
+        : t("status.hidden"),
+    },
+  ];
+
+  registerTableExport(
+    "#supplier-management-table",
+    t("panel.supplierManagement"),
+    rows,
+    columns,
+  );
+
+  body.innerHTML = rows.length
+    ? rows
       .map((supplier) => `
         <tr>
           <td>${escapeHtml(supplier.name)}</td>
@@ -1237,7 +1276,10 @@ function renderSupplierDetail(detail) {
     </section>
 
     <section class="supplier-detail-section">
-      <h4>${t("panel.importHistory")}</h4>
+      <div class="section-title-row">
+        <h4>${t("panel.importHistory")}</h4>
+        <button class="ghost-button compact-button" data-export-table="#supplier-import-history-table" type="button">CSV</button>
+      </div>
       <div class="table-wrap scroll-table compact-table">
         <table>
           <thead>
@@ -1251,7 +1293,7 @@ function renderSupplierDetail(detail) {
               <th>${t("metric.createdAt")}</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="supplier-import-history-table">
             ${imports.length
               ? imports.map((run) => `
                 <tr>
@@ -1271,7 +1313,10 @@ function renderSupplierDetail(detail) {
     </section>
 
     <section class="supplier-detail-section">
-      <h4>${t("panel.recentOffers")}</h4>
+      <div class="section-title-row">
+        <h4>${t("panel.recentOffers")}</h4>
+        <button class="ghost-button compact-button" data-export-table="#supplier-recent-offers-table" type="button">CSV</button>
+      </div>
       <div class="table-wrap scroll-table compact-table">
         <table>
           <thead>
@@ -1285,7 +1330,7 @@ function renderSupplierDetail(detail) {
               <th>${t("table.importedAt")}</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="supplier-recent-offers-table">
             ${offers.length
               ? offers.map((offer) => `
                 <tr>
@@ -1304,6 +1349,43 @@ function renderSupplierDetail(detail) {
       </div>
     </section>
   `;
+
+  registerTableExport(
+    "#supplier-import-history-table",
+    `${detail.name}-${t("panel.importHistory")}`,
+    imports,
+    [
+      { key: "filename", label: t("table.file") },
+      { key: "rows_total", label: t("table.rows") },
+      { key: "rows_valid", label: t("table.valid") },
+      { key: "rows_failed", label: t("table.failed") },
+      {
+        key: "mapped_columns",
+        label: t("field.mapped"),
+        export: (run) => importMappingSummary(run),
+      },
+      { key: "status", label: t("table.status") },
+      { key: "created_at", label: t("metric.createdAt") },
+    ],
+  );
+  registerTableExport(
+    "#supplier-recent-offers-table",
+    `${detail.name}-${t("panel.recentOffers")}`,
+    offers,
+    [
+      { key: "ean", label: "EAN" },
+      { key: "supplier_sku", label: t("table.sku") },
+      { key: "brand", label: t("table.brand") },
+      { key: "title", label: t("table.title") },
+      {
+        key: "cost",
+        label: t("table.cost"),
+        export: (offer) => [offer.cost, offer.currency].filter(Boolean).join(" "),
+      },
+      { key: "stock", label: t("table.stock") },
+      { key: "imported_at", label: t("table.importedAt") },
+    ],
+  );
 }
 
 function qualityTone(count) {
@@ -1551,8 +1633,12 @@ function formPayload(form) {
   return payload;
 }
 
-function renderRows(selector, rows, columns) {
+function renderRows(selector, rows, columns, options = {}) {
   const body = document.querySelector(selector);
+
+  if (options.exportTitle) {
+    registerTableExport(selector, options.exportTitle, rows, columns);
+  }
 
   if (!rows.length) {
     body.innerHTML = `<tr><td colspan="${columns.length}">${t("message.noRecords")}</td></tr>`;
@@ -1571,6 +1657,18 @@ function renderRows(selector, rows, columns) {
       return `<tr>${cells}</tr>`;
     })
     .join("");
+}
+
+function registerTableExport(selector, title, rows, columns) {
+  state.tableExports[selector] = {
+    title,
+    rows: rows || [],
+    columns: (columns || []).filter((column) => column.export !== false),
+  };
+
+  document.querySelectorAll(`[data-export-table="${selector}"]`).forEach((button) => {
+    button.disabled = !(rows || []).length;
+  });
 }
 
 function renderTable(headSelector, bodySelector, rows, columns) {
@@ -1603,11 +1701,95 @@ function renderTable(headSelector, bodySelector, rows, columns) {
 }
 
 function plainCellValue(row, column) {
-  const value = row[column.key];
+  const value = column.export
+    ? column.export(row)
+    : row[column.key];
 
   if (value === null || value === undefined || value === "") return "";
 
   return String(value);
+}
+
+function downloadTableCsv(selector) {
+  const tableExport = state.tableExports[selector];
+
+  if (!tableExport) {
+    showAlert(t("message.noRecords"), true);
+    return;
+  }
+
+  const { title, rows, columns } = tableExport;
+
+  if (!rows.length) {
+    showAlert(t("message.noRecords"), true);
+    return;
+  }
+
+  const header = columns
+    .map((column) => csvEscape(column.label || column.key))
+    .join(",");
+  const body = rows
+    .map((row) => columns
+      .map((column) => csvEscape(plainCellValue(row, column)))
+      .join(","))
+    .join("\n");
+
+  downloadBlob(
+    `${filenameSafe(selectedSupplierName())}-${filenameSafe(title)}.csv`,
+    "text/csv;charset=utf-8",
+    `\uFEFF${header}\n${body}`,
+  );
+}
+
+async function downloadUploadPreviewCsv(button) {
+  if (!state.importDraft?.import_token) {
+    showAlert(t("message.noRecords"), true);
+    return;
+  }
+
+  if (!state.importFiltersConfirmed) {
+    showAlert(t("message.applyFiltersToUpdatePreview"), true);
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const filters = state.importPreview?.filter_summary?.filters || null;
+    const response = await fetch("/upload/export-preview", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        import_token: state.importDraft.import_token,
+        filters,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(JSON.stringify(error.detail || error));
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const filename = disposition.match(/filename="([^"]+)"/)?.[1]
+      || `${filenameSafe(selectedSupplierName())}-upload-preview.csv`;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function csvEscape(value) {
@@ -1900,15 +2082,24 @@ async function loadConfig() {
 async function loadDeals() {
   const deals = await api(scopedPath("/deals/?limit=500"));
   renderRows("#deals-table", deals, [
-    { key: "supplier_name" },
-    { key: "asin" },
-    { key: "roi_percent", render: (row) => formatNumber(row.roi_percent) },
-    { key: "estimated_profit", render: (row) => formatNumber(row.estimated_profit) },
+    { key: "supplier_name", label: t("table.supplier") },
+    { key: "asin", label: "ASIN" },
+    {
+      key: "roi_percent",
+      label: t("table.roi"),
+      render: (row) => formatNumber(row.roi_percent),
+    },
+    {
+      key: "estimated_profit",
+      label: t("table.profit"),
+      render: (row) => formatNumber(row.estimated_profit),
+    },
     {
       key: "status",
+      label: t("table.status"),
       render: (row) => `<span class="badge ${statusClass(row.status)}">${row.status}</span>`,
     },
-  ]);
+  ], { exportTitle: t("panel.dealCandidates") });
 }
 
 async function loadResearch() {
@@ -1922,26 +2113,36 @@ async function loadResearch() {
   renderLookupPreview(lookupPreview);
 
   renderRows("#queue-table", queue, [
-    { key: "ean" },
-    { key: "supplier_name" },
-    { key: "priority_score", render: (row) => formatNumber(row.priority_score) },
+    { key: "ean", label: "EAN" },
+    { key: "supplier_name", label: t("table.supplier") },
+    {
+      key: "priority_score",
+      label: t("table.priority"),
+      render: (row) => formatNumber(row.priority_score),
+    },
     {
       key: "status",
+      label: t("table.status"),
       render: (row) => `<span class="badge ${statusClass(row.status)}">${row.status}</span>`,
     },
-    { key: "brand" },
-  ]);
+    { key: "brand", label: t("table.brand") },
+  ], { exportTitle: t("panel.researchQueue") });
 
   renderRows("#matches-table", matches, [
-    { key: "ean" },
-    { key: "supplier_name" },
-    { key: "asin" },
+    { key: "ean", label: "EAN" },
+    { key: "supplier_name", label: t("table.supplier") },
+    { key: "asin", label: "ASIN" },
     {
       key: "match_status",
+      label: t("table.status"),
       render: (row) => `<span class="badge ${statusClass(row.match_status)}">${row.match_status}</span>`,
     },
-    { key: "match_confidence", render: (row) => formatNumber(row.match_confidence) },
-  ]);
+    {
+      key: "match_confidence",
+      label: t("table.confidence"),
+      render: (row) => formatNumber(row.match_confidence),
+    },
+  ], { exportTitle: t("panel.amazonMatches") });
 }
 
 function researchLookupParams() {
@@ -2102,24 +2303,34 @@ function renderLookupPreview(preview = {}) {
   renderResearchControls(preview);
   renderLookupFilters(preview);
   renderRows("#lookup-sample-table", preview.sample || [], [
-    { key: "supplier_name" },
-    { key: "ean" },
-    { key: "brand" },
-    { key: "title" },
+    { key: "supplier_name", label: t("table.supplier") },
+    { key: "ean", label: "EAN" },
+    { key: "brand", label: t("table.brand") },
+    { key: "title", label: t("table.title") },
     {
       key: "cost",
+      label: t("table.cost"),
       render: (row) => [formatNumber(row.cost), escapeHtml(row.currency)]
         .filter(Boolean)
         .join(" "),
+      export: (row) => [row.cost, row.currency].filter(Boolean).join(" "),
     },
-    { key: "priority_score", render: (row) => formatNumber(row.priority_score) },
+    {
+      key: "priority_score",
+      label: t("table.priority"),
+      render: (row) => formatNumber(row.priority_score),
+    },
     {
       key: "source",
+      label: t("table.source"),
       render: (row) => row.source === "supplier_offers"
         ? t("summary.unqueuedOffers")
         : t("summary.queuePending"),
+      export: (row) => row.source === "supplier_offers"
+        ? t("summary.unqueuedOffers")
+        : t("summary.queuePending"),
     },
-  ]);
+  ], { exportTitle: t("panel.lookupSample") });
 
   grid.innerHTML = `
     <article class="metric">
@@ -2154,25 +2365,38 @@ async function loadKeepa() {
   const metrics = await api(scopedPath("/keepa/?limit=500"));
 
   renderRows("#keepa-table", metrics, [
-    { key: "supplier_name" },
-    { key: "asin" },
+    { key: "supplier_name", label: t("table.supplier") },
+    { key: "asin", label: "ASIN" },
     {
       key: "data_status",
+      label: t("table.status"),
       render: (row) => `<span class="badge ${statusClass(row.data_status)}">${escapeHtml(row.data_status)}</span>`,
     },
     {
       key: "data_source",
+      label: t("table.source"),
       render: (row) => `<span class="badge ${row.data_source === "keepa_real" ? "ok" : "warn"}">${keepaSourceLabel(row.data_source)}</span>`,
+      export: (row) => keepaSourceLabel(row.data_source),
     },
     {
       key: "buy_box_price",
+      label: t("table.buyBox"),
       render: (row) => [formatNumber(row.buy_box_price), escapeHtml(row.currency)]
         .filter(Boolean)
         .join(" "),
+      export: (row) => [row.buy_box_price, row.currency].filter(Boolean).join(" "),
     },
-    { key: "sales_rank", render: (row) => formatNumber(row.sales_rank) },
-    { key: "estimated_monthly_sales", render: (row) => formatNumber(row.estimated_monthly_sales) },
-  ]);
+    {
+      key: "sales_rank",
+      label: t("table.salesRank"),
+      render: (row) => formatNumber(row.sales_rank),
+    },
+    {
+      key: "estimated_monthly_sales",
+      label: t("table.sales"),
+      render: (row) => formatNumber(row.estimated_monthly_sales),
+    },
+  ], { exportTitle: t("panel.keepaMetrics") });
 }
 
 async function refreshAll() {
@@ -2432,17 +2656,41 @@ async function resetResearchRules(button) {
 
 function setImportDraft(draft) {
   state.importDraft = draft;
-  state.importFiltersConfirmed = Boolean(draft?.is_filtered_preview);
-  document.querySelector("#save-import-button").classList.toggle(
-    "hidden",
-    !draft || !state.importFiltersConfirmed,
-  );
+  state.importFiltersConfirmed = Boolean(draft);
+  updateSaveImportButton();
 
   if (!draft) {
     state.importFiltersConfirmed = false;
     state.importPreview = null;
     document.querySelector("#upload-preview").classList.add("hidden");
+    updateSaveImportButton();
   }
+}
+
+function updateSaveImportButton() {
+  document.querySelector("#save-import-button").classList.toggle(
+    "hidden",
+    !state.importDraft || !state.importFiltersConfirmed,
+  );
+}
+
+function markImportFiltersDirty() {
+  state.importFiltersConfirmed = false;
+  updateSaveImportButton();
+
+  const tableBody = document.querySelector("#preview-table-body");
+  const tableHead = document.querySelector("#preview-table-head");
+  const columnCount = tableHead?.querySelectorAll("th").length || 1;
+
+  if (tableBody) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="${columnCount}">${t("message.applyFiltersToUpdatePreview")}</td>
+      </tr>
+    `;
+  }
+
+  registerTableExport("#preview-table-body", t("panel.previewRows"), [], []);
 }
 
 function renderImportPreview(result) {
@@ -2500,6 +2748,16 @@ function renderImportPreview(result) {
       .join("")
     : `<tr><td colspan="${columns.length || 1}">${t("message.noRecords")}</td></tr>`;
 
+  registerTableExport(
+    "#preview-table-body",
+    `${result.supplier_name}-${t("panel.previewRows")}`,
+    rows,
+    columns.map((column) => ({
+      key: column,
+      label: column,
+    })),
+  );
+
   mappingList.innerHTML = (result.normalization_report || [])
     .map((item) => {
       const status = item.mapped_to ? "ok" : "bad";
@@ -2529,12 +2787,21 @@ function selectedFilterValues(selector) {
     .map((element) => element.value);
 }
 
+function importBrandFilterMode() {
+  return document.querySelector("[name='import-brand-filter-mode']:checked")?.value
+    || "exclude";
+}
+
 function importFilterPayload() {
   const minPrice = document.querySelector("#import-filter-min-price")?.value;
   const maxPrice = document.querySelector("#import-filter-max-price")?.value;
+  const brandFilterMode = importBrandFilterMode();
+  const selectedBrands = selectedFilterValues("[data-import-filter-brand]");
 
   return {
-    excluded_brands: selectedFilterValues("[data-import-filter-brand]"),
+    brand_filter_mode: brandFilterMode,
+    excluded_brands: brandFilterMode === "exclude" ? selectedBrands : [],
+    included_brands: brandFilterMode === "include" ? selectedBrands : [],
     excluded_keywords: selectedFilterValues("[data-import-filter-keyword]"),
     exclude_missing_ean: Boolean(
       document.querySelector("#import-filter-missing-ean")?.checked,
@@ -2564,21 +2831,29 @@ function estimateImportFilterResult() {
       </article>
     `;
     state.importFiltersConfirmed = Boolean(result.is_filtered_preview);
-    document.querySelector("#save-import-button").classList.toggle(
-      "hidden",
-      !state.importDraft || !state.importFiltersConfirmed,
-    );
+    updateSaveImportButton();
     return;
   }
 
   const filters = importFilterPayload();
   const suggestions = result.filter_suggestions || {};
   const rows = result.rows || 0;
+  const selectedBrandCounts = (suggestions.brands || [])
+    .filter((item) => (
+      filters.brand_filter_mode === "include"
+        ? filters.included_brands.includes(item.value)
+        : filters.excluded_brands.includes(item.value)
+    ))
+    .map((item) => item.count);
+  const brandEstimate = selectedBrandCounts.reduce(
+    (total, count) => total + count,
+    0,
+  );
 
   const estimatedExcluded = [
-    ...(suggestions.brands || [])
-      .filter((item) => filters.excluded_brands.includes(item.value))
-      .map((item) => item.count),
+    filters.brand_filter_mode === "include"
+      ? Math.max(0, rows - brandEstimate)
+      : brandEstimate,
     ...(suggestions.title_keywords || [])
       .filter((item) => filters.excluded_keywords.includes(item.value))
       .map((item) => item.count),
@@ -2602,19 +2877,17 @@ function estimateImportFilterResult() {
     </article>
   `;
 
-  state.importFiltersConfirmed = Boolean(result.is_filtered_preview);
-  document.querySelector("#save-import-button").classList.toggle(
-    "hidden",
-    !state.importDraft || !state.importFiltersConfirmed,
-  );
+  updateSaveImportButton();
 }
 
 function renderFilterChoices(items, attribute, emptyLabel, selectedValues = []) {
-  const selected = new Set(selectedValues);
+  const selected = new Set(
+    selectedValues.map((value) => String(value).toLowerCase()),
+  );
   const choices = [...(items || [])];
 
   selectedValues.forEach((value) => {
-    if (!choices.some((item) => item.value === value)) {
+    if (!choices.some((item) => String(item.value).toLowerCase() === String(value).toLowerCase())) {
       choices.unshift({ value, count: 0 });
     }
   });
@@ -2626,7 +2899,7 @@ function renderFilterChoices(items, attribute, emptyLabel, selectedValues = []) 
   return choices
     .map((item) => `
       <label class="filter-choice">
-        <input ${attribute} type="checkbox" value="${escapeHtml(item.value)}" ${selected.has(item.value) ? "checked" : ""}>
+        <input ${attribute} type="checkbox" value="${escapeHtml(item.value)}" ${selected.has(String(item.value).toLowerCase()) ? "checked" : ""}>
         <span>${escapeHtml(item.value)}</span>
         <strong>${formatNumber(item.count)}</strong>
       </label>
@@ -2637,14 +2910,40 @@ function renderFilterChoices(items, attribute, emptyLabel, selectedValues = []) 
 function renderImportFilters(result) {
   const controls = document.querySelector("#import-filter-controls");
   const suggestions = result.filter_suggestions || {};
+  const activeFilters = result.filter_summary?.filters || {};
+  const brandCount = suggestions.brands?.length || 0;
+  const brandTotal = suggestions.brand_total_unique || brandCount;
+  const brandFilterMode = activeFilters.brand_filter_mode
+    || (activeFilters.included_brands?.length ? "include" : "exclude");
+  const selectedBrands = brandFilterMode === "include"
+    ? activeFilters.included_brands || []
+    : activeFilters.excluded_brands || [];
 
   if (!controls) return;
 
   controls.innerHTML = `
     <section class="filter-panel">
       <h5>${t("field.filterBrands")}</h5>
+      <p class="muted-note">${t("message.suggestionsShown", {
+        shown: formatNumber(brandCount),
+        total: formatNumber(brandTotal),
+      })}</p>
+      <div class="filter-mode-row">
+        <label class="inline-toggle">
+          <input name="import-brand-filter-mode" type="radio" value="exclude" ${brandFilterMode === "exclude" ? "checked" : ""}>
+          <span>${t("action.excludeSelected")}</span>
+        </label>
+        <label class="inline-toggle">
+          <input name="import-brand-filter-mode" type="radio" value="include" ${brandFilterMode === "include" ? "checked" : ""}>
+          <span>${t("action.keepOnlySelected")}</span>
+        </label>
+      </div>
+      <div class="filter-actions">
+        <button class="ghost-button compact-button" data-filter-select-all="[data-import-filter-brand]" type="button">${t("action.selectAll")}</button>
+        <button class="ghost-button compact-button" data-filter-clear-all="[data-import-filter-brand]" type="button">${t("action.clearAll")}</button>
+      </div>
       <div class="filter-choice-list">
-        ${renderFilterChoices(suggestions.brands, "data-import-filter-brand", t("message.noRecords"))}
+        ${renderFilterChoices(suggestions.brands, "data-import-filter-brand", t("message.noRecords"), selectedBrands)}
       </div>
     </section>
     <section class="filter-panel">
@@ -2680,11 +2979,25 @@ function renderImportFilters(result) {
 
   controls.querySelectorAll("input").forEach((input) => {
     input.addEventListener("input", () => {
-      state.importFiltersConfirmed = false;
+      markImportFiltersDirty();
       estimateImportFilterResult();
     });
     input.addEventListener("change", () => {
-      state.importFiltersConfirmed = false;
+      markImportFiltersDirty();
+      estimateImportFilterResult();
+    });
+  });
+
+  controls.querySelectorAll("[data-filter-select-all], [data-filter-clear-all]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const selector = button.dataset.filterSelectAll || button.dataset.filterClearAll;
+      const checked = Boolean(button.dataset.filterSelectAll);
+
+      controls.querySelectorAll(selector).forEach((input) => {
+        input.checked = checked;
+      });
+
+      markImportFiltersDirty();
       estimateImportFilterResult();
     });
   });
@@ -2954,6 +3267,13 @@ function bindNavigation() {
 }
 
 function bindActions() {
+  document.addEventListener("click", (event) => {
+    const exportButton = event.target.closest("[data-export-table]");
+
+    if (!exportButton) return;
+
+    downloadTableCsv(exportButton.dataset.exportTable);
+  });
   document.querySelector("#refresh-button").addEventListener("click", refreshAll);
   document.querySelector("#language-select").addEventListener("change", (event) => {
     state.language = event.currentTarget.value;
@@ -3198,6 +3518,9 @@ function bindActions() {
 
   document.querySelector("#apply-import-filters-button").addEventListener("click", (event) => {
     applyImportFilters(event.currentTarget);
+  });
+  document.querySelector("#download-upload-preview-csv").addEventListener("click", (event) => {
+    downloadUploadPreviewCsv(event.currentTarget);
   });
 
   document.querySelector("#save-import-button").addEventListener("click", async (event) => {

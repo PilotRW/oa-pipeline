@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
     <link rel="icon" type="image/png" href="/ui/favicon.png">
-    <link rel="stylesheet" href="/ui/styles.css?v=20260527-4">
+    <link rel="stylesheet" href="/ui/styles.css?v=20260601-2">
   </head>
   <body>
     <div class="app-shell">
@@ -75,7 +75,10 @@
           <section class="panel overview-deals-panel">
             <div class="panel-header">
               <h3 data-i18n="panel.dealCandidates">Deal Candidates</h3>
-              <button class="ghost-button" id="refresh-deals-button" data-i18n="action.refresh" type="button">Refresh</button>
+              <div class="button-row">
+                <button class="ghost-button" data-export-table="#deals-table" type="button">CSV</button>
+                <button class="ghost-button" id="refresh-deals-button" data-i18n="action.refresh" type="button">Refresh</button>
+              </div>
             </div>
             <div class="table-wrap scroll-table">
               <table>
@@ -237,7 +240,10 @@
             <div class="filter-controls" id="lookup-filter-controls"></div>
             <div class="lookup-preview-grid" id="lookup-preview"></div>
             <div class="lookup-sample">
-              <h4 data-i18n="panel.lookupSample">Lookup sample</h4>
+              <div class="section-title-row">
+                <h4 data-i18n="panel.lookupSample">Lookup sample</h4>
+                <button class="ghost-button compact-button" data-export-table="#lookup-sample-table" type="button">CSV</button>
+              </div>
               <div class="table-wrap compact">
                 <table>
                   <thead>
@@ -260,7 +266,10 @@
             <section class="panel">
               <div class="panel-header">
                 <h3 data-i18n="panel.researchQueue">Research Queue</h3>
-                <button class="primary-button" id="run-research-button" data-i18n="action.runResearch" type="button">Run research</button>
+                <div class="button-row">
+                  <button class="ghost-button" data-export-table="#queue-table" type="button">CSV</button>
+                  <button class="primary-button" id="run-research-button" data-i18n="action.runResearch" type="button">Run research</button>
+                </div>
               </div>
               <div class="table-wrap">
                 <table>
@@ -281,6 +290,7 @@
             <section class="panel">
               <div class="panel-header">
                 <h3 data-i18n="panel.amazonMatches">Amazon Matches</h3>
+                <button class="ghost-button" data-export-table="#matches-table" type="button">CSV</button>
               </div>
               <div class="table-wrap">
                 <table>
@@ -308,6 +318,7 @@
                 <span id="keepa-mode-badge" class="badge warn" data-i18n="keepa.modeMock">Mock mode</span>
               </div>
               <div class="button-row">
+                <button class="ghost-button" data-export-table="#keepa-table" type="button">CSV</button>
                 <label class="inline-toggle">
                   <span data-i18n="field.realKeepa">Real Keepa</span>
                   <input id="keepa-real-toggle" type="checkbox">
@@ -338,6 +349,7 @@
           <section class="panel supplier-management" id="supplier-management">
             <div class="panel-header">
               <h3 data-i18n="panel.supplierManagement">Supplier Management</h3>
+              <button class="ghost-button" data-export-table="#supplier-management-table" type="button">CSV</button>
             </div>
             <div class="table-wrap">
               <table>
@@ -396,7 +408,10 @@
               </div>
 
               <div class="preview-section">
-                <h4 data-i18n="panel.previewRows">Preview Rows</h4>
+                <div class="section-title-row">
+                  <h4 data-i18n="panel.previewRows">Preview Rows</h4>
+                  <button class="ghost-button compact-button" id="download-upload-preview-csv" type="button">CSV</button>
+                </div>
                 <div class="table-wrap preview-table-wrap">
                   <table>
                     <thead id="preview-table-head"></thead>
@@ -436,6 +451,6 @@
       </section>
     </div>
 
-    <script src="/ui/app.js?v=20260527-4"></script>
+    <script src="/ui/app.js?v=20260601-4"></script>
   </body>
 </html>
