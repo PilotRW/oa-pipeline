@@ -53,6 +53,26 @@ def export_filename(value: str) -> str:
     return safe or "import-preview"
 
 
+def spreadsheet_safe_csv(df) -> bytes:
+    export_df = df.copy()
+    text_identifier_columns = {
+        "ean",
+        "gtin",
+        "upc",
+        "barcode",
+    }
+
+    for column in export_df.columns:
+        if str(column).strip().lower() not in text_identifier_columns:
+            continue
+
+        export_df[column] = export_df[column].apply(
+            lambda value: f'="{value}"' if str(value).strip() else ""
+        )
+
+    return export_df.to_csv(index=False).encode("utf-8-sig")
+
+
 async def build_import_dataframe(file: UploadFile):
     try:
         df = await parse_file(file)
@@ -272,7 +292,7 @@ async def export_import_preview(
     )
 
     return Response(
-        content=df.to_csv(index=False).encode("utf-8-sig"),
+        content=spreadsheet_safe_csv(df),
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="{filename}.csv"',

@@ -1,20 +1,24 @@
 # Mirenelle Automation - Project State
 
-Last updated: 2026-06-01
+Last updated: 2026-06-05
 
 ## Current Position
 
-Project is paused after hardening the Upload preview/filter flow against the
-large Jacob `haendler_netto.csv` feed and validating the Makita import path.
+Project is paused after hardening Upload preview filters and CSV exports for
+supplier feeds with leading-zero EAN values.
 
 Resume from here:
 
 1. Commit or review the current working tree.
-2. Re-import the Jacob feed from a clean database and test the operator flow:
+2. Re-upload the Cyberport feed and retest:
+   preview -> keep only Kingston, Rain Design, Satechi -> apply filtered preview
+   -> export CSV -> open in Numbers/Excel -> verify EAN search with leading
+   zero.
+3. Re-import the Jacob feed from a clean database and test the operator flow:
    preview -> keep only Makita -> exclude non-new/refurbished -> apply filtered
    preview -> export CSV -> save import.
-3. Continue with category/product-type filtering if enough source data exists.
-4. After local filters are stable, move toward real Keepa-based matching and
+4. Continue with category/product-type filtering if enough source data exists.
+5. After local filters are stable, move toward real Keepa-based matching and
    enrichment with token-aware batching.
 
 The current local workflow is:
@@ -54,6 +58,60 @@ state. The latest exported Makita preview from the Jacob feed was validated
 from Downloads, not relied on as durable DB state.
 
 ## Implemented Today
+
+### Cyberport EAN Export Check
+
+The Cyberport file checked during this pause:
+
+```text
+/Users/pilotrw/Downloads/cyberport-feedsmitmengen_synaxonvertriebcude (5).csv
+```
+
+User-selected filter criteria:
+
+```text
+brand filter mode: keep only selected
+brands: Kingston, Rain Design, Satechi
+exclude non-new/refurbished: enabled/checked as part of the test flow
+```
+
+Target EANs reported as missing by spreadsheet search:
+
+```text
+0879961008178
+0740617328295
+0891607000995
+```
+
+Verification result:
+
+- All three target EANs exist in the original source CSV.
+- All three also existed in the exported filtered preview CSV.
+- Rows in the exported preview:
+  - `0879961008178` -> Satechi, row 7.
+  - `0891607000995` -> Rain Design, row 25.
+  - `0740617328295` -> Kingston, row 87.
+- The likely cause was spreadsheet auto-conversion of EAN values to numbers,
+  which drops leading zeroes and makes exact search for the original EAN fail.
+
+Implemented fix:
+
+- `/upload/export-preview` now exports EAN-like identifier columns as
+  spreadsheet-safe text formulas, for example `="0879961008178"`.
+- Client-side CSV exports now use the same handling for identifier columns:
+  `ean`, `gtin`, `upc`, and `barcode`.
+- This affects downloaded CSV presentation only. Internal normalized data and
+  database values remain plain EAN strings.
+
+Important operational note:
+
+- Upload preview drafts are in memory. The app container was restarted after
+  this fix, so the operator must upload the file again before retesting export.
+
+### Upload Brand Filter Ordering
+
+The Upload brand filter list is now sorted alphabetically in the UI before
+rendering. Keyword suggestions remain frequency-based.
 
 ### Jacob Upload / Makita Filter Checks
 
@@ -112,6 +170,8 @@ Brand filters support both modes:
 
 - exclude selected brands;
 - keep only selected brands.
+
+The Upload brand list is rendered alphabetically.
 
 The brand suggestion list was expanded so large feeds expose more real brand
 options, with select-all and clear-all controls.
@@ -220,6 +280,8 @@ PATCH /config/research-rules
 Commands run:
 
 ```bash
+node --check app/static/app.js
+docker compose exec app python -m py_compile app/api/upload.py
 docker compose exec app python -m py_compile app/ingestion/synonyms.py app/ingestion/cleaners.py
 docker compose exec app python -m py_compile app/api/upload.py app/services/import_draft_service.py
 docker compose exec app python -m py_compile app/api/pipeline.py app/services/pipeline_service.py app/services/amazon_match_service.py
@@ -247,6 +309,7 @@ Latest checks passed:
 
 ```bash
 node --check app/static/app.js
+docker compose exec app python -m py_compile app/api/upload.py
 docker compose exec app python -m py_compile app/ingestion/synonyms.py app/ingestion/cleaners.py
 docker compose exec app python -m py_compile app/api/upload.py app/services/import_draft_service.py
 docker compose exec app python -m py_compile app/services/amazon_match_service.py app/services/pipeline_service.py app/api/pipeline.py
@@ -273,12 +336,14 @@ app/static/styles.css
 
 Continue from Upload/import validation:
 
-1. Re-import Jacob Makita with the confirmed filter flow.
-2. Use `Max cost` deliberately if the operator wants to avoid high-ticket
+1. Retest Cyberport CSV export after re-uploading the file, because the restart
+   cleared the previous in-memory upload draft.
+2. Re-import Jacob Makita with the confirmed filter flow.
+3. Use `Max cost` deliberately if the operator wants to avoid high-ticket
    Makita rows before external lookup.
-3. Add category/product-type filtering once product type can be detected or
+4. Add category/product-type filtering once product type can be detected or
    inferred reliably from imported fields.
-4. Then proceed toward real Keepa-based matching/enrichment with token-aware
+5. Then proceed toward real Keepa-based matching/enrichment with token-aware
    batching.
 
 ## Important Product Decisions

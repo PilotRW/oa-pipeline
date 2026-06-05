@@ -1710,6 +1710,18 @@ function plainCellValue(row, column) {
   return String(value);
 }
 
+function csvCellValue(row, column) {
+  const value = plainCellValue(row, column);
+  const identifierColumns = new Set(["ean", "gtin", "upc", "barcode"]);
+  const columnName = String(column.key || column.label || "").trim().toLowerCase();
+
+  if (identifierColumns.has(columnName) && /^\d{8,14}$/.test(value)) {
+    return `="${value}"`;
+  }
+
+  return value;
+}
+
 function downloadTableCsv(selector) {
   const tableExport = state.tableExports[selector];
 
@@ -1730,7 +1742,7 @@ function downloadTableCsv(selector) {
     .join(",");
   const body = rows
     .map((row) => columns
-      .map((column) => csvEscape(plainCellValue(row, column)))
+      .map((column) => csvEscape(csvCellValue(row, column)))
       .join(","))
     .join("\n");
 
@@ -2907,6 +2919,16 @@ function renderFilterChoices(items, attribute, emptyLabel, selectedValues = []) 
     .join("");
 }
 
+function sortFilterChoicesByValue(items) {
+  return [...(items || [])].sort((first, second) => (
+    String(first.value || "").localeCompare(
+      String(second.value || ""),
+      undefined,
+      { sensitivity: "base" },
+    )
+  ));
+}
+
 function renderImportFilters(result) {
   const controls = document.querySelector("#import-filter-controls");
   const suggestions = result.filter_suggestions || {};
@@ -2943,7 +2965,7 @@ function renderImportFilters(result) {
         <button class="ghost-button compact-button" data-filter-clear-all="[data-import-filter-brand]" type="button">${t("action.clearAll")}</button>
       </div>
       <div class="filter-choice-list">
-        ${renderFilterChoices(suggestions.brands, "data-import-filter-brand", t("message.noRecords"), selectedBrands)}
+        ${renderFilterChoices(sortFilterChoicesByValue(suggestions.brands), "data-import-filter-brand", t("message.noRecords"), selectedBrands)}
       </div>
     </section>
     <section class="filter-panel">
@@ -3130,7 +3152,7 @@ function downloadIssueCsv() {
   const header = columns.map((column) => csvEscape(column.label)).join(",");
   const body = rows
     .map((row) => columns
-      .map((column) => csvEscape(plainCellValue(row, column)))
+      .map((column) => csvEscape(csvCellValue(row, column)))
       .join(","))
     .join("\n");
 
