@@ -12,7 +12,7 @@ _drafts: dict[str, dict] = {}
 WEAK_MAPPING_CONFIDENCE = 90
 SUSPICIOUS_LOW_PRICE = 0.01
 SUSPICIOUS_HIGH_PRICE = 10000
-BRAND_FILTER_SUGGESTION_LIMIT = 250
+BRAND_FILTER_SUGGESTION_LIMIT = None
 KEYWORD_FILTER_SUGGESTION_LIMIT = 40
 MIN_KEYWORD_LENGTH = 4
 NON_NEW_PATTERNS = [
@@ -210,7 +210,7 @@ def build_quality_report(
 def _top_text_values(
     df: pd.DataFrame,
     column: str,
-    limit: int = BRAND_FILTER_SUGGESTION_LIMIT,
+    limit: int | None = BRAND_FILTER_SUGGESTION_LIMIT,
 ) -> list[dict]:
     if column not in df.columns:
         return []
@@ -221,7 +221,10 @@ def _top_text_values(
     if values.empty:
         return []
 
-    counts = values.value_counts().head(limit)
+    counts = values.value_counts()
+
+    if limit is not None:
+        counts = counts.head(limit)
 
     return [
         {

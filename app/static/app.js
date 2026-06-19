@@ -28,6 +28,7 @@ const translations = {
     "action.updateLookupPlan": "Apply research criteria",
     "action.refresh": "Refresh",
     "action.runBatch": "Run batch",
+    "action.runAmazonPresence": "Check Amazon presence",
     "action.runKeepa": "Run Keepa",
     "action.runResearch": "Run research",
     "action.save": "Save",
@@ -115,6 +116,7 @@ const translations = {
     "message.keepaRun": "Keepa completed: {created} queued, {processed} processed",
     "message.keepaRunWithSource": "Keepa completed via {source}: {created} queued, {processed} processed",
     "message.keepaNotConfigured": "Real Keepa is enabled, but KEEPA_API_KEY is not configured",
+    "message.amazonPresenceRun": "Amazon presence completed via {source}: {created} queued, {processed} processed",
     "message.researchRun": "Research completed: {count} matches processed",
     "message.lookupPlanHint": "These criteria define the next research run. Applying them updates the plan only; it does not call external APIs.",
     "message.lookupSaveHint": "Saved filters are applied automatically for this scope. Batch size stays run-specific.",
@@ -156,6 +158,7 @@ const translations = {
     "panel.externalLookupPreview": "Research lookup plan",
     "panel.lookupSample": "Lookup sample",
     "panel.keepaMetrics": "Keepa Metrics",
+    "panel.amazonPresence": "Amazon Presence",
     "panel.offerStats": "Offer Stats",
     "panel.recentOffers": "Recent Offers",
     "panel.pipelineStatus": "Pipeline Status",
@@ -209,6 +212,7 @@ const translations = {
     "table.rows": "Rows",
     "table.valid": "Valid",
     "table.actions": "Actions",
+    "table.amazonPresent": "Amazon present",
     "table.failed": "Failed",
     "table.importedAt": "Imported at",
     "table.sku": "SKU",
@@ -985,6 +989,7 @@ async function setSupplierScope(supplierId) {
     loadDeals(),
     loadResearch(),
     loadKeepa(),
+    loadAmazonPresence(),
     loadConfig(),
   ]);
 }
@@ -1020,8 +1025,16 @@ function statusClass(status) {
 function keepaSourceLabel(source) {
   if (source === "keepa_mock") return t("keepa.sourceMock");
   if (source === "keepa_real") return t("keepa.sourceReal");
+  if (source === "presence_mock") return t("keepa.sourceMock");
 
   return t("keepa.sourceUnknown");
+}
+
+function formatBoolean(value) {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+
+  return "-";
 }
 
 function renderSummary() {
@@ -2070,6 +2083,7 @@ async function toggleSupplierVisibility(supplierId, isVisible) {
     loadDeals(),
     loadResearch(),
     loadKeepa(),
+    loadAmazonPresence(),
   ]);
 }
 
@@ -2411,6 +2425,33 @@ async function loadKeepa() {
   ], { exportTitle: t("panel.keepaMetrics") });
 }
 
+async function loadAmazonPresence() {
+  const checks = await api(scopedPath("/amazon-presence/?limit=500"));
+
+  renderRows("#amazon-presence-table", checks, [
+    { key: "supplier_name", label: t("table.supplier") },
+    { key: "asin", label: "ASIN" },
+    {
+      key: "amazon_present",
+      label: t("table.amazonPresent"),
+      render: (row) => `<span class="badge ${row.amazon_present ? "bad" : "ok"}">${formatBoolean(row.amazon_present)}</span>`,
+      export: (row) => formatBoolean(row.amazon_present),
+    },
+    {
+      key: "presence_status",
+      label: t("table.status"),
+      render: (row) => `<span class="badge ${statusClass(row.presence_status)}">${escapeHtml(row.presence_status)}</span>`,
+    },
+    {
+      key: "data_source",
+      label: t("table.source"),
+      render: (row) => `<span class="badge ${row.data_source === "keepa_real" ? "ok" : "warn"}">${keepaSourceLabel(row.data_source)}</span>`,
+      export: (row) => keepaSourceLabel(row.data_source),
+    },
+    { key: "marketplace", label: t("field.marketplace") },
+  ], { exportTitle: t("panel.amazonPresence") });
+}
+
 async function refreshAll() {
   try {
     await api("/");
@@ -2422,6 +2463,7 @@ async function refreshAll() {
       loadDeals(),
       loadResearch(),
       loadKeepa(),
+      loadAmazonPresence(),
       loadSuppliersDashboard(),
     ]);
   } catch (error) {
@@ -2446,7 +2488,13 @@ async function runBatch() {
     output.textContent = JSON.stringify(result, null, 2);
     status.textContent = result.status || t("status.done");
     status.className = `badge ${result.status === "ok" ? "ok" : "warn"}`;
-    await Promise.all([loadSummary(), loadDeals(), loadResearch(), loadKeepa()]);
+    await Promise.all([
+      loadSummary(),
+      loadDeals(),
+      loadResearch(),
+      loadKeepa(),
+      loadAmazonPresence(),
+    ]);
   } catch (error) {
     status.textContent = t("status.failed");
     status.className = "badge bad";
@@ -2469,7 +2517,13 @@ async function runResearch(triggerButton = null) {
     showAlert(t("message.researchRun", {
       count: result.amazon_processed?.processed_count || 0,
     }));
-    await Promise.all([loadSummary(), loadResearch(), loadDeals(), loadKeepa()]);
+    await Promise.all([
+      loadSummary(),
+      loadResearch(),
+      loadDeals(),
+      loadKeepa(),
+      loadAmazonPresence(),
+    ]);
   } catch (error) {
     showAlert(error.message, true);
   } finally {
@@ -2563,6 +2617,56 @@ async function runKeepa(triggerButton = null) {
     }
 
     await Promise.all([loadSummary(), loadConfig(), loadKeepa(), loadDeals()]);
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function runAmazonPresence(triggerButton = null) {
+  const button = triggerButton || document.querySelector("#run-amazon-presence-button");
+
+  if (
+    state.settings?.use_real_keepa
+    && state.keepaStatus
+    && !state.keepaStatus.api_key_configured
+  ) {
+    showAlert(t("message.keepaNotConfigured"), true);
+    renderKeepaModeBadge();
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const pendingResult = await api(scopedPath("/amazon-presence/create-pending"), {
+      method: "POST",
+    });
+    const processResult = await api(scopedPath("/amazon-presence/process-pending"), {
+      method: "POST",
+    });
+
+    if (processResult.status === "not_configured") {
+      showAlert(
+        processResult.reason || t("message.keepaNotConfigured"),
+        true,
+      );
+    } else {
+      showAlert(t("message.amazonPresenceRun", {
+        source: keepaSourceLabel(processResult.data_source),
+        created: pendingResult.created_count || 0,
+        processed: processResult.processed_count || 0,
+      }));
+    }
+
+    await Promise.all([
+      loadSummary(),
+      loadConfig(),
+      loadKeepa(),
+      loadAmazonPresence(),
+      loadDeals(),
+    ]);
   } catch (error) {
     showAlert(error.message, true);
   } finally {
@@ -3317,6 +3421,7 @@ function bindActions() {
         loadDeals(),
         loadResearch(),
         loadKeepa(),
+        loadAmazonPresence(),
         loadConfig(),
       ]);
     } catch (error) {
@@ -3329,6 +3434,9 @@ function bindActions() {
   });
   document.querySelector("#run-keepa-button").addEventListener("click", (event) => {
     runKeepa(event.currentTarget);
+  });
+  document.querySelector("#run-amazon-presence-button").addEventListener("click", (event) => {
+    runAmazonPresence(event.currentTarget);
   });
   document.querySelector("#refresh-lookup-preview-button").addEventListener("click", () => {
     loadResearch().catch((error) => showAlert(error.message, true));
@@ -3406,7 +3514,13 @@ function bindActions() {
     document.querySelector('[data-view="overview"]').click();
 
     try {
-      await Promise.all([loadSummary(), loadDeals(), loadResearch(), loadKeepa()]);
+      await Promise.all([
+        loadSummary(),
+        loadDeals(),
+        loadResearch(),
+        loadKeepa(),
+        loadAmazonPresence(),
+      ]);
     } catch (error) {
       showAlert(error.message, true);
     }

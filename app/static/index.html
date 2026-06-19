@@ -95,6 +95,31 @@
               </table>
             </div>
           </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3 data-i18n="panel.amazonPresence">Amazon Presence</h3>
+              <div class="button-row">
+                <button class="ghost-button" data-export-table="#amazon-presence-table" type="button">CSV</button>
+                <button class="primary-button" id="run-amazon-presence-button" data-i18n="action.runAmazonPresence" type="button">Check Amazon presence</button>
+              </div>
+            </div>
+            <div class="table-wrap scroll-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="table.supplier">Supplier</th>
+                    <th>ASIN</th>
+                    <th data-i18n="table.amazonPresent">Amazon present</th>
+                    <th data-i18n="table.status">Status</th>
+                    <th data-i18n="table.source">Source</th>
+                    <th data-i18n="field.marketplace">Marketplace</th>
+                  </tr>
+                </thead>
+                <tbody id="amazon-presence-table"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
         <section class="view" id="view-pipeline">
@@ -451,6 +476,6 @@
       </section>
     </div>
 
-    <script src="/ui/app.js?v=20260605-2"></script>
+    <script src="/ui/app.js?v=20260615-1"></script>
   </body>
 </html>

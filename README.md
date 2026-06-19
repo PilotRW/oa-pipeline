@@ -41,6 +41,8 @@ Implemented:
 - Configurable `pipeline_settings` and `research_rules`.
 - Help buttons for each research-rule metric in the UI.
 - Mock Amazon EAN to ASIN matching.
+- Amazon Presence Service for checking whether Amazon itself is present on a
+  matched listing.
 - Keepa wrapper with mock mode, real Keepa mode, status checks, and
   not-configured handling.
 - External lookup preflight showing eligible queue count, request batch size,
@@ -168,6 +170,8 @@ Main UI areas:
 - `Research`: lookup plan, pre-provider filters, research queue, and Amazon
   match results.
 - `Keepa`: explicit Keepa enrichment step, mode badge, and real/mock toggle.
+- `Amazon Presence`: listing-level Amazon seller presence checks inside the
+  Keepa view.
 - `Suppliers`: supplier management, details, import history, and visibility.
 - `Upload`: supplier feed upload, preview, quality checks, and save.
 
@@ -281,9 +285,17 @@ affects priority score.
 Current provider behavior:
 
 - `pipeline_settings.use_real_keepa=false` uses mock Amazon matching and mock
-  Keepa metrics.
+  Keepa metrics. Amazon Presence uses deterministic mock presence results.
 - `pipeline_settings.use_real_keepa=true` uses Keepa for Amazon EAN to ASIN
-  matching and Keepa metric enrichment.
+  matching, Amazon Presence checks, and Keepa metric enrichment.
+- Amazon Presence is a separate provider step. It creates pending checks from
+  matched ASINs and records whether Amazon itself is currently present on the
+  listing.
+- In real Keepa mode, Amazon Presence currently uses Keepa current `AMAZON`
+  price as the presence signal. Later this boundary can be backed by Amazon
+  SP-API or another provider without changing the UI workflow.
+- Presence checks sync `keepa_product_metrics.amazon_in_stock` when a matching
+  Keepa metric row already exists, so existing deal rules can use the result.
 - If real Keepa mode is enabled without a valid `KEEPA_API_KEY`, processing
   returns a controlled `not_configured` result instead of falling back to mock
   data or raising a server error.
@@ -417,6 +429,14 @@ POST /amazon-matches/process-pending
 GET  /amazon-matches/
 ```
 
+Amazon Presence:
+
+```text
+POST /amazon-presence/create-pending
+POST /amazon-presence/process-pending
+GET  /amazon-presence/
+```
+
 Keepa:
 
 ```text
@@ -452,9 +472,9 @@ GET   /config/research-rules
 PATCH /config/research-rules
 ```
 
-Most research, matching, Keepa, deals, and pipeline endpoints accept
-`supplier_id`. Without `supplier_id`, default read/list/summary endpoints only
-include visible suppliers.
+Most research, matching, Amazon Presence, Keepa, deals, and pipeline endpoints
+accept `supplier_id`. Without `supplier_id`, default read/list/summary
+endpoints only include visible suppliers.
 
 `PATCH /config/*` uses Pydantic schemas with partial updates, forbidden unknown
 fields, and validation designed for UI clients.
@@ -622,19 +642,21 @@ oa-pipeline/
    providers. Initial operator-adjustable lookup filters are implemented; saved
    reusable filter profiles are still future work.
 4. Clean up provider abstraction for mock / Keepa / future Amazon SP-API:
-   product matcher provider, market metrics provider, fee provider, future sales
-   management provider.
-5. Real Keepa-based Amazon matching and metric enrichment with token-aware
+   product matcher provider, Amazon presence provider, market metrics provider,
+   fee provider, future sales management provider.
+5. Validate Amazon Presence against real matched ASINs and wire the results into
+   deal rejection/explanation views.
+6. Real Keepa-based Amazon matching and metric enrichment with token-aware
    batching and controlled failure states.
-6. Deal Candidate enrichment:
+7. Deal Candidate enrichment:
    title, brand, supplier cost, Amazon price, Buy Box presence, seller count,
    max sell price, margin/ROI clarity, rejection reasons, and filters.
-7. Candidate review workflow:
+8. Candidate review workflow:
    manual review states, reviewer notes, approve/reject/postpone actions, and
    final decision support.
-8. Candidate review enrichment for finalists only:
+9. Candidate review enrichment for finalists only:
    deep Keepa history, snapshots/events, and Grafana dashboard links.
-9. Real fee engine for FBA/VAT/shipping/marketplace rules.
-10. Grafana dashboard layer backed by SQL views or snapshot/event tables.
-11. Future UI rewrite after concept validation: React + Mantine,
+10. Real fee engine for FBA/VAT/shipping/marketplace rules.
+11. Grafana dashboard layer backed by SQL views or snapshot/event tables.
+12. Future UI rewrite after concept validation: React + Mantine,
    Grafana-like operations dashboard.

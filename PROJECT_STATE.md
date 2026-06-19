@@ -1,24 +1,27 @@
 # Mirenelle Automation - Project State
 
-Last updated: 2026-06-05
+Last updated: 2026-06-15
 
 ## Current Position
 
-Project is paused after hardening Upload preview filters and CSV exports for
-supplier feeds with leading-zero EAN values.
+Project is paused after adding Amazon Presence Service as a separate provider
+step for checking whether Amazon itself is present on a listing.
 
 Resume from here:
 
 1. Commit or review the current working tree.
-2. Re-upload the Cyberport feed and retest:
+2. Test Amazon Presence on a non-empty pipeline run:
+   import offers -> run research/Amazon matching -> open Keepa tab -> Check
+   Amazon presence -> verify `amazon_presence_checks` rows and the UI table.
+3. Re-upload the Cyberport feed and retest:
    preview -> keep only Kingston, Rain Design, Satechi -> apply filtered preview
    -> export CSV -> open in Numbers/Excel -> verify EAN search with leading
    zero.
-3. Re-import the Jacob feed from a clean database and test the operator flow:
+4. Re-import the Jacob feed from a clean database and test the operator flow:
    preview -> keep only Makita -> exclude non-new/refurbished -> apply filtered
    preview -> export CSV -> save import.
-4. Continue with category/product-type filtering if enough source data exists.
-5. After local filters are stable, move toward real Keepa-based matching and
+5. Continue with category/product-type filtering if enough source data exists.
+6. After local filters are stable, move toward real Keepa-based matching and
    enrichment with token-aware batching.
 
 The current local workflow is:
@@ -33,6 +36,9 @@ Upload supplier file
   -> operator-selected Research filters
   -> Run research
   -> Amazon match provider (mock or Keepa)
+  -> Amazon Presence check
+  -> Keepa market metrics
+  -> Deal candidates
 ```
 
 ## Local Database State
@@ -58,6 +64,79 @@ state. The latest exported Makita preview from the Jacob feed was validated
 from Downloads, not relied on as durable DB state.
 
 ## Implemented Today
+
+### Amazon Presence Service
+
+Implemented a separate Amazon Presence workflow for checking whether Amazon is
+present on each matched listing.
+
+New persistence:
+
+```text
+amazon_presence_checks
+```
+
+New model/service/API:
+
+```text
+app/models/amazon_presence_check.py
+app/services/amazon_presence_service.py
+app/api/amazon_presence.py
+```
+
+New endpoints:
+
+```text
+POST /amazon-presence/create-pending
+POST /amazon-presence/process-pending
+GET  /amazon-presence/
+```
+
+Behavior:
+
+- Creates pending checks from matched ASIN rows in `amazon_product_matches`.
+- Respects supplier scope via `supplier_id`.
+- In mock mode, writes deterministic `presence_mock` results for UI/pipeline
+  testing.
+- In real Keepa mode, uses the existing Keepa client and treats current Keepa
+  `AMAZON` price as the Amazon-presence signal.
+- If a matching `keepa_product_metrics` row already exists, the service updates
+  `keepa_product_metrics.amazon_in_stock` so existing deal rules can use the
+  presence result.
+- If real Keepa is enabled but `KEEPA_API_KEY` is missing, processing returns
+  controlled `not_configured` instead of silently falling back to mock data.
+
+UI:
+
+- Added an `Amazon Presence` panel in the Keepa tab.
+- Added `Check Amazon presence` action.
+- Added CSV export for the presence table.
+
+Migration:
+
+```text
+8c2d9a1f0b34_add_amazon_presence_checks.py
+```
+
+Local migration applied:
+
+```text
+3f1a9c2d8b71 -> 8c2d9a1f0b34
+```
+
+Smoke checks on empty local data:
+
+```text
+GET  /amazon-presence/?limit=5 -> []
+POST /amazon-presence/create-pending?limit=5 -> created_count 0
+POST /amazon-presence/process-pending?limit=5 -> processed_count 0
+```
+
+Important next validation:
+
+- Run the service after real or mock Amazon matching has produced matched ASINs.
+- Confirm deal rejection behavior when `exclude_amazon_in_stock` is enabled and
+  presence checks have synced `keepa_product_metrics.amazon_in_stock`.
 
 ### Cyberport EAN Export Check
 
@@ -280,6 +359,12 @@ PATCH /config/research-rules
 Commands run:
 
 ```bash
+docker compose exec app python -m py_compile app/models/amazon_presence_check.py app/services/amazon_presence_service.py app/api/amazon_presence.py app/main.py
+docker compose exec app alembic upgrade head
+curl -sS 'http://localhost:8000/amazon-presence/?limit=5'
+curl -sS -X POST 'http://localhost:8000/amazon-presence/create-pending?limit=5'
+curl -sS -X POST 'http://localhost:8000/amazon-presence/process-pending?limit=5'
+/Users/pilotrw/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check app/static/app.js
 node --check app/static/app.js
 docker compose exec app python -m py_compile app/api/upload.py
 docker compose exec app python -m py_compile app/ingestion/synonyms.py app/ingestion/cleaners.py
@@ -308,7 +393,13 @@ Latest API spot checks:
 Latest checks passed:
 
 ```bash
-node --check app/static/app.js
+docker compose exec app python -m py_compile app/models/amazon_presence_check.py app/services/amazon_presence_service.py app/api/amazon_presence.py app/main.py
+/Users/pilotrw/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check app/static/app.js
+docker compose exec app alembic upgrade head
+curl -sS 'http://localhost:8000/amazon-presence/?limit=5'
+curl -sS -X POST 'http://localhost:8000/amazon-presence/create-pending?limit=5'
+curl -sS -X POST 'http://localhost:8000/amazon-presence/process-pending?limit=5'
+git diff --check
 docker compose exec app python -m py_compile app/api/upload.py
 docker compose exec app python -m py_compile app/ingestion/synonyms.py app/ingestion/cleaners.py
 docker compose exec app python -m py_compile app/api/upload.py app/services/import_draft_service.py
@@ -323,7 +414,12 @@ Expected modified files:
 ```text
 PROJECT_STATE.md
 README.md
+alembic/env.py
+app/main.py
 app/api/upload.py
+app/api/amazon_presence.py
+app/models/amazon_presence_check.py
+app/services/amazon_presence_service.py
 app/ingestion/cleaners.py
 app/ingestion/synonyms.py
 app/services/import_draft_service.py
@@ -332,18 +428,26 @@ app/static/index.html
 app/static/styles.css
 ```
 
+Expected untracked migration:
+
+```text
+alembic/versions/8c2d9a1f0b34_add_amazon_presence_checks.py
+```
+
 ## Next Recommended Step
 
 Continue from Upload/import validation:
 
-1. Retest Cyberport CSV export after re-uploading the file, because the restart
+1. Run Amazon Presence against actual matched ASINs and verify the UI/table plus
+   `keepa_product_metrics.amazon_in_stock` sync.
+2. Retest Cyberport CSV export after re-uploading the file, because the restart
    cleared the previous in-memory upload draft.
-2. Re-import Jacob Makita with the confirmed filter flow.
-3. Use `Max cost` deliberately if the operator wants to avoid high-ticket
+3. Re-import Jacob Makita with the confirmed filter flow.
+4. Use `Max cost` deliberately if the operator wants to avoid high-ticket
    Makita rows before external lookup.
-4. Add category/product-type filtering once product type can be detected or
+5. Add category/product-type filtering once product type can be detected or
    inferred reliably from imported fields.
-5. Then proceed toward real Keepa-based matching/enrichment with token-aware
+6. Then proceed toward real Keepa-based matching/enrichment with token-aware
    batching.
 
 ## Important Product Decisions
