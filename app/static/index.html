@@ -5,47 +5,91 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
     <link rel="icon" type="image/png" href="/ui/favicon.png">
-    <link rel="stylesheet" href="/ui/styles.css?v=20260601-2">
+    <link rel="stylesheet" href="/ui/styles.css?v=20260623-6">
   </head>
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="brand">
-          <img class="brand-logo" src="/ui/mirenelle-logo.png" alt="Mirenelle">
-          <p data-i18n="app.tagline">Automation console</p>
+        <div class="brand-block">
+          <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Menu" title="Menu">☰</button>
+          <div class="brand-name">mirenelle<span>automation</span></div>
         </div>
 
-        <nav class="nav" aria-label="Main">
-          <button class="nav-item active" data-view="overview" data-i18n="nav.overview" type="button">Overview</button>
-          <button class="nav-item" data-view="pipeline" data-i18n="nav.pipeline" type="button">Pipeline</button>
-          <button class="nav-item" data-view="settings" data-i18n="nav.settings" type="button">Settings</button>
-          <button class="nav-item" data-view="rules" data-i18n="nav.rules" type="button">Rules</button>
-          <button class="nav-item" data-view="research" data-i18n="nav.research" type="button">Research</button>
-          <button class="nav-item" data-view="keepa" data-i18n="nav.keepa" type="button">Keepa</button>
-          <button class="nav-item" data-view="suppliers" data-i18n="nav.suppliers" type="button">Suppliers</button>
-          <button class="nav-item" data-view="upload" data-i18n="nav.upload" type="button">Upload</button>
+        <nav class="nav side-nav" aria-label="Main">
+          <div class="nav-group expanded" data-nav-group="overview">
+            <button class="nav-group-toggle" type="button" aria-expanded="true">
+              <span class="nav-group-icon">▣</span>
+              <span data-i18n="nav.overview">Overview</span>
+              <span class="nav-chevron">⌄</span>
+            </button>
+            <div class="nav-group-items">
+              <button class="nav-item active" data-view="overview" type="button"><span>▦</span><span data-i18n="nav.overview">Overview</span></button>
+              <button class="nav-item" data-view="pipeline" type="button"><span>▶</span><span data-i18n="nav.pipeline">Pipeline</span></button>
+            </div>
+          </div>
+
+          <div class="nav-group expanded" data-nav-group="analysis">
+            <button class="nav-group-toggle" type="button" aria-expanded="true">
+              <span class="nav-group-icon">⌕</span>
+              <span data-i18n="nav.research">Research</span>
+              <span class="nav-chevron">⌄</span>
+            </button>
+            <div class="nav-group-items">
+              <button class="nav-item" data-view="research" type="button"><span>◎</span><span data-i18n="nav.research">Research</span></button>
+              <button class="nav-item" data-view="keepa" type="button"><span>↗</span><span data-i18n="nav.keepa">Keepa</span></button>
+            </div>
+          </div>
+
+          <div class="nav-group expanded" data-nav-group="catalog">
+            <button class="nav-group-toggle" type="button" aria-expanded="true">
+              <span class="nav-group-icon">⇣</span>
+              <span data-i18n="nav.suppliers">Suppliers</span>
+              <span class="nav-chevron">⌄</span>
+            </button>
+            <div class="nav-group-items">
+              <button class="nav-item" data-view="suppliers" type="button"><span>▥</span><span data-i18n="nav.suppliers">Suppliers</span></button>
+              <button class="nav-item" data-view="upload" type="button"><span>⇧</span><span data-i18n="nav.upload">Upload</span></button>
+            </div>
+          </div>
+
+          <div class="nav-group expanded" data-nav-group="configuration">
+            <button class="nav-group-toggle" type="button" aria-expanded="true">
+              <span class="nav-group-icon">⚙</span>
+              <span data-i18n="nav.settings">Settings</span>
+              <span class="nav-chevron">⌄</span>
+            </button>
+            <div class="nav-group-items">
+              <button class="nav-item" data-view="rules" type="button"><span>≡</span><span data-i18n="nav.rules">Rules</span></button>
+              <button class="nav-item" data-view="settings" type="button"><span>⚙</span><span data-i18n="nav.settings">Settings</span></button>
+            </div>
+          </div>
         </nav>
       </aside>
 
-      <main class="workspace">
+      <div class="main-area">
         <header class="topbar">
           <div>
-            <p class="eyebrow" data-i18n="app.eyebrow">Backend control panel</p>
-            <h2 id="view-title" data-i18n="nav.overview">Overview</h2>
+            <h1 id="view-title" data-i18n="nav.overview">Overview</h1>
+            <p data-i18n="app.tagline">Automation console</p>
           </div>
           <div class="topbar-actions">
             <span id="api-status" class="connection-status" data-i18n="api.checking">Checking API</span>
+            <div id="auth-user" class="auth-user hidden">
+              <span id="auth-user-label"></span>
+              <button id="auth-logout-button" class="ghost-button compact" type="button">Logout</button>
+            </div>
             <select id="supplier-select" class="supplier-select" aria-label="Supplier"></select>
             <select id="language-select" class="language-select" aria-label="Language">
               <option value="en">EN</option>
               <option value="de">DE</option>
               <option value="uk">UA</option>
             </select>
-            <button id="refresh-button" class="icon-button" type="button" title="Refresh" data-i18n-title="action.refresh">R</button>
+            <button id="refresh-button" class="icon-button" type="button" title="Refresh" data-i18n-title="action.refresh">↻</button>
           </div>
         </header>
 
-        <section id="alert" class="alert hidden" role="status"></section>
+        <main class="workspace">
+          <section id="alert" class="alert hidden" role="status"></section>
 
         <section class="view active" id="view-overview">
           <div class="summary-grid" id="summary-grid"></div>
@@ -96,30 +140,6 @@
             </div>
           </section>
 
-          <section class="panel">
-            <div class="panel-header">
-              <h3 data-i18n="panel.amazonPresence">Amazon Presence</h3>
-              <div class="button-row">
-                <button class="ghost-button" data-export-table="#amazon-presence-table" type="button">CSV</button>
-                <button class="primary-button" id="run-amazon-presence-button" data-i18n="action.runAmazonPresence" type="button">Check Amazon presence</button>
-              </div>
-            </div>
-            <div class="table-wrap scroll-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th data-i18n="table.supplier">Supplier</th>
-                    <th>ASIN</th>
-                    <th data-i18n="table.amazonPresent">Amazon present</th>
-                    <th data-i18n="table.status">Status</th>
-                    <th data-i18n="table.source">Source</th>
-                    <th data-i18n="field.marketplace">Marketplace</th>
-                  </tr>
-                </thead>
-                <tbody id="amazon-presence-table"></tbody>
-              </table>
-            </div>
-          </section>
         </section>
 
         <section class="view" id="view-pipeline">
@@ -168,6 +188,48 @@
               <input name="use_real_keepa" type="checkbox">
             </label>
           </form>
+
+          <section class="panel maintenance-panel">
+            <div class="panel-header">
+              <div>
+                <h3 data-i18n="panel.maintenance">Maintenance</h3>
+                <p data-i18n="message.maintenanceHint">Release memory or remove imported catalog data.</p>
+              </div>
+            </div>
+            <div class="maintenance-grid">
+              <article class="maintenance-action">
+                <div>
+                  <h4 data-i18n="action.clearWorkspace">Clear preview workspace</h4>
+                  <p data-i18n="message.clearWorkspaceHint">Removes active upload previews and releases their memory. Saved database data is preserved.</p>
+                </div>
+                <div class="maintenance-size">
+                  <div class="maintenance-size-row">
+                    <span data-i18n="maintenance.workspaceUsage">Preview workspace</span>
+                    <strong id="maintenance-workspace-size">0 B</strong>
+                  </div>
+                  <div class="maintenance-meter"><span id="maintenance-workspace-meter"></span></div>
+                  <small id="maintenance-workspace-details">0 drafts · 0 rows</small>
+                </div>
+                <button class="ghost-button danger-button" id="clear-workspace-button" data-i18n="action.clearWorkspace" type="button">Clear preview workspace</button>
+              </article>
+              <article class="maintenance-action danger-zone">
+                <div>
+                  <h4 data-i18n="action.clearDatabase">Clear database data</h4>
+                  <p data-i18n="message.clearDatabaseHint">Removes imported offers, import history, research, matches, metrics, presence checks, and deals. Supplier links, filters, rules, and settings are preserved.</p>
+                </div>
+                <div class="maintenance-size">
+                  <div class="maintenance-size-row">
+                    <span data-i18n="maintenance.databaseUsage">Operational database</span>
+                    <strong id="maintenance-database-size">0 B</strong>
+                  </div>
+                  <div class="maintenance-meter danger"><span id="maintenance-database-meter"></span></div>
+                  <small id="maintenance-database-details">0 rows</small>
+                </div>
+                <button class="primary-button danger-button" id="clear-database-button" data-i18n="action.clearDatabase" type="button">Clear database data</button>
+              </article>
+            </div>
+            <div class="maintenance-result hidden" id="maintenance-result" role="status"></div>
+          </section>
         </section>
 
         <section class="view" id="view-rules">
@@ -336,6 +398,7 @@
         </section>
 
         <section class="view" id="view-keepa">
+          <div class="keepa-layout">
           <section class="panel">
             <div class="panel-header">
               <div class="panel-title-row">
@@ -368,6 +431,32 @@
               </table>
             </div>
           </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <h3 data-i18n="panel.amazonPresence">Amazon Presence</h3>
+              <div class="button-row">
+                <button class="ghost-button" data-export-table="#amazon-presence-table" type="button">CSV</button>
+                <button class="primary-button" id="run-amazon-presence-button" data-i18n="action.runAmazonPresence" type="button">Check Amazon presence</button>
+              </div>
+            </div>
+            <div class="table-wrap scroll-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="table.supplier">Supplier</th>
+                    <th>ASIN</th>
+                    <th data-i18n="table.amazonPresent">Amazon present</th>
+                    <th data-i18n="table.status">Status</th>
+                    <th data-i18n="table.source">Source</th>
+                    <th data-i18n="field.marketplace">Marketplace</th>
+                  </tr>
+                </thead>
+                <tbody id="amazon-presence-table"></tbody>
+              </table>
+            </div>
+          </section>
+          </div>
         </section>
 
         <section class="view" id="view-suppliers">
@@ -376,6 +465,17 @@
               <h3 data-i18n="panel.supplierManagement">Supplier Management</h3>
               <button class="ghost-button" data-export-table="#supplier-management-table" type="button">CSV</button>
             </div>
+            <form class="supplier-create-form" id="supplier-create-form">
+              <label>
+                <span data-i18n="field.supplierName">Supplier name</span>
+                <input name="name" required type="text">
+              </label>
+              <label>
+                <span data-i18n="field.priceUrl">Latest price URL</span>
+                <input name="price_url" placeholder="https://supplier.example/catalog.csv" type="url">
+              </label>
+              <button class="primary-button" data-i18n="action.addSupplier" type="submit">Add supplier</button>
+            </form>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -383,6 +483,7 @@
                     <th data-i18n="table.supplier">Supplier</th>
                     <th data-i18n="field.rows">Rows</th>
                     <th data-i18n="table.visibility">Visibility</th>
+                    <th data-i18n="table.priceSource">Price source</th>
                     <th data-i18n="table.actions">Actions</th>
                   </tr>
                 </thead>
@@ -452,7 +553,8 @@
             </section>
           </form>
         </section>
-      </main>
+        </main>
+      </div>
     </div>
 
     <div class="modal hidden" id="issue-modal" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
@@ -476,6 +578,6 @@
       </section>
     </div>
 
-    <script src="/ui/app.js?v=20260615-1"></script>
+    <script src="/ui/app.js?v=20260623-9"></script>
   </body>
 </html>

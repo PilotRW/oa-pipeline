@@ -135,7 +135,17 @@ def parse_excel(content: bytes) -> pd.DataFrame:
 
 async def parse_file(file) -> pd.DataFrame:
     content = await file.read()
-    filename = file.filename.lower()
+    return parse_content(
+        content=content,
+        filename=file.filename,
+    )
+
+
+def parse_content(
+    content: bytes,
+    filename: str,
+) -> pd.DataFrame:
+    filename = filename.lower()
 
     if filename.endswith(".xlsx"):
         return parse_excel(content)
@@ -150,4 +160,4 @@ async def parse_file(file) -> pd.DataFrame:
             dtype=str,
         )
 
-    raise ValueError(f"Unsupported file type: {file.filename}")
+    raise ValueError(f"Unsupported file type: {filename}")

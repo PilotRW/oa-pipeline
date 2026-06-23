@@ -1,27 +1,54 @@
 # Mirenelle Automation - Project State
 
-Last updated: 2026-06-15
+Last updated: 2026-06-23
 
 ## Current Position
 
-Project is paused after adding Amazon Presence Service as a separate provider
-step for checking whether Amazon itself is present on a listing.
+Project is paused after adding supplier-managed latest-price URLs, generic
+price-update tracking, persistent supplier-specific import filter profiles,
+size-aware Maintenance controls, and the first shared-auth/RBAC layer.
+
+Authentication/RBAC now exists in this repo as a first implementation:
+
+- local development mode is enabled by default with `AUTH_ENABLED=false`;
+- `/auth/me` returns a dev `owner` user when auth is disabled;
+- OIDC login/callback/logout routes are wired for production auth;
+- app sessions use Starlette `SessionMiddleware`;
+- middleware protects UI/API paths when `AUTH_ENABLED=true`;
+- coarse backend permissions protect view, operate, configure, and admin
+  actions;
+- the UI shows the current user and logout action.
+
+This is not fully production-validated yet. It still needs a real Authentik
+provider test, final callback URLs, production secret values, and cross-app
+role/group naming alignment with `mirenelle-ops`.
 
 Resume from here:
 
 1. Commit or review the current working tree.
-2. Test Amazon Presence on a non-empty pipeline run:
+2. Validate auth in local dev mode:
+   open `/ui/` -> confirm `/auth/me` returns the dev owner -> confirm normal
+   UI actions still work with `AUTH_ENABLED=false`.
+3. Validate auth against Authentik or the selected OIDC provider:
+   configure issuer/client/secret/redirect -> set `AUTH_ENABLED=true` -> login
+   -> verify group-to-role mapping -> verify forbidden actions return `403`.
+4. Configure a real supplier price URL and validate the full operator flow:
+   load latest price -> remembered filters -> refine -> apply preview -> export
+   CSV or save import.
+5. Test the redesigned UI with real imported supplier data, especially wide
+   Research, Upload preview, Supplier detail, and Rules tables.
+6. Test Amazon Presence on a non-empty pipeline run:
    import offers -> run research/Amazon matching -> open Keepa tab -> Check
    Amazon presence -> verify `amazon_presence_checks` rows and the UI table.
-3. Re-upload the Cyberport feed and retest:
+7. Re-upload the Cyberport feed and retest:
    preview -> keep only Kingston, Rain Design, Satechi -> apply filtered preview
    -> export CSV -> open in Numbers/Excel -> verify EAN search with leading
    zero.
-4. Re-import the Jacob feed from a clean database and test the operator flow:
+8. Re-import the Jacob feed from a clean database and test the operator flow:
    preview -> keep only Makita -> exclude non-new/refurbished -> apply filtered
    preview -> export CSV -> save import.
-5. Continue with category/product-type filtering if enough source data exists.
-6. After local filters are stable, move toward real Keepa-based matching and
+9. Continue with category/product-type filtering if enough source data exists.
+10. After local filters are stable, move toward real Keepa-based matching and
    enrichment with token-aware batching.
 
 The current local workflow is:
@@ -64,6 +91,295 @@ state. The latest exported Makita preview from the Jacob feed was validated
 from Downloads, not relied on as durable DB state.
 
 ## Implemented Today
+
+### Authentication and RBAC
+
+The app now has a first-pass shared-auth compatible layer under `app/auth/`.
+The current goal is to make Mirenelle Automation ready to share an external
+identity provider with Mirenelle Ops while keeping each service responsible for
+its own permissions.
+
+New modules:
+
+```text
+app/auth/__init__.py
+app/auth/dependencies.py
+app/auth/middleware.py
+app/auth/permissions.py
+app/auth/routes.py
+```
+
+New dependency/runtime requirements:
+
+```text
+authlib
+itsdangerous
+```
+
+New settings:
+
+```text
+AUTH_ENABLED
+AUTH_SESSION_SECRET
+AUTH_ISSUER
+AUTH_CLIENT_ID
+AUTH_CLIENT_SECRET
+AUTH_REDIRECT_URI
+AUTH_GROUPS_CLAIM
+AUTH_DEV_USER
+AUTH_DEV_ROLES
+```
+
+New auth endpoints:
+
+```text
+GET  /auth/login
+GET  /auth/callback
+POST /auth/logout
+GET  /auth/me
+```
+
+Current roles:
+
+```text
+owner
+automation_manager
+automation_operator
+automation_viewer
+```
+
+Current permissions:
+
+```text
+automation:view
+automation:operate
+automation:configure
+automation:admin
+```
+
+Coarse middleware policy:
+
+- `AUTH_ENABLED=false`: inject a dev user from `AUTH_DEV_USER` and
+  `AUTH_DEV_ROLES`; default is owner.
+- unauthenticated HTML/UI requests redirect to `/auth/login`;
+- unauthenticated API requests return `401`;
+- GET requests generally require `automation:view`;
+- non-GET requests generally require `automation:operate`;
+- config/supplier changes require `automation:configure`;
+- database cleanup requires `automation:admin`;
+- `automation:admin` acts as an override permission.
+
+The UI now calls `/auth/me`, shows the current user, and posts to
+`/auth/logout`. This is enough for first production auth smoke testing, but the
+provider configuration and real Authentik group claims still need validation.
+
+### Supplier Price Update Tracking
+
+All configured supplier feeds now use one provider-independent update strategy.
+The supplier stores the baseline from the last successfully downloaded and
+parsed file:
+
+```text
+price_etag
+price_last_modified
+price_content_length
+price_file_hash
+price_data_hash
+price_last_filename
+price_update_status
+price_last_checked_at
+price_last_downloaded_at
+price_last_changed_at
+```
+
+`Check for update` performs a lightweight conditional `HEAD`. Providers that
+support `304` use it directly; otherwise the service compares HTTP metadata.
+Missing or weak metadata produces `verification_required`, so the next
+download can make the final decision using SHA-256 hashes.
+
+Important state rule:
+
+- a check updates status and `last_checked_at`;
+- only a successful download and parse replaces the saved baseline;
+- preview/download does not import offers into the database.
+- `Load latest price` remains functional but gray unless the current status is
+  `new_available`; that status promotes it to the primary action.
+
+New API:
+
+```text
+POST /suppliers/{supplier_id}/check-price-update
+```
+
+Migration:
+
+```text
+5c8e7f2a9d31_add_supplier_price_tracking.py
+```
+
+Real supplier verification:
+
+- Cyberport: 28,774 CSV rows, 9,500,998 bytes; metadata comparison returns
+  `no_changes` after baseline.
+- Jacob: 695,694 XLSX rows, 70,295,836 bytes; conditional request returns
+  `no_changes` after baseline.
+- Both files received raw-file and normalized-data hashes.
+- Baselines were transferred to the real `cyberport` and `jacob` supplier
+  records; temporary smoke suppliers were deleted.
+- Preview drafts were cleared afterward: 724,468 rows and approximately
+  455 MB of DataFrame memory released.
+- No supplier offers were imported.
+
+### Size-Aware Maintenance
+
+Settings now shows current resource usage for:
+
+- active in-memory Upload preview drafts: draft count, rows, estimated bytes;
+- operational PostgreSQL tables: row count and physical relation size.
+
+The two cleanup actions remain deliberately separate:
+
+```text
+Clear preview workspace
+Clear database data
+```
+
+After cleanup, the UI keeps a visible result with rows removed and estimated
+space released, then refreshes both status meters.
+
+New API:
+
+```text
+GET  /maintenance/status
+POST /maintenance/clear-workspace
+POST /maintenance/clear-database
+```
+
+Database cleanup removes operational imports and pipeline results but preserves
+suppliers, their latest-price URLs, remembered import filter profiles,
+`pipeline_settings`, and `research_rules`.
+
+Smoke verified:
+
+- one active preview appeared as 1 draft, 1 row, and 383 estimated bytes;
+- workspace cleanup returned the same released counts and reset status to zero;
+- temporary smoke preview was removed;
+- database and supplier tables remain empty after verification.
+
+### Supplier Latest Price Sources
+
+Existing suppliers can now store:
+
+```text
+price_url
+import_filter_profile
+```
+
+Supplier Details contains:
+
+- latest-price URL field;
+- `Save link`;
+- `Load latest price`;
+- indicator showing whether a supplier filter profile is saved.
+
+Supplier Management now exposes URL/filter-profile badges and a direct
+`Price & filters` action. When no suppliers exist, the page explains that the
+first supplier can be created directly with a name and optional price URL, or
+created by saving an Upload import.
+
+Configured suppliers now have a direct `Load latest price` action in both the
+management table and supplier cards. This action is independent of offer count:
+it downloads the configured URL, creates an in-memory preview, reapplies the
+supplier's saved filters, and opens Upload for review/export/commit.
+
+Remote drafts retain `supplier_id`, and commit writes to that exact configured
+supplier. Name-based supplier creation remains only as legacy behavior for
+manual file Upload.
+
+New API:
+
+```text
+POST /suppliers/
+```
+
+Creation with a public price URL and subsequent list/detail reads was smoke
+verified; the temporary supplier was removed afterward.
+
+The operator flow reuses the existing Upload draft:
+
+```text
+Supplier Details
+  -> Load latest price
+  -> download CSV/XLSX
+  -> normalize columns
+  -> apply last supplier filters
+  -> Upload preview
+  -> operator refines filters
+  -> Apply filters preview
+  -> export full filtered CSV or save import to the database
+```
+
+Confirmed filters are automatically persisted to the supplier after
+`Apply filters preview`, including brand mode/selections, title keywords,
+missing-EAN exclusion, non-new/refurbished exclusion, and min/max price.
+
+The remote downloader:
+
+- accepts public `http` and `https` URLs;
+- blocks localhost/private network targets and private redirects;
+- follows at most five redirects;
+- limits files to 500 MB;
+- supports CSV and XLSX;
+- detects extensionless XLSX files by ZIP signature.
+
+New API:
+
+```text
+PATCH /suppliers/{supplier_id}/price-source
+POST  /upload/supplier-price-preview?supplier_id={supplier_id}
+```
+
+Migration:
+
+```text
+4b7d3a9c6e12_add_supplier_price_sources.py
+```
+
+End-to-end smoke verified:
+
+- URL persisted for a temporary supplier;
+- public CSV downloaded and normalized;
+- filter profile persisted after apply;
+- next download automatically reapplied the profile;
+- remembered filter controls rendered visibly in Upload;
+- temporary smoke data removed afterward.
+
+### Mirenelle Ops UI Alignment
+
+The OA Pipeline static UI now follows the same visual system as
+`/Users/pilotrw/GITHUB/mirenelle-ops`:
+
+- grouped dark sidebar navigation;
+- collapsible sidebar with persisted desktop state;
+- compact sticky topbar;
+- Mirenelle wordmark treatment;
+- flat 4px panels and controls;
+- Ops-style KPI tiles;
+- compact tables with sticky headers;
+- consistent buttons, badges, filters, forms, and modal styling;
+- responsive single-column mobile layout;
+- functional mobile navigation collapse.
+
+Amazon Presence was moved from Overview into the Keepa view, matching its
+provider/enrichment responsibility.
+
+Verified with local Chrome at desktop and mobile sizes:
+
+- all eight views navigate correctly;
+- no browser console or page errors;
+- no horizontal page overflow;
+- Amazon Presence is contained by `view-keepa`;
+- sidebar collapse works on desktop and mobile.
 
 ### Amazon Presence Service
 

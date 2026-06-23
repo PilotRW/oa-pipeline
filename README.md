@@ -8,9 +8,11 @@ evaluates profitability, and produces ranked deal candidates.
 
 ## Current Status
 
-Project is currently paused after Upload preview/filter hardening and Jacob
-Makita import validation. See `PROJECT_STATE.md` for the exact resume point and
-current working-tree expectations.
+Project is currently paused after adding supplier-managed latest-price URLs,
+generic price-update tracking, persistent supplier-specific import filter
+profiles, size-aware Maintenance controls, and the first shared-auth/RBAC
+layer. See `PROJECT_STATE.md` for the exact resume point and current
+working-tree expectations.
 
 Implemented:
 
@@ -18,6 +20,8 @@ Implemented:
   migrations.
 - Static FastAPI-hosted UI at `/ui/`, branded as Mirenelle Automation.
 - UI localization for English, German, and Ukrainian.
+- First-pass OIDC/session authentication layer with local dev mode and
+  coarse automation RBAC.
 - CSV and Excel supplier feed ingestion.
 - Two-step import flow: preview first, then save.
 - Human-readable import preview table, column mapping preview, and quality
@@ -33,6 +37,11 @@ Implemented:
 - Multilingual semantic column normalization and fuzzy matching.
 - Supplier offer persistence, feed refresh, and duplicate prevention.
 - Supplier management with visible/hidden toggle.
+- Supplier latest-price URLs with remembered supplier-specific import filters.
+- Generic supplier price update tracking with HTTP metadata, file/data hashes,
+  and explicit update checks before downloading large feeds.
+- Maintenance status with active preview-memory usage, operational database
+  row/size counters, and separate guarded cleanup actions.
 - Supplier detail page with offer stats, pipeline status, import history, recent
   offers, supplier scope actions, and supplier-scoped research.
 - Supplier-scoped Overview, Research, Pipeline, Deals, and issue exports.
@@ -72,6 +81,8 @@ Current stage:
 
 Still not production-grade:
 
+- Authentication is implemented but still needs real Authentik/OIDC validation
+  and cross-app role/group alignment with Mirenelle Ops.
 - Amazon matching is still mock unless real Keepa mode is enabled.
 - Keepa metrics are mock unless real Keepa mode is enabled.
 - Fee estimation is still simplified.
@@ -180,9 +191,81 @@ exports, and pipeline actions to one supplier. Hidden suppliers do not appear in
 this selector.
 
 The current UI is intentionally lightweight and FastAPI-hosted while the
-pipeline concept is still being validated. Future UI rewrite preference:
-React + Mantine, styled as a Grafana-like operations dashboard. Defer that work
-until real Keepa/Amazon results prove the workflow.
+pipeline concept is still being validated. Its static shell and component
+styling are aligned with Mirenelle Ops: grouped operations navigation, compact
+topbar, KPI tiles, flat panels, dense tables, and responsive mobile behavior.
+Future framework rewrite preference remains React + Mantine after real
+Keepa/Amazon results prove the workflow.
+
+## Authentication and RBAC
+
+The app has a first-pass shared-auth compatible layer intended to work with the
+same identity provider as Mirenelle Ops.
+
+Local development defaults to auth-disabled mode:
+
+```text
+AUTH_ENABLED=false
+AUTH_DEV_USER=dev@mirenelle.local
+AUTH_DEV_ROLES=owner
+```
+
+When auth is disabled, `/auth/me` returns the configured dev user and the
+middleware injects that user into the request state. This keeps local work fast
+without bypassing the same permission shape used in production.
+
+Production mode is OIDC-based:
+
+```text
+AUTH_ENABLED=true
+AUTH_SESSION_SECRET=replace-with-long-random-secret
+AUTH_ISSUER=https://auth.example.com/application/o/mirenelle/
+AUTH_CLIENT_ID=...
+AUTH_CLIENT_SECRET=...
+AUTH_REDIRECT_URI=https://automation.example.com/auth/callback
+AUTH_GROUPS_CLAIM=groups
+```
+
+Auth routes:
+
+```text
+GET  /auth/login
+GET  /auth/callback
+POST /auth/logout
+GET  /auth/me
+```
+
+Current roles:
+
+```text
+owner
+automation_manager
+automation_operator
+automation_viewer
+```
+
+Current permissions:
+
+```text
+automation:view
+automation:operate
+automation:configure
+automation:admin
+```
+
+Middleware behavior:
+
+- unauthenticated UI/HTML requests redirect to `/auth/login`;
+- unauthenticated API requests return `401`;
+- GET requests generally require `automation:view`;
+- non-GET requests generally require `automation:operate`;
+- config and supplier changes require `automation:configure`;
+- database cleanup requires `automation:admin`;
+- `automation:admin` is treated as an override permission.
+
+The UI calls `/auth/me`, shows the current user, and posts to `/auth/logout`.
+Provider configuration and real Authentik group claims still need to be tested
+before production release.
 
 ## Supplier Management
 
@@ -214,6 +297,51 @@ POST /upload/filter-preview
 POST /upload/commit
 ```
 
+Existing suppliers can also start the same preview flow from a saved URL:
+
+```text
+PATCH /suppliers/{supplier_id}/price-source
+POST  /upload/supplier-price-preview?supplier_id={supplier_id}
+```
+
+The supplier's last confirmed import filters are applied automatically.
+Operators can refine them, export the full filtered CSV for separate analysis,
+or commit exactly that filtered dataset to the database.
+
+Supplier Management shows separate URL and saved-filter indicators. Open
+`Price & filters` for a supplier to edit its latest-price URL and load the
+remote file into the normal Upload preview/filter/export/commit workflow.
+New suppliers can be created directly in Supplier Management with a name and
+optional latest-price URL, so a remote price feed can be the first import.
+`Load latest price` is also available directly in the supplier list and cards;
+it does not require any previously imported offers. Remote drafts retain the
+configured supplier ID through preview, filtering, export, and commit.
+
+`Check for update` uses the same generic strategy for all suppliers:
+
+1. Send a lightweight conditional `HEAD` request.
+2. Use `304 Not Modified` when the provider supports it.
+3. Otherwise compare `ETag`, `Last-Modified`, and `Content-Length` with the
+   last successfully downloaded file.
+4. If metadata is unavailable or inconclusive, mark the source as requiring a
+   download for hash verification.
+5. On download, calculate both a raw SHA-256 file hash and a normalized-data
+   hash before replacing the saved baseline.
+
+Supplier records retain the last downloaded metadata, hashes, filename,
+download/check/change timestamps, and current update status. Checking alone
+never replaces the baseline, so a detected update stays visible until the
+operator actually loads the new file.
+
+`Load latest price` remains functional as a recovery/manual override, but is
+visually muted until a check reports `New price available`. At that point it
+becomes the primary action.
+
+For a new supplier, create the supplier with a URL and run `Check for update`.
+Because no baseline exists yet, the result is `New price available`. The first
+successful `Load latest price` establishes the baseline without importing
+offers; the operator can still export the preview or explicitly save it later.
+
 Preview returns:
 
 - normalized columns;
@@ -234,6 +362,19 @@ Legacy direct import is still available:
 ```text
 POST /upload
 ```
+
+## Maintenance
+
+Settings contains two independent cleanup actions:
+
+- `Clear preview workspace` releases active in-memory Upload drafts and reports
+  drafts, rows, and estimated memory released.
+- `Clear database data` truncates operational catalog/pipeline tables and
+  reports rows and physical PostgreSQL relation space released.
+
+The status meters show current preview memory and operational database size
+before cleanup. Database cleanup preserves suppliers, latest-price URLs,
+remembered supplier filters, pipeline settings, and research rules.
 
 Future import filtering direction:
 
@@ -388,6 +529,15 @@ decision, while Grafana handles the visual analysis.
 
 ## API Endpoints
 
+Authentication:
+
+```text
+GET  /auth/login
+GET  /auth/callback
+POST /auth/logout
+GET  /auth/me
+```
+
 Upload:
 
 ```text
@@ -395,6 +545,14 @@ POST /upload/preview
 POST /upload/filter-preview
 POST /upload/commit
 POST /upload
+```
+
+Maintenance:
+
+```text
+GET  /maintenance/status
+POST /maintenance/clear-workspace
+POST /maintenance/clear-database
 ```
 
 Reports:
@@ -406,11 +564,14 @@ GET /reports/unmapped-columns
 Suppliers:
 
 ```text
+POST  /suppliers/
 GET   /suppliers/
 GET   /suppliers/?include_hidden=true
 GET   /suppliers/dashboard
 GET   /suppliers/{supplier_id}
 PATCH /suppliers/{supplier_id}/visibility
+PATCH /suppliers/{supplier_id}/price-source
+POST  /suppliers/{supplier_id}/check-price-update
 ```
 
 Research queue:
@@ -559,6 +720,11 @@ oa-pipeline/
 │   │   ├── research_queue.py
 │   │   ├── suppliers.py
 │   │   └── upload.py
+│   ├── auth/
+│   │   ├── dependencies.py
+│   │   ├── middleware.py
+│   │   ├── permissions.py
+│   │   └── routes.py
 │   ├── config/
 │   │   └── settings.py
 │   ├── db/

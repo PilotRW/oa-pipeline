@@ -16,7 +16,9 @@ python-multipart
 
 alembic
 
+authlib
 httpx
+itsdangerous
 
 rapidfuzz
 unidecode

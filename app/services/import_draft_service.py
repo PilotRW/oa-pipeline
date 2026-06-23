@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import gc
 import re
 from uuid import uuid4
 
@@ -79,6 +80,7 @@ def create_import_draft(
     df: pd.DataFrame,
     original_columns: list,
     normalization_report: list[dict],
+    supplier_id: int | None = None,
 ) -> dict:
     _cleanup_expired_drafts()
 
@@ -88,6 +90,7 @@ def create_import_draft(
     _drafts[token] = {
         "token": token,
         "supplier_name": supplier_name,
+        "supplier_id": supplier_id,
         "filename": filename,
         "df": df.copy(),
         "original_columns": list(original_columns),
@@ -110,6 +113,47 @@ def get_import_draft(token: str) -> dict | None:
 def consume_import_draft(token: str) -> dict | None:
     _cleanup_expired_drafts()
     return _drafts.pop(token, None)
+
+
+def get_import_draft_stats() -> dict:
+    _cleanup_expired_drafts()
+
+    draft_count = len(_drafts)
+    row_count = 0
+    estimated_bytes = 0
+
+    for draft in _drafts.values():
+        df = draft.get("df")
+
+        if df is None:
+            continue
+
+        row_count += len(df)
+        estimated_bytes += int(
+            df.memory_usage(
+                index=True,
+                deep=True,
+            ).sum()
+        )
+
+    return {
+        "drafts": draft_count,
+        "rows": row_count,
+        "estimated_bytes": estimated_bytes,
+    }
+
+
+def clear_import_drafts() -> dict:
+    stats = get_import_draft_stats()
+
+    _drafts.clear()
+    gc.collect()
+
+    return {
+        "drafts_cleared": stats["drafts"],
+        "rows_released": stats["rows"],
+        "estimated_bytes_released": stats["estimated_bytes"],
+    }
 
 
 def _missing_count(df: pd.DataFrame, column: str) -> int:

@@ -10,6 +10,11 @@ from app.models.ingestion_run import IngestionRun
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
+from app.services.supplier_price_service import (
+    SupplierPriceDownloadError,
+    check_supplier_price,
+    validate_public_price_url,
+)
 
 router = APIRouter(
     prefix="/suppliers",
@@ -19,6 +24,85 @@ router = APIRouter(
 
 class SupplierVisibilityPayload(BaseModel):
     is_visible: bool
+
+
+class SupplierPriceSourcePayload(BaseModel):
+    price_url: str | None = None
+
+
+class SupplierCreatePayload(BaseModel):
+    name: str
+    price_url: str | None = None
+
+
+def supplier_price_tracking(supplier: Supplier) -> dict:
+    return {
+        "price_update_status": (
+            supplier.price_update_status
+            or ("never_downloaded" if supplier.price_url else "not_configured")
+        ),
+        "price_last_checked_at": supplier.price_last_checked_at,
+        "price_last_downloaded_at": supplier.price_last_downloaded_at,
+        "price_last_changed_at": supplier.price_last_changed_at,
+        "price_last_filename": supplier.price_last_filename,
+        "price_content_length": supplier.price_content_length,
+    }
+
+
+@router.post("/")
+async def create_supplier(
+    payload: SupplierCreatePayload,
+    db: AsyncSession = Depends(get_db),
+):
+    name = payload.name.strip().lower()
+
+    if not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Supplier name is required",
+        )
+
+    existing = await db.execute(
+        select(Supplier).where(
+            func.lower(Supplier.name) == name
+        )
+    )
+
+    if existing.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Supplier already exists",
+        )
+
+    price_url = str(payload.price_url or "").strip() or None
+
+    if price_url:
+        try:
+            price_url = validate_public_price_url(price_url)
+        except SupplierPriceDownloadError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=str(exc),
+            ) from exc
+
+    supplier = Supplier(
+        name=name,
+        price_url=price_url,
+        is_visible=True,
+    )
+    db.add(supplier)
+    await db.commit()
+    await db.refresh(supplier)
+
+    return {
+        "id": supplier.id,
+        "name": supplier.name,
+        "is_visible": supplier.is_visible,
+        "price_url": supplier.price_url,
+        "has_saved_import_filters": False,
+        "offers_count": 0,
+        **supplier_price_tracking(supplier),
+    }
 
 
 @router.get("/")
@@ -31,13 +115,33 @@ async def list_suppliers(
             Supplier.id,
             Supplier.name,
             Supplier.is_visible,
+            Supplier.price_url,
+            Supplier.import_filter_profile,
+            Supplier.price_update_status,
+            Supplier.price_last_checked_at,
+            Supplier.price_last_downloaded_at,
+            Supplier.price_last_changed_at,
+            Supplier.price_last_filename,
+            Supplier.price_content_length,
             func.count(SupplierOffer.id).label("offers_count"),
         )
         .outerjoin(
             SupplierOffer,
             SupplierOffer.supplier_id == Supplier.id,
         )
-        .group_by(Supplier.id, Supplier.name, Supplier.is_visible)
+        .group_by(
+            Supplier.id,
+            Supplier.name,
+            Supplier.is_visible,
+            Supplier.price_url,
+            Supplier.import_filter_profile,
+            Supplier.price_update_status,
+            Supplier.price_last_checked_at,
+            Supplier.price_last_downloaded_at,
+            Supplier.price_last_changed_at,
+            Supplier.price_last_filename,
+            Supplier.price_content_length,
+        )
         .order_by(Supplier.name.asc())
     )
 
@@ -52,9 +156,33 @@ async def list_suppliers(
             "id": supplier_id,
             "name": name,
             "is_visible": is_visible,
+            "price_url": price_url,
+            "has_saved_import_filters": bool(import_filter_profile),
+            "price_update_status": (
+                price_update_status
+                or ("never_downloaded" if price_url else "not_configured")
+            ),
+            "price_last_checked_at": price_last_checked_at,
+            "price_last_downloaded_at": price_last_downloaded_at,
+            "price_last_changed_at": price_last_changed_at,
+            "price_last_filename": price_last_filename,
+            "price_content_length": price_content_length,
             "offers_count": offers_count,
         }
-        for supplier_id, name, is_visible, offers_count in rows
+        for (
+            supplier_id,
+            name,
+            is_visible,
+            price_url,
+            import_filter_profile,
+            price_update_status,
+            price_last_checked_at,
+            price_last_downloaded_at,
+            price_last_changed_at,
+            price_last_filename,
+            price_content_length,
+            offers_count,
+        ) in rows
     ]
 
 
@@ -161,6 +289,104 @@ async def update_supplier_visibility(
     }
 
 
+@router.patch("/{supplier_id}/price-source")
+async def update_supplier_price_source(
+    supplier_id: int,
+    payload: SupplierPriceSourcePayload,
+    db: AsyncSession = Depends(get_db),
+):
+    supplier = await db.get(Supplier, supplier_id)
+
+    if supplier is None:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    price_url = str(payload.price_url or "").strip()
+
+    if price_url:
+        try:
+            price_url = validate_public_price_url(price_url)
+        except SupplierPriceDownloadError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=str(exc),
+            ) from exc
+    else:
+        price_url = None
+
+    if supplier.price_url != price_url:
+        supplier.price_etag = None
+        supplier.price_last_modified = None
+        supplier.price_content_length = None
+        supplier.price_file_hash = None
+        supplier.price_data_hash = None
+        supplier.price_last_filename = None
+        supplier.price_update_status = (
+            "never_downloaded" if price_url else "not_configured"
+        )
+        supplier.price_last_checked_at = None
+        supplier.price_last_downloaded_at = None
+        supplier.price_last_changed_at = None
+
+    supplier.price_url = price_url
+    await db.commit()
+    await db.refresh(supplier)
+
+    return {
+        "id": supplier.id,
+        "name": supplier.name,
+        "price_url": supplier.price_url,
+        "has_saved_import_filters": bool(
+            supplier.import_filter_profile
+        ),
+        **supplier_price_tracking(supplier),
+    }
+
+
+@router.post("/{supplier_id}/check-price-update")
+async def check_supplier_price_update(
+    supplier_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    supplier = await db.get(Supplier, supplier_id)
+
+    if supplier is None:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    if not supplier.price_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Supplier price URL is not configured",
+        )
+
+    try:
+        result = await check_supplier_price(
+            supplier.price_url,
+            previous_etag=supplier.price_etag,
+            previous_last_modified=supplier.price_last_modified,
+            previous_content_length=supplier.price_content_length,
+            has_downloaded_file=bool(supplier.price_file_hash),
+        )
+    except SupplierPriceDownloadError as exc:
+        supplier.price_update_status = "check_failed"
+        await db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    supplier.price_update_status = result["update_status"]
+    supplier.price_last_checked_at = result["checked_at"]
+    await db.commit()
+    await db.refresh(supplier)
+
+    return {
+        "id": supplier.id,
+        "name": supplier.name,
+        **result,
+        **supplier_price_tracking(supplier),
+    }
+
+
 @router.get("/{supplier_id}")
 async def supplier_detail(
     supplier_id: int,
@@ -210,6 +436,16 @@ async def supplier_detail(
         "id": supplier.id,
         "name": supplier.name,
         "is_visible": supplier.is_visible,
+        "price_url": supplier.price_url,
+        "import_filter_profile": supplier.import_filter_profile,
+        "has_saved_import_filters": bool(
+            supplier.import_filter_profile
+        ),
+        "price_etag": supplier.price_etag,
+        "price_last_modified": supplier.price_last_modified,
+        "price_file_hash": supplier.price_file_hash,
+        "price_data_hash": supplier.price_data_hash,
+        **supplier_price_tracking(supplier),
         "created_at": supplier.created_at,
         "offer_stats": {
             "total": offer_stats.total,
