@@ -43,6 +43,7 @@ const translations = {
     "action.saveSupplierRules": "Save supplier rules",
     "action.resetToDefault": "Reset to default",
     "action.resetToSystemDefaults": "Reset to system defaults",
+    "action.newUpload": "New upload",
     "action.saveImport": "Save import",
     "action.selectAll": "Select all",
     "action.clearAll": "Clear all",
@@ -298,6 +299,7 @@ const translations = {
     "action.saveSupplierRules": "Lieferantenregeln speichern",
     "action.resetToDefault": "Auf Standard zurücksetzen",
     "action.resetToSystemDefaults": "Auf Systemstandard zurücksetzen",
+    "action.newUpload": "Neuer Upload",
     "action.saveImport": "Import speichern",
     "action.selectAll": "Alle auswählen",
     "action.clearAll": "Alle abwählen",
@@ -550,6 +552,7 @@ const translations = {
     "action.saveSupplierRules": "Зберегти правила постачальника",
     "action.resetToDefault": "Скинути до дефолту",
     "action.resetToSystemDefaults": "Скинути до системного дефолту",
+    "action.newUpload": "Нове завантаження",
     "action.saveImport": "Зберегти імпорт",
     "action.selectAll": "Вибрати всі",
     "action.clearAll": "Зняти всі",
@@ -3322,26 +3325,38 @@ async function resetResearchRules(button) {
 function setImportDraft(draft) {
   state.importDraft = draft;
   state.importFiltersConfirmed = Boolean(draft);
-  updateSaveImportButton();
+  updateUploadActionButtons();
 
   if (!draft) {
     state.importFiltersConfirmed = false;
     state.importPreview = null;
     document.querySelector("#upload-preview").classList.add("hidden");
-    updateSaveImportButton();
+    updateUploadActionButtons();
   }
 }
 
-function updateSaveImportButton() {
+function updateUploadActionButtons() {
   document.querySelector("#save-import-button").classList.toggle(
     "hidden",
     !state.importDraft || !state.importFiltersConfirmed,
   );
+  document.querySelector("#reset-upload-button").classList.toggle(
+    "hidden",
+    !state.importDraft && !state.importPreview,
+  );
+}
+
+function resetUploadForm() {
+  const form = document.querySelector("#upload-form");
+  form?.reset();
+  setImportDraft(null);
+  registerTableExport("#preview-table-body", t("panel.previewRows"), [], []);
+  showAlert(t("action.newUpload"));
 }
 
 function markImportFiltersDirty() {
   state.importFiltersConfirmed = false;
-  updateSaveImportButton();
+  updateUploadActionButtons();
 
   const tableBody = document.querySelector("#preview-table-body");
   const tableHead = document.querySelector("#preview-table-head");
@@ -3496,7 +3511,7 @@ function estimateImportFilterResult() {
       </article>
     `;
     state.importFiltersConfirmed = Boolean(result.is_filtered_preview);
-    updateSaveImportButton();
+    updateUploadActionButtons();
     return;
   }
 
@@ -3542,7 +3557,7 @@ function estimateImportFilterResult() {
     </article>
   `;
 
-  updateSaveImportButton();
+  updateUploadActionButtons();
 }
 
 function renderFilterChoices(items, attribute, emptyLabel, selectedValues = []) {
@@ -4341,6 +4356,9 @@ function bindActions() {
   });
   document.querySelector("#download-upload-preview-csv").addEventListener("click", (event) => {
     downloadUploadPreviewCsv(event.currentTarget);
+  });
+  document.querySelector("#reset-upload-button").addEventListener("click", () => {
+    resetUploadForm();
   });
 
   document.querySelector("#save-import-button").addEventListener("click", async (event) => {
