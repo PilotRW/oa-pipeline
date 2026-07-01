@@ -34,6 +34,8 @@ const translations = {
     "action.checkPriceUpdate": "Check for update",
     "action.runAmazonPresence": "Check Amazon presence",
     "action.runKeepa": "Run Keepa",
+    "action.runMarketSnapshot": "Run snapshot",
+    "action.createDeals": "Create deals",
     "action.runResearch": "Run research",
     "action.save": "Save",
     "action.savePriceLink": "Save link",
@@ -47,6 +49,9 @@ const translations = {
     "action.saveImport": "Save import",
     "action.selectAll": "Select all",
     "action.clearAll": "Clear all",
+    "action.search": "Search",
+    "action.searchPreview": "Search",
+    "action.clearSearch": "Clear search",
     "action.clearWorkspace": "Clear preview workspace",
     "action.clearDatabase": "Clear database data",
     "action.managePrice": "Price & filters",
@@ -137,6 +142,10 @@ const translations = {
     "message.keepaRun": "Keepa completed: {created} queued, {processed} processed",
     "message.keepaRunWithSource": "Keepa completed via {source}: {created} queued, {processed} processed",
     "message.keepaNotConfigured": "Real Keepa is enabled, but KEEPA_API_KEY is not configured",
+    "message.keepaPermissionRequired": "Live Keepa access is limited to the authorized Keepa seat",
+    "message.keepaRateLimited": "Keepa tokens are not available yet. Tokens left: {tokens}. Try again in about {wait} seconds.",
+    "message.marketSnapshotRun": "Market snapshot completed via {source}: {created} queued, {processed} processed",
+    "message.dealsCreated": "Deal candidates created: {count}",
     "message.amazonPresenceRun": "Amazon presence completed via {source}: {created} queued, {processed} processed",
     "message.researchRun": "Research completed: {count} matches processed",
     "message.lookupPlanHint": "These criteria define the next research run. Applying them updates the plan only; it does not call external APIs.",
@@ -148,10 +157,12 @@ const translations = {
     "message.importFilterResult": "{after} of {before} rows will be imported",
     "message.applyFiltersToUpdatePreview": "Apply filters preview to update rows",
     "message.filteredPreviewReady": "Filtered preview ready: {count} rows",
+    "message.searchPlaceholder": "Search all filtered rows by SKU, EAN, title, brand...",
+    "message.searchResults": "Found {total}; showing {shown}",
     "message.saved": "Saved",
     "message.priceLinkSaved": "Supplier price link saved",
     "message.pricePreviewReady": "Latest supplier price loaded: {count} rows",
-    "message.priceCheckResult": "Price source status: {status}",
+    "message.priceCheckResult": "{supplier}: {status}. Checked {checked}",
     "message.savedSupplierFilters": "Last supplier filters will be applied automatically",
     "message.noSavedSupplierFilters": "No saved supplier filters yet",
     "message.rulesReset": "Rules reset",
@@ -183,6 +194,7 @@ const translations = {
     "panel.importFilters": "Import Filters",
     "panel.externalLookupPreview": "Research lookup plan",
     "panel.lookupSample": "Lookup sample",
+    "panel.marketSnapshots": "Market Snapshots",
     "panel.keepaMetrics": "Keepa Metrics",
     "panel.amazonPresence": "Amazon Presence",
     "panel.offerStats": "Offer Stats",
@@ -205,6 +217,7 @@ const translations = {
     "priceStatus.verification_required": "Download required to verify",
     "priceStatus.check_failed": "Check failed",
     "summary.amazonMatches": "Amazon Matches",
+    "summary.marketSnapshots": "Market Snapshots",
     "summary.dealCandidates": "Deal Candidates",
     "summary.keepaMetrics": "Keepa Metrics",
     "summary.eligibleExternal": "Eligible",
@@ -219,6 +232,7 @@ const translations = {
     "issue.available": "Available",
     "issue.dealCandidates": "Deal candidates",
     "issue.keepaPending": "Keepa pending",
+    "issue.marketSnapshotPending": "Market snapshot pending",
     "issue.needsAmazonMatch": "Needs Amazon match",
     "issue.open": "Open",
     "issue.rejectedLowRoi": "Rejected low ROI",
@@ -232,6 +246,7 @@ const translations = {
     "table.brand": "Brand",
     "table.buyBox": "Buy Box",
     "table.confidence": "Confidence",
+    "table.currentPrice": "Current price",
     "table.detectedAs": "Detected as",
     "table.fileColumn": "File column",
     "table.priority": "Priority",
@@ -240,6 +255,7 @@ const translations = {
     "table.roi": "ROI",
     "table.sales": "Sales",
     "table.salesRank": "Sales rank",
+    "table.sellerCount": "Sellers",
     "table.source": "Source",
     "table.keywords": "Keywords",
     "table.stock": "Stock",
@@ -289,7 +305,10 @@ const translations = {
     "action.runBatch": "Batch starten",
     "action.loadLatestPrice": "Aktuelle Preisliste laden",
     "action.checkPriceUpdate": "Auf Update prüfen",
+    "action.runAmazonPresence": "Amazon Presence prüfen",
     "action.runKeepa": "Keepa starten",
+    "action.runMarketSnapshot": "Snapshot starten",
+    "action.createDeals": "Deals erstellen",
     "action.runResearch": "Recherche starten",
     "action.save": "Speichern",
     "action.savePriceLink": "Link speichern",
@@ -303,6 +322,9 @@ const translations = {
     "action.saveImport": "Import speichern",
     "action.selectAll": "Alle auswählen",
     "action.clearAll": "Alle abwählen",
+    "action.search": "Suchen",
+    "action.searchPreview": "Suchen",
+    "action.clearSearch": "Suche löschen",
     "action.clearWorkspace": "Vorschau-Workspace leeren",
     "action.clearDatabase": "Datenbankdaten leeren",
     "action.managePrice": "Preis & Filter",
@@ -393,6 +415,11 @@ const translations = {
     "message.keepaRun": "Keepa fertig: {created} vorbereitet, {processed} verarbeitet",
     "message.keepaRunWithSource": "Keepa fertig über {source}: {created} vorbereitet, {processed} verarbeitet",
     "message.keepaNotConfigured": "Echtes Keepa ist aktiv, aber KEEPA_API_KEY ist nicht konfiguriert",
+    "message.keepaPermissionRequired": "Live-Keepa ist auf den autorisierten Keepa-Seat beschränkt",
+    "message.keepaRateLimited": "Noch keine Keepa-Tokens verfügbar. Tokens übrig: {tokens}. In ca. {wait} Sekunden erneut versuchen.",
+    "message.marketSnapshotRun": "Market Snapshot fertig über {source}: {created} vorbereitet, {processed} verarbeitet",
+    "message.dealsCreated": "Deal-Kandidaten erstellt: {count}",
+    "message.amazonPresenceRun": "Amazon Presence fertig über {source}: {created} vorbereitet, {processed} verarbeitet",
     "message.researchRun": "Recherche fertig: {count} Matches verarbeitet",
     "message.lookupPlanHint": "Diese Kriterien definieren den nächsten Recherchelauf. Anwenden aktualisiert nur den Plan und ruft keine externen APIs auf.",
     "message.lookupSaveHint": "Gespeicherte Filter werden automatisch für diesen Scope angewendet. Die Batchgröße bleibt laufbezogen.",
@@ -403,10 +430,12 @@ const translations = {
     "message.importFilterResult": "{after} von {before} Zeilen werden importiert",
     "message.applyFiltersToUpdatePreview": "Filtervorschau anwenden, um Zeilen zu aktualisieren",
     "message.filteredPreviewReady": "Gefilterte Vorschau bereit: {count} Zeilen",
+    "message.searchPlaceholder": "Alle gefilterten Zeilen nach SKU, EAN, Titel, Marke suchen...",
+    "message.searchResults": "{total} gefunden; {shown} angezeigt",
     "message.saved": "Gespeichert",
     "message.priceLinkSaved": "Preislisten-Link gespeichert",
     "message.pricePreviewReady": "Aktuelle Preisliste geladen: {count} Zeilen",
-    "message.priceCheckResult": "Status der Preisquelle: {status}",
+    "message.priceCheckResult": "{supplier}: {status}. Geprüft {checked}",
     "message.savedSupplierFilters": "Die letzten Lieferantenfilter werden automatisch angewendet",
     "message.noSavedSupplierFilters": "Noch keine gespeicherten Lieferantenfilter",
     "message.rulesReset": "Regeln zurückgesetzt",
@@ -438,7 +467,9 @@ const translations = {
     "panel.importFilters": "Importfilter",
     "panel.externalLookupPreview": "Recherche-Lookup-Plan",
     "panel.lookupSample": "Lookup-Beispiele",
+    "panel.marketSnapshots": "Market Snapshots",
     "panel.keepaMetrics": "Keepa-Metriken",
+    "panel.amazonPresence": "Amazon Presence",
     "panel.offerStats": "Angebotsstatistik",
     "panel.recentOffers": "Letzte Angebote",
     "panel.pipelineStatus": "Pipeline-Status",
@@ -459,6 +490,7 @@ const translations = {
     "priceStatus.verification_required": "Download zur Prüfung nötig",
     "priceStatus.check_failed": "Prüfung fehlgeschlagen",
     "summary.amazonMatches": "Amazon Matches",
+    "summary.marketSnapshots": "Market Snapshots",
     "summary.dealCandidates": "Deal-Kandidaten",
     "summary.keepaMetrics": "Keepa-Metriken",
     "summary.eligibleExternal": "Geeignet",
@@ -473,6 +505,7 @@ const translations = {
     "issue.available": "Verfügbar",
     "issue.dealCandidates": "Deal-Kandidaten",
     "issue.keepaPending": "Keepa ausstehend",
+    "issue.marketSnapshotPending": "Market Snapshot ausstehend",
     "issue.needsAmazonMatch": "Benötigt Amazon-Match",
     "issue.open": "Offen",
     "issue.rejectedLowRoi": "Abgelehnt: niedriger ROI",
@@ -486,6 +519,7 @@ const translations = {
     "table.brand": "Marke",
     "table.buyBox": "Buy Box",
     "table.confidence": "Konfidenz",
+    "table.currentPrice": "Aktueller Preis",
     "table.detectedAs": "Erkannt als",
     "table.fileColumn": "Dateispalte",
     "table.priority": "Priorität",
@@ -494,6 +528,7 @@ const translations = {
     "table.roi": "ROI",
     "table.sales": "Verkäufe",
     "table.salesRank": "Sales Rank",
+    "table.sellerCount": "Verkäufer",
     "table.source": "Quelle",
     "table.keywords": "Keywords",
     "table.stock": "Bestand",
@@ -503,6 +538,7 @@ const translations = {
     "table.rows": "Zeilen",
     "table.valid": "Gültig",
     "table.actions": "Aktionen",
+    "table.amazonPresent": "Amazon präsent",
     "table.failed": "Fehler",
     "table.importedAt": "Importiert am",
     "table.sku": "SKU",
@@ -542,7 +578,10 @@ const translations = {
     "action.runBatch": "Запустити batch",
     "action.loadLatestPrice": "Завантажити свіжий прайс",
     "action.checkPriceUpdate": "Перевірити оновлення",
+    "action.runAmazonPresence": "Перевірити Amazon presence",
     "action.runKeepa": "Запустити Keepa",
+    "action.runMarketSnapshot": "Запустити зріз ринку",
+    "action.createDeals": "Створити deals",
     "action.runResearch": "Запустити research",
     "action.save": "Зберегти",
     "action.savePriceLink": "Зберегти лінк",
@@ -556,6 +595,9 @@ const translations = {
     "action.saveImport": "Зберегти імпорт",
     "action.selectAll": "Вибрати всі",
     "action.clearAll": "Зняти всі",
+    "action.search": "Шукати",
+    "action.searchPreview": "Пошук",
+    "action.clearSearch": "Очистити пошук",
     "action.clearWorkspace": "Очистити preview workspace",
     "action.clearDatabase": "Очистити дані бази",
     "action.managePrice": "Прайс і фільтри",
@@ -646,6 +688,11 @@ const translations = {
     "message.keepaRun": "Keepa завершено: {created} поставлено в чергу, {processed} оброблено",
     "message.keepaRunWithSource": "Keepa завершено через {source}: {created} поставлено в чергу, {processed} оброблено",
     "message.keepaNotConfigured": "Real Keepa увімкнена, але KEEPA_API_KEY не налаштований",
+    "message.keepaPermissionRequired": "Live Keepa доступна тільки авторизованому Keepa seat",
+    "message.keepaRateLimited": "Keepa tokens ще недоступні. Залишилось токенів: {tokens}. Спробуй ще раз приблизно за {wait} секунд.",
+    "message.marketSnapshotRun": "Зріз ринку завершено через {source}: {created} поставлено в чергу, {processed} оброблено",
+    "message.dealsCreated": "Створено кандидатів угод: {count}",
+    "message.amazonPresenceRun": "Amazon presence завершено через {source}: {created} поставлено в чергу, {processed} оброблено",
     "message.researchRun": "Research завершено: оброблено {count} matches",
     "message.lookupPlanHint": "Ці критерії задають наступний research run. Застосування оновлює тільки план і не викликає зовнішні API.",
     "message.lookupSaveHint": "Збережені фільтри застосовуються автоматично для цього scope. Batch size лишається параметром конкретного запуску.",
@@ -656,10 +703,12 @@ const translations = {
     "message.importFilterResult": "Буде імпортовано {after} з {before} рядків",
     "message.applyFiltersToUpdatePreview": "Застосуй фільтри для оновлення рядків preview",
     "message.filteredPreviewReady": "Відфільтроване превʼю готове: {count} рядків",
+    "message.searchPlaceholder": "Пошук по всіх відфільтрованих рядках: SKU, EAN, назва, бренд...",
+    "message.searchResults": "Знайдено {total}; показано {shown}",
     "message.saved": "Збережено",
     "message.priceLinkSaved": "Лінк на прайс збережено",
     "message.pricePreviewReady": "Свіжий прайс завантажено: {count} рядків",
-    "message.priceCheckResult": "Статус джерела прайсу: {status}",
+    "message.priceCheckResult": "{supplier}: {status}. Перевірено {checked}",
     "message.savedSupplierFilters": "Останні фільтри постачальника застосуються автоматично",
     "message.noSavedSupplierFilters": "Збережених фільтрів постачальника ще немає",
     "message.rulesReset": "Правила скинуто",
@@ -691,7 +740,9 @@ const translations = {
     "panel.importFilters": "Фільтри імпорту",
     "panel.externalLookupPreview": "План research lookup",
     "panel.lookupSample": "Приклад lookup",
+    "panel.marketSnapshots": "Зріз ринку",
     "panel.keepaMetrics": "Keepa метрики",
+    "panel.amazonPresence": "Amazon presence",
     "panel.offerStats": "Статистика offers",
     "panel.recentOffers": "Останні offers",
     "panel.pipelineStatus": "Pipeline статус",
@@ -712,6 +763,7 @@ const translations = {
     "priceStatus.verification_required": "Для перевірки треба завантажити",
     "priceStatus.check_failed": "Помилка перевірки",
     "summary.amazonMatches": "Amazon збіги",
+    "summary.marketSnapshots": "Зріз ринку",
     "summary.dealCandidates": "Кандидати угод",
     "summary.keepaMetrics": "Keepa метрики",
     "summary.eligibleExternal": "Підходять",
@@ -726,6 +778,7 @@ const translations = {
     "issue.available": "Доступно",
     "issue.dealCandidates": "Кандидати угод",
     "issue.keepaPending": "Keepa очікує",
+    "issue.marketSnapshotPending": "Зріз ринку очікує",
     "issue.needsAmazonMatch": "Потрібен Amazon match",
     "issue.open": "Відкрито",
     "issue.rejectedLowRoi": "Відхилено: низький ROI",
@@ -739,6 +792,7 @@ const translations = {
     "table.brand": "Бренд",
     "table.buyBox": "Buy Box",
     "table.confidence": "Впевненість",
+    "table.currentPrice": "Поточна ціна",
     "table.detectedAs": "Розпізнано як",
     "table.fileColumn": "Колонка файлу",
     "table.priority": "Пріоритет",
@@ -747,6 +801,7 @@ const translations = {
     "table.roi": "ROI",
     "table.sales": "Продажі",
     "table.salesRank": "Sales rank",
+    "table.sellerCount": "Продавці",
     "table.source": "Джерело",
     "table.keywords": "Keywords",
     "table.stock": "Stock",
@@ -756,6 +811,7 @@ const translations = {
     "table.rows": "Рядки",
     "table.valid": "Валідні",
     "table.actions": "Дії",
+    "table.amazonPresent": "Amazon присутній",
     "table.failed": "Помилки",
     "table.importedAt": "Імпортовано",
     "table.sku": "SKU",
@@ -946,11 +1002,13 @@ function renderKeepaModeBadge() {
   if (!badge && !toggle && !runButton) return;
 
   const useRealKeepa = Boolean(state.settings?.use_real_keepa);
+  const realKeepaAllowed = canUseRealKeepa();
   const notConfigured = Boolean(
     useRealKeepa
     && state.keepaStatus
     && !state.keepaStatus.api_key_configured,
   );
+  const blockedByPermission = useRealKeepa && !realKeepaAllowed;
 
   if (badge) {
     badge.textContent = notConfigured
@@ -967,11 +1025,15 @@ function renderKeepaModeBadge() {
 
   if (toggle) {
     toggle.checked = useRealKeepa;
+    toggle.disabled = !realKeepaAllowed;
+    toggle.title = realKeepaAllowed ? "" : t("message.keepaPermissionRequired");
   }
 
   if (runButton) {
-    runButton.disabled = notConfigured;
-    runButton.title = notConfigured ? t("message.keepaNotConfigured") : "";
+    runButton.disabled = notConfigured || blockedByPermission;
+    runButton.title = blockedByPermission
+      ? t("message.keepaPermissionRequired")
+      : (notConfigured ? t("message.keepaNotConfigured") : "");
   }
 }
 
@@ -1005,6 +1067,7 @@ function applyLanguage() {
   renderSupplierSelect();
   renderRuleHelpButtons();
   renderResearchRulesActions();
+  renderSettingsPermissions();
   renderKeepaModeBadge();
   renderAuthUser();
   updateSupplierScopeVisibility();
@@ -1040,6 +1103,11 @@ function hasPermission(permission) {
   return Boolean(state.authUser?.permissions?.includes(permission));
 }
 
+function canUseRealKeepa() {
+  return hasPermission("automation:use_keepa_real")
+    || hasPermission("automation:admin");
+}
+
 function renderAuthUser() {
   const container = document.querySelector("#auth-user");
   const label = document.querySelector("#auth-user-label");
@@ -1064,9 +1132,22 @@ function renderAuthUser() {
   });
 }
 
+function renderSettingsPermissions() {
+  const realKeepaInput = document.querySelector(
+    "#pipeline-settings-form input[name='use_real_keepa']",
+  );
+
+  if (!realKeepaInput) return;
+
+  const allowed = canUseRealKeepa();
+  realKeepaInput.disabled = !allowed;
+  realKeepaInput.title = allowed ? "" : t("message.keepaPermissionRequired");
+}
+
 async function loadAuthUser() {
   state.authUser = await api("/auth/me");
   renderAuthUser();
+  renderSettingsPermissions();
 }
 
 function scopedPath(path) {
@@ -1146,6 +1227,7 @@ async function setSupplierScope(supplierId) {
     loadDeals(),
     loadResearch(),
     loadKeepa(),
+    loadMarketSnapshots(),
     loadAmazonPresence(),
     loadConfig(),
   ]);
@@ -1214,8 +1296,17 @@ function keepaSourceLabel(source) {
   if (source === "keepa_mock") return t("keepa.sourceMock");
   if (source === "keepa_real") return t("keepa.sourceReal");
   if (source === "presence_mock") return t("keepa.sourceMock");
+  if (source === "market_snapshot_mock") return t("keepa.sourceMock");
 
   return t("keepa.sourceUnknown");
+}
+
+function keepaRateLimitMessage(result) {
+  const tokenStatus = result?.token_status || {};
+  const tokens = tokenStatus.tokens_left ?? 0;
+  const wait = Math.ceil(tokenStatus.time_to_refill_seconds || 0);
+
+  return t("message.keepaRateLimited", { tokens, wait });
 }
 
 function formatBoolean(value) {
@@ -1232,6 +1323,7 @@ function renderSummary() {
   const items = [
     ["summary.researchQueue", summary.research_queue],
     ["summary.amazonMatches", summary.amazon_matches],
+    ["summary.marketSnapshots", summary.market_snapshots],
     ["summary.keepaMetrics", summary.keepa_metrics],
     ["summary.dealCandidates", summary.deal_candidates],
   ];
@@ -1328,6 +1420,10 @@ function renderSuppliersDashboard() {
             <article>
               <span>${t("summary.amazonMatches")}</span>
               <strong>${statusText(supplier.statuses?.amazon_matches)}</strong>
+            </article>
+            <article>
+              <span>${t("summary.marketSnapshots")}</span>
+              <strong>${statusText(supplier.statuses?.market_snapshots)}</strong>
             </article>
             <article>
               <span>${t("summary.dealCandidates")}</span>
@@ -1619,6 +1715,10 @@ function renderSupplierDetail(detail) {
             <strong>${statusText(detail.statuses?.amazon_matches)}</strong>
           </article>
           <article>
+            <span>${t("summary.marketSnapshots")}</span>
+            <strong>${statusText(detail.statuses?.market_snapshots)}</strong>
+          </article>
+          <article>
             <span>${t("summary.dealCandidates")}</span>
             <strong>${statusText(detail.statuses?.deal_candidates)}</strong>
           </article>
@@ -1866,6 +1966,19 @@ function issueDefinitions() {
         { label: "ASIN", key: "asin" },
         { label: t("table.status"), key: "data_status", render: (row) => `<span class="badge ${statusClass(row.data_status)}">${escapeHtml(row.data_status)}</span>` },
         { label: t("table.sales"), key: "estimated_monthly_sales", render: (row) => formatNumber(row.estimated_monthly_sales) },
+      ],
+    },
+    marketSnapshotPending: {
+      label: "issue.marketSnapshotPending",
+      count: statusCount("market_snapshots", "pending")
+        + statusCount("research_queue", "market_snapshot_pending"),
+      tone: "warn",
+      endpoint: scopedPath("/market-snapshots/?snapshot_status=pending&limit=500"),
+      columns: [
+        { label: t("table.supplier"), key: "supplier_name", render: (row) => escapeHtml(row.supplier_name) || "-" },
+        { label: "ASIN", key: "asin" },
+        { label: t("table.status"), key: "snapshot_status", render: (row) => `<span class="badge ${statusClass(row.snapshot_status)}">${escapeHtml(row.snapshot_status)}</span>` },
+        { label: t("table.source"), key: "snapshot_source", render: (row) => keepaSourceLabel(row.snapshot_source) },
       ],
     },
     rejectedLowRoi: {
@@ -2446,6 +2559,7 @@ async function toggleSupplierVisibility(supplierId, isVisible) {
     loadDeals(),
     loadResearch(),
     loadKeepa(),
+    loadMarketSnapshots(),
     loadAmazonPresence(),
   ]);
 }
@@ -2481,7 +2595,9 @@ async function checkSupplierPriceUpdate(
       { method: "POST" },
     );
     showAlert(t("message.priceCheckResult", {
+      supplier: result.name || `#${supplierId}`,
       status: priceUpdateLabel(result.price_update_status),
+      checked: formatDate(result.price_last_checked_at || result.checked_at),
     }));
     await Promise.all([
       loadSuppliers(),
@@ -2579,6 +2695,7 @@ async function loadConfig() {
   fillForm(document.querySelector("#pipeline-settings-form"), settings);
   fillForm(document.querySelector("#research-rules-form"), rules);
   renderResearchRulesActions();
+  renderSettingsPermissions();
   renderKeepaModeBadge();
   renderResearchControls();
 }
@@ -2908,6 +3025,52 @@ async function loadKeepa() {
   ], { exportTitle: t("panel.keepaMetrics") });
 }
 
+async function loadMarketSnapshots() {
+  const snapshots = await api(scopedPath("/market-snapshots/?limit=500"));
+
+  renderRows("#market-snapshot-table", snapshots, [
+    { key: "supplier_name", label: t("table.supplier") },
+    { key: "asin", label: "ASIN" },
+    {
+      key: "snapshot_status",
+      label: t("table.status"),
+      render: (row) => `<span class="badge ${statusClass(row.snapshot_status)}">${escapeHtml(row.snapshot_status)}</span>`,
+    },
+    {
+      key: "snapshot_source",
+      label: t("table.source"),
+      render: (row) => `<span class="badge ${row.snapshot_source === "keepa_real" ? "ok" : "warn"}">${keepaSourceLabel(row.snapshot_source)}</span>`,
+      export: (row) => keepaSourceLabel(row.snapshot_source),
+    },
+    {
+      key: "current_price",
+      label: t("table.currentPrice"),
+      render: (row) => formatNumber(row.current_price),
+    },
+    {
+      key: "buy_box_price",
+      label: t("table.buyBox"),
+      render: (row) => formatNumber(row.buy_box_price),
+    },
+    {
+      key: "sales_rank",
+      label: t("table.salesRank"),
+      render: (row) => formatNumber(row.sales_rank),
+    },
+    {
+      key: "seller_count",
+      label: t("table.sellerCount"),
+      render: (row) => formatNumber(row.seller_count),
+    },
+    {
+      key: "amazon_present",
+      label: t("table.amazonPresent"),
+      render: (row) => `<span class="badge ${row.amazon_present ? "bad" : "ok"}">${formatBoolean(row.amazon_present)}</span>`,
+      export: (row) => formatBoolean(row.amazon_present),
+    },
+  ], { exportTitle: t("panel.marketSnapshots") });
+}
+
 async function loadAmazonPresence() {
   const checks = await api(scopedPath("/amazon-presence/?limit=500"));
 
@@ -2947,6 +3110,7 @@ async function refreshAll() {
       loadDeals(),
       loadResearch(),
       loadKeepa(),
+      loadMarketSnapshots(),
       loadAmazonPresence(),
       loadSuppliersDashboard(),
       loadMaintenanceStatus(),
@@ -2978,6 +3142,7 @@ async function runBatch() {
       loadDeals(),
       loadResearch(),
       loadKeepa(),
+      loadMarketSnapshots(),
       loadAmazonPresence(),
     ]);
   } catch (error) {
@@ -2999,20 +3164,112 @@ async function runResearch(triggerButton = null) {
     const result = await api(scopedPath(withQuery("/pipeline/run-research", researchParams)), {
       method: "POST",
     });
-    showAlert(t("message.researchRun", {
-      count: result.amazon_processed?.processed_count || 0,
-    }));
+    if (result.amazon_processed?.status === "rate_limited") {
+      showAlert(keepaRateLimitMessage(result.amazon_processed), true);
+    } else {
+      showAlert(t("message.researchRun", {
+        count: result.amazon_processed?.processed_count || 0,
+      }));
+    }
     await Promise.all([
       loadSummary(),
       loadResearch(),
       loadDeals(),
       loadKeepa(),
+      loadMarketSnapshots(),
       loadAmazonPresence(),
     ]);
   } catch (error) {
     showAlert(error.message, true);
   } finally {
     button.disabled = false;
+  }
+}
+
+async function runMarketSnapshot(triggerButton = null) {
+  const button = triggerButton || document.querySelector("#run-market-snapshot-button");
+
+  if (state.settings?.use_real_keepa && !canUseRealKeepa()) {
+    showAlert(t("message.keepaPermissionRequired"), true);
+    renderKeepaModeBadge();
+    return;
+  }
+
+  if (
+    state.settings?.use_real_keepa
+    && state.keepaStatus
+    && !state.keepaStatus.api_key_configured
+  ) {
+    showAlert(t("message.keepaNotConfigured"), true);
+    renderKeepaModeBadge();
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const pendingResult = await api(scopedPath("/market-snapshots/create-pending"), {
+      method: "POST",
+    });
+    const processResult = await api(scopedPath("/market-snapshots/process-pending"), {
+      method: "POST",
+    });
+
+    if (processResult.status === "not_configured") {
+      showAlert(
+        processResult.reason || t("message.keepaNotConfigured"),
+        true,
+      );
+    } else if (processResult.status === "rate_limited") {
+      showAlert(keepaRateLimitMessage(processResult), true);
+    } else {
+      showAlert(t("message.marketSnapshotRun", {
+        source: keepaSourceLabel(processResult.data_source),
+        created: pendingResult.created_count || 0,
+        processed: processResult.processed_count || 0,
+      }));
+    }
+
+    await Promise.all([
+      loadSummary(),
+      loadConfig(),
+      loadMarketSnapshots(),
+      loadResearch(),
+      loadDeals(),
+      loadSuppliersDashboard(),
+    ]);
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function createDealCandidates(triggerButton = null) {
+  const button = triggerButton;
+
+  if (button) button.disabled = true;
+
+  try {
+    const result = await api(scopedPath("/deals/create-candidates"), {
+      method: "POST",
+    });
+
+    showAlert(t("message.dealsCreated", {
+      count: result.created_count || 0,
+    }));
+
+    await Promise.all([
+      loadSummary(),
+      loadDeals(),
+      loadResearch(),
+      loadMarketSnapshots(),
+      loadSuppliersDashboard(),
+    ]);
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 
@@ -3068,6 +3325,12 @@ async function clearLookupFilters(button) {
 async function runKeepa(triggerButton = null) {
   const button = triggerButton || document.querySelector("#run-keepa-button");
 
+  if (state.settings?.use_real_keepa && !canUseRealKeepa()) {
+    showAlert(t("message.keepaPermissionRequired"), true);
+    renderKeepaModeBadge();
+    return;
+  }
+
   if (
     state.settings?.use_real_keepa
     && state.keepaStatus
@@ -3093,6 +3356,8 @@ async function runKeepa(triggerButton = null) {
         processResult.reason || t("message.keepaNotConfigured"),
         true,
       );
+    } else if (processResult.status === "rate_limited") {
+      showAlert(keepaRateLimitMessage(processResult), true);
     } else {
       showAlert(t("message.keepaRunWithSource", {
         source: keepaSourceLabel(processResult.data_source),
@@ -3101,7 +3366,13 @@ async function runKeepa(triggerButton = null) {
       }));
     }
 
-    await Promise.all([loadSummary(), loadConfig(), loadKeepa(), loadDeals()]);
+    await Promise.all([
+      loadSummary(),
+      loadConfig(),
+      loadKeepa(),
+      loadMarketSnapshots(),
+      loadDeals(),
+    ]);
   } catch (error) {
     showAlert(error.message, true);
   } finally {
@@ -3111,6 +3382,12 @@ async function runKeepa(triggerButton = null) {
 
 async function runAmazonPresence(triggerButton = null) {
   const button = triggerButton || document.querySelector("#run-amazon-presence-button");
+
+  if (state.settings?.use_real_keepa && !canUseRealKeepa()) {
+    showAlert(t("message.keepaPermissionRequired"), true);
+    renderKeepaModeBadge();
+    return;
+  }
 
   if (
     state.settings?.use_real_keepa
@@ -3137,6 +3414,8 @@ async function runAmazonPresence(triggerButton = null) {
         processResult.reason || t("message.keepaNotConfigured"),
         true,
       );
+    } else if (processResult.status === "rate_limited") {
+      showAlert(keepaRateLimitMessage(processResult), true);
     } else {
       showAlert(t("message.amazonPresenceRun", {
         source: keepaSourceLabel(processResult.data_source),
@@ -3149,6 +3428,7 @@ async function runAmazonPresence(triggerButton = null) {
       loadSummary(),
       loadConfig(),
       loadKeepa(),
+      loadMarketSnapshots(),
       loadAmazonPresence(),
       loadDeals(),
     ]);
@@ -3160,6 +3440,13 @@ async function runAmazonPresence(triggerButton = null) {
 }
 
 async function saveKeepaMode(useRealKeepa, toggle) {
+  if (useRealKeepa && !canUseRealKeepa()) {
+    toggle.checked = false;
+    showAlert(t("message.keepaPermissionRequired"), true);
+    renderKeepaModeBadge();
+    return;
+  }
+
   toggle.disabled = true;
 
   try {
@@ -3191,13 +3478,18 @@ async function runSupplierResearch(supplierId, button) {
     const result = await api(scopedPath(withQuery("/pipeline/run-research", researchLookupParams())), {
       method: "POST",
     });
-    showAlert(t("message.researchRun", {
-      count: result.amazon_processed?.processed_count || 0,
-    }));
+    if (result.amazon_processed?.status === "rate_limited") {
+      showAlert(keepaRateLimitMessage(result.amazon_processed), true);
+    } else {
+      showAlert(t("message.researchRun", {
+        count: result.amazon_processed?.processed_count || 0,
+      }));
+    }
     await Promise.all([
       loadSummary(),
       loadResearch(),
       loadKeepa(),
+      loadMarketSnapshots(),
       loadDeals(),
       loadSuppliersDashboard(),
       loadSupplierDetail(supplierId, { silent: true }),
@@ -3220,6 +3512,15 @@ async function runSupplierResearch(supplierId, button) {
 
 async function saveForm(form, endpoint) {
   const payload = formPayload(form);
+
+  if (
+    form.id === "pipeline-settings-form"
+    && payload.use_real_keepa
+    && !canUseRealKeepa()
+  ) {
+    throw new Error(t("message.keepaPermissionRequired"));
+  }
+
   const result = await api(endpoint, {
     method: "PATCH",
     body: JSON.stringify(payload),
@@ -3230,6 +3531,7 @@ async function saveForm(form, endpoint) {
     state.settings = result;
     state.keepaStatus = await api("/keepa/status");
     renderKeepaModeBadge();
+    renderSettingsPermissions();
   }
   showAlert(t("message.saved"));
   await loadSummary();
@@ -3346,10 +3648,65 @@ function updateUploadActionButtons() {
   );
 }
 
+function previewColumnClass(column) {
+  const name = String(column || "").toLowerCase();
+
+  if (["price", "cost", "stock", "moq"].includes(name)) return "numeric";
+  if (["ean", "gtin", "upc", "barcode"].includes(name)) return "identifier";
+  if (name.includes("sku") || name.includes("mpn") || name.includes("part")) return "code";
+  if (name.includes("description")) return "description";
+  if (name.includes("title") || name.includes("name")) return "title";
+  if (name.includes("category")) return "category";
+  if (name.includes("brand") || name.includes("manufacturer")) return "brand";
+
+  return "default";
+}
+
+function renderPreviewRows(rows, columns) {
+  const tableHead = document.querySelector("#preview-table-head");
+  const tableBody = document.querySelector("#preview-table-body");
+
+  tableHead.innerHTML = `
+    <tr>
+      ${columns.map((column) => `<th class="preview-col-${previewColumnClass(column)}">${escapeHtml(column)}</th>`).join("")}
+    </tr>
+  `;
+
+  tableBody.innerHTML = rows.length
+    ? rows
+      .map((row) => `
+        <tr>
+          ${columns.map((column) => `<td class="preview-col-${previewColumnClass(column)}">${escapeHtml(row[column]) || "-"}</td>`).join("")}
+        </tr>
+      `)
+      .join("")
+    : `<tr><td colspan="${columns.length || 1}">${t("message.noRecords")}</td></tr>`;
+}
+
+function setUploadSearchStatus(message = "") {
+  const status = document.querySelector("#upload-preview-search-status");
+
+  if (status) {
+    status.textContent = message;
+  }
+}
+
+function resetUploadSearchPanel() {
+  const input = document.querySelector("#upload-preview-search-input");
+
+  if (input) {
+    input.value = "";
+    input.placeholder = t("message.searchPlaceholder");
+  }
+
+  setUploadSearchStatus("");
+}
+
 function resetUploadForm() {
   const form = document.querySelector("#upload-form");
   form?.reset();
   setImportDraft(null);
+  resetUploadSearchPanel();
   registerTableExport("#preview-table-body", t("panel.previewRows"), [], []);
   showAlert(t("action.newUpload"));
 }
@@ -3377,8 +3734,6 @@ function renderImportPreview(result) {
   state.importPreview = result;
   const preview = document.querySelector("#upload-preview");
   const summary = document.querySelector("#preview-summary");
-  const tableHead = document.querySelector("#preview-table-head");
-  const tableBody = document.querySelector("#preview-table-body");
   const mappingList = document.querySelector("#mapping-list");
   const columns = result.normalized_columns || [];
   const rows = result.preview || [];
@@ -3411,22 +3766,8 @@ function renderImportPreview(result) {
 
   renderQualityChecks(result.quality_report || {});
   renderImportFilters(result);
-
-  tableHead.innerHTML = `
-    <tr>
-      ${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}
-    </tr>
-  `;
-
-  tableBody.innerHTML = rows.length
-    ? rows
-      .map((row) => `
-        <tr>
-          ${columns.map((column) => `<td>${escapeHtml(row[column]) || "-"}</td>`).join("")}
-        </tr>
-      `)
-      .join("")
-    : `<tr><td colspan="${columns.length || 1}">${t("message.noRecords")}</td></tr>`;
+  resetUploadSearchPanel();
+  renderPreviewRows(rows, columns);
 
   registerTableExport(
     "#preview-table-body",
@@ -3460,6 +3801,62 @@ function renderImportPreview(result) {
     .join("");
 
   preview.classList.remove("hidden");
+}
+
+async function searchUploadPreview(button) {
+  if (!state.importDraft?.import_token) {
+    showAlert(t("message.noRecords"), true);
+    return;
+  }
+
+  if (!state.importFiltersConfirmed) {
+    showAlert(t("message.applyFiltersToUpdatePreview"), true);
+    return;
+  }
+
+  const input = document.querySelector("#upload-preview-search-input");
+  const query = input?.value.trim() || "";
+
+  if (!query) {
+    input?.focus();
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const filters = state.importPreview?.filter_summary?.filters || null;
+    const result = await api("/upload/search-preview", {
+      method: "POST",
+      body: JSON.stringify({
+        import_token: state.importDraft.import_token,
+        filters,
+        query,
+        limit: 100,
+      }),
+    });
+    const columns = result.columns || state.importPreview?.normalized_columns || [];
+    const rows = result.rows || [];
+
+    renderPreviewRows(rows, columns);
+    registerTableExport(
+      "#preview-table-body",
+      `${state.importPreview?.supplier_name || "upload"}-${query}`,
+      rows,
+      columns.map((column) => ({
+        key: column,
+        label: column,
+      })),
+    );
+    setUploadSearchStatus(t("message.searchResults", {
+      total: formatNumber(result.total_matches || 0),
+      shown: formatNumber(rows.length),
+    }));
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function selectedFilterValues(selector) {
@@ -4020,6 +4417,7 @@ function bindActions() {
         loadDeals(),
         loadResearch(),
         loadKeepa(),
+        loadMarketSnapshots(),
         loadAmazonPresence(),
         loadConfig(),
       ]);
@@ -4033,6 +4431,9 @@ function bindActions() {
   });
   document.querySelector("#run-keepa-button").addEventListener("click", (event) => {
     runKeepa(event.currentTarget);
+  });
+  document.querySelector("#run-market-snapshot-button").addEventListener("click", (event) => {
+    runMarketSnapshot(event.currentTarget);
   });
   document.querySelector("#run-amazon-presence-button").addEventListener("click", (event) => {
     runAmazonPresence(event.currentTarget);
@@ -4077,8 +4478,13 @@ function bindActions() {
       return;
     }
 
-    if (action === "keepa") {
-      runKeepa(button);
+    if (action === "snapshot") {
+      runMarketSnapshot(button);
+      return;
+    }
+
+    if (action === "deals") {
+      createDealCandidates(button);
     }
   });
   document.querySelector("#refresh-deals-button").addEventListener("click", loadDeals);
@@ -4143,6 +4549,7 @@ function bindActions() {
         loadDeals(),
         loadResearch(),
         loadKeepa(),
+        loadMarketSnapshots(),
         loadAmazonPresence(),
       ]);
     } catch (error) {
@@ -4357,6 +4764,31 @@ function bindActions() {
   document.querySelector("#download-upload-preview-csv").addEventListener("click", (event) => {
     downloadUploadPreviewCsv(event.currentTarget);
   });
+  document.querySelector("#toggle-upload-preview-search").addEventListener("click", () => {
+    const panel = document.querySelector("#upload-preview-search");
+    const input = document.querySelector("#upload-preview-search-input");
+
+    panel.classList.toggle("hidden");
+    if (!panel.classList.contains("hidden")) {
+      input.placeholder = t("message.searchPlaceholder");
+      input.focus();
+    }
+  });
+  document.querySelector("#run-upload-preview-search").addEventListener("click", (event) => {
+    searchUploadPreview(event.currentTarget);
+  });
+  document.querySelector("#upload-preview-search-input").addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    searchUploadPreview(document.querySelector("#run-upload-preview-search"));
+  });
+  document.querySelector("#clear-upload-preview-search").addEventListener("click", () => {
+    if (state.importPreview) {
+      resetUploadSearchPanel();
+      renderImportPreview(state.importPreview);
+    }
+  });
   document.querySelector("#reset-upload-button").addEventListener("click", () => {
     resetUploadForm();
   });
@@ -4382,6 +4814,7 @@ function bindActions() {
         loadSummary(),
         loadResearch(),
         loadKeepa(),
+        loadMarketSnapshots(),
         loadSuppliers(),
         loadSuppliersDashboard(),
       ]);

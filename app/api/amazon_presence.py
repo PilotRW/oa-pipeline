@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import current_user
+from app.auth.permissions import has_permission
 from app.db.database import get_db
+from app.services.config_service import ConfigService
 from app.services.amazon_presence_service import AmazonPresenceService
 
 router = APIRouter(
@@ -31,10 +34,25 @@ async def create_pending_amazon_presence_checks(
 
 @router.post("/process-pending")
 async def process_pending_amazon_presence_checks(
+    request: Request,
     limit: int | None = Query(default=None, ge=1, le=500),
     supplier_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
 ):
+    settings = await ConfigService(db).get_pipeline_settings()
+
+    if (
+        settings.use_real_keepa
+        and not has_permission(
+            current_user(request).get("permissions", []),
+            "automation:use_keepa_real",
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing permission: automation:use_keepa_real",
+        )
+
     service = AmazonPresenceService(db)
 
     result = await service.process_pending_checks(

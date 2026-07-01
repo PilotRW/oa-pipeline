@@ -1,6 +1,7 @@
 import hashlib
 from datetime import datetime, timezone
 
+import pandas as pd
 from pydantic import BaseModel
 
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query, Response
@@ -52,6 +53,13 @@ class ImportPreviewExportRequest(BaseModel):
     filters: dict | None = None
 
 
+class ImportPreviewSearchRequest(BaseModel):
+    import_token: str
+    query: str
+    filters: dict | None = None
+    limit: int = 100
+
+
 def export_filename(value: str) -> str:
     safe = "".join(
         character.lower() if character.isalnum() else "-"
@@ -90,6 +98,35 @@ def dataframe_hash(df) -> str:
     return hashlib.sha256(
         canonical.encode("utf-8")
     ).hexdigest()
+
+
+def search_dataframe(df: pd.DataFrame, query: str, limit: int) -> dict:
+    needle = query.strip()
+
+    if not needle:
+        raise HTTPException(status_code=400, detail="Search query is required")
+
+    result_limit = max(1, min(limit, 500))
+    mask = pd.Series(False, index=df.index)
+
+    for column in df.columns:
+        values = df[column].fillna("").astype(str)
+        mask |= values.str.contains(
+            needle,
+            case=False,
+            regex=False,
+            na=False,
+        )
+
+    matches = df.loc[mask]
+
+    return {
+        "query": needle,
+        "total_matches": int(len(matches)),
+        "limit": result_limit,
+        "columns": list(df.columns),
+        "rows": matches.head(result_limit).to_dict(orient="records"),
+    }
 
 
 async def build_import_dataframe(file: UploadFile):
@@ -171,6 +208,7 @@ async def commit_import_draft(
     original_columns: list,
     normalization_report: list[dict],
     filter_summary: dict | None = None,
+    price_tracking: dict | None = None,
 ):
     settings = await ConfigService(
         session
@@ -220,6 +258,23 @@ async def commit_import_draft(
         df=df,
         currency=currency_for_marketplace(settings.default_marketplace),
     )
+
+    if price_tracking:
+        now = datetime.now(timezone.utc)
+        supplier.price_etag = price_tracking.get("etag")
+        supplier.price_last_modified = price_tracking.get("last_modified")
+        supplier.price_content_length = price_tracking.get("content_length")
+        supplier.price_file_hash = price_tracking.get("file_hash")
+        supplier.price_data_hash = price_tracking.get("data_hash")
+        supplier.price_last_filename = (
+            price_tracking.get("filename") or filename
+        )
+        supplier.price_update_status = "current"
+        supplier.price_last_checked_at = now
+        supplier.price_last_downloaded_at = now
+
+        if price_tracking.get("changed"):
+            supplier.price_last_changed_at = now
 
     await session.commit()
 
@@ -329,26 +384,6 @@ async def preview_supplier_price_url(
             or previous_data_hash != data_hash
         )
     )
-    now = datetime.now(timezone.utc)
-
-    supplier.price_etag = metadata.get("etag")
-    supplier.price_last_modified = metadata.get("last_modified")
-    supplier.price_content_length = (
-        metadata.get("content_length")
-        or len(content)
-    )
-    supplier.price_file_hash = file_hash
-    supplier.price_data_hash = data_hash
-    supplier.price_last_filename = filename
-    supplier.price_update_status = "current"
-    supplier.price_last_checked_at = now
-    supplier.price_last_downloaded_at = now
-
-    if previous_file_hash is None or changed:
-        supplier.price_last_changed_at = now
-
-    await session.commit()
-
     draft = create_import_draft(
         supplier_name=supplier.name,
         supplier_id=supplier.id,
@@ -357,6 +392,15 @@ async def preview_supplier_price_url(
         original_columns=original_columns,
         normalization_report=normalization_report,
     )
+    draft["price_tracking"] = {
+        "etag": metadata.get("etag"),
+        "last_modified": metadata.get("last_modified"),
+        "content_length": metadata.get("content_length") or len(content),
+        "file_hash": file_hash,
+        "data_hash": data_hash,
+        "filename": filename,
+        "changed": changed or previous_file_hash is None,
+    }
 
     result = apply_saved_filter_profile(
         draft=draft,
@@ -407,6 +451,7 @@ async def commit_upload(
         original_columns=draft["original_columns"],
         normalization_report=draft["normalization_report"],
         filter_summary=filter_summary,
+        price_tracking=draft.get("price_tracking"),
     )
 
 
@@ -493,6 +538,41 @@ async def export_import_preview(
         headers={
             "Content-Disposition": f'attachment; filename="{filename}.csv"',
         },
+    )
+
+
+@router.post("/upload/search-preview")
+async def search_import_preview(
+    payload: ImportPreviewSearchRequest,
+):
+    draft = get_import_draft(payload.import_token)
+
+    if not draft:
+        raise HTTPException(
+            status_code=404,
+            detail="Import preview expired or was already saved",
+        )
+
+    filters = (
+        payload.filters
+        if payload.filters is not None
+        else draft.get("confirmed_filters")
+    )
+    df, _filter_summary = apply_import_filters(
+        draft["df"],
+        filters,
+    )
+
+    if df.empty:
+        raise HTTPException(
+            status_code=400,
+            detail="Selected filters excluded all rows",
+        )
+
+    return search_dataframe(
+        df=df,
+        query=payload.query,
+        limit=payload.limit,
     )
 
 

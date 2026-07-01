@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.amazon_match_service import AmazonMatchService
 from app.services.config_service import ConfigService
 from app.services.deal_service import DealService
-from app.services.keepa_service import KeepaService
+from app.services.market_snapshot_service import MarketSnapshotService
 from app.services.research_queue_service import ResearchQueueService
 
 
@@ -36,7 +36,7 @@ class PipelineService:
         )
 
         amazon_service = AmazonMatchService(self.db)
-        keepa_service = KeepaService(self.db)
+        snapshot_service = MarketSnapshotService(self.db)
         deal_service = DealService(self.db)
 
         amazon_pending_created = await amazon_service.create_pending_matches(
@@ -52,16 +52,20 @@ class PipelineService:
             supplier_id=supplier_id,
         )
 
-        keepa_pending_created = await keepa_service.create_pending_metrics(
-            limit=batch_limit,
-            supplier_id=supplier_id,
+        market_snapshot_pending_created = (
+            await snapshot_service.create_pending_snapshots(
+                limit=batch_limit,
+                supplier_id=supplier_id,
+            )
         )
 
-        keepa_processed = await keepa_service.process_pending_metrics(
-            limit=batch_limit,
-            use_real_keepa=settings.use_real_keepa,
-            marketplace=settings.default_marketplace,
-            supplier_id=supplier_id,
+        market_snapshot_processed = (
+            await snapshot_service.process_pending_snapshots(
+                limit=batch_limit,
+                use_real_keepa=settings.use_real_keepa,
+                marketplace=settings.default_marketplace,
+                supplier_id=supplier_id,
+            )
         )
 
         deal_candidates_created = await deal_service.create_deal_candidates(
@@ -80,8 +84,10 @@ class PipelineService:
             },
             "amazon_pending_created": amazon_pending_created,
             "amazon_processed": amazon_processed,
-            "keepa_pending_created": keepa_pending_created,
-            "keepa_processed": keepa_processed,
+            "market_snapshot_pending_created": (
+                market_snapshot_pending_created
+            ),
+            "market_snapshot_processed": market_snapshot_processed,
             "deal_candidates_created": deal_candidates_created,
         }
 

@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.config_schemas import (
     PipelineSettingsUpdate,
     ResearchRulesUpdate,
 )
+from app.auth.dependencies import current_user
+from app.auth.permissions import has_permission
 from app.db.database import get_db
 from app.services.config_service import ConfigService
 
@@ -93,8 +95,22 @@ async def get_pipeline_settings(
 @router.patch("/pipeline-settings")
 async def update_pipeline_settings(
     values: PipelineSettingsUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    user = current_user(request)
+    if (
+        values.use_real_keepa is True
+        and not has_permission(
+            user.get("permissions", []),
+            "automation:use_keepa_real",
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing permission: automation:use_keepa_real",
+        )
+
     service = ConfigService(db)
     settings = await service.update_pipeline_settings(
         values.model_dump(exclude_unset=True)

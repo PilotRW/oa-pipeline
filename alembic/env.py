@@ -7,6 +7,7 @@ from app.models.supplier import Supplier
 from app.models.ingestion_run import IngestionRun
 from app.models.supplier_column_mapping import SupplierColumnMapping
 from app.models.amazon_presence_check import AmazonPresenceCheck
+from app.models.market_snapshot import MarketSnapshot
 
 from logging.config import fileConfig
 

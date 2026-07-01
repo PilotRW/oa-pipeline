@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.deal_candidate import DealCandidate
-from app.models.keepa_product_metric import KeepaProductMetric
+from app.models.market_snapshot import MarketSnapshot
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.research_rule import ResearchRule
 from app.models.supplier import Supplier
@@ -74,13 +74,14 @@ class DealService:
         query = (
             select(
                 AmazonProductMatch,
-                KeepaProductMetric,
+                MarketSnapshot,
                 SupplierOffer,
                 OfferResearchQueue,
             )
             .join(
-                KeepaProductMetric,
-                KeepaProductMetric.asin == AmazonProductMatch.asin,
+                MarketSnapshot,
+                MarketSnapshot.amazon_product_match_id
+                == AmazonProductMatch.id,
             )
             .join(
                 SupplierOffer,
@@ -91,7 +92,7 @@ class DealService:
                 OfferResearchQueue.id == AmazonProductMatch.queue_id,
             )
             .where(AmazonProductMatch.match_status == "matched")
-            .where(KeepaProductMetric.data_status == "completed")
+            .where(MarketSnapshot.snapshot_status == "completed")
             .where(SupplierOffer.id.not_in(existing_offer_ids_subquery))
         )
 
@@ -112,16 +113,26 @@ class DealService:
 
         deal_rows = []
 
-        for match, keepa, offer, queue_item in rows:
-            if keepa.buy_box_price is None or offer.cost is None:
+        for match, snapshot, offer, queue_item in rows:
+            market_price = (
+                snapshot.buy_box_price
+                if snapshot.buy_box_price is not None
+                else snapshot.current_price
+            )
+
+            if market_price is None or offer.cost is None:
                 continue
 
-            amazon_price = Decimal(str(keepa.buy_box_price))
+            amazon_price = Decimal(str(market_price))
             supplier_cost = Decimal(str(offer.cost))
 
-            estimated_fees = self.estimate_fees(
-                amazon_price=amazon_price,
-                rules=rules,
+            estimated_fees = (
+                Decimal(str(snapshot.fba_fee_estimate))
+                if snapshot.fba_fee_estimate is not None
+                else self.estimate_fees(
+                    amazon_price=amazon_price,
+                    rules=rules,
+                )
             )
 
             estimated_profit = self.calculate_profit(
@@ -152,8 +163,8 @@ class DealService:
 
             elif (
                 rules.max_sales_rank is not None
-                and keepa.sales_rank is not None
-                and keepa.sales_rank > rules.max_sales_rank
+                and snapshot.sales_rank is not None
+                and snapshot.sales_rank > rules.max_sales_rank
             ):
                 status = "rejected_low_roi"
                 rejection_reason = (
@@ -162,8 +173,8 @@ class DealService:
 
             elif (
                 rules.min_monthly_sales is not None
-                and keepa.estimated_monthly_sales is not None
-                and keepa.estimated_monthly_sales
+                and snapshot.estimated_monthly_sales is not None
+                and snapshot.estimated_monthly_sales
                 < rules.min_monthly_sales
             ):
                 status = "rejected_low_roi"
@@ -173,7 +184,7 @@ class DealService:
 
             elif (
                 rules.exclude_amazon_in_stock
-                and keepa.amazon_in_stock
+                and snapshot.amazon_present
             ):
                 status = "rejected_low_roi"
                 rejection_reason = "Amazon in stock"
@@ -198,8 +209,8 @@ class DealService:
                     "estimated_fees": estimated_fees,
                     "estimated_profit": estimated_profit,
                     "roi_percent": roi_percent,
-                    "sales_rank": keepa.sales_rank,
-                    "estimated_monthly_sales": keepa.estimated_monthly_sales,
+                    "sales_rank": snapshot.sales_rank,
+                    "estimated_monthly_sales": snapshot.estimated_monthly_sales,
                     "status": status,
                 }
             )

@@ -4,6 +4,7 @@ PERMISSIONS = {
     "automation:view",
     "automation:operate",
     "automation:configure",
+    "automation:use_keepa_real",
     "automation:admin",
 }
 
@@ -13,13 +14,16 @@ ROLE_PERMISSIONS = {
         "automation:view",
         "automation:operate",
         "automation:configure",
+        "automation:use_keepa_real",
     },
     "automation_operator": {
         "automation:view",
         "automation:operate",
+        "automation:use_keepa_real",
     },
     "automation_viewer": {
         "automation:view",
+        "automation:use_keepa_real",
     },
 }
 

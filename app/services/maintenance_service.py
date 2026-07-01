@@ -10,6 +10,7 @@ from app.services.import_draft_service import (
 DATABASE_DATA_TABLES = [
     "deal_candidates",
     "amazon_presence_checks",
+    "market_snapshots",
     "keepa_product_metrics",
     "amazon_product_matches",
     "offer_research_queue",

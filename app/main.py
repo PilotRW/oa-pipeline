@@ -11,6 +11,7 @@ from app.api.reports import router as reports_router
 from app.api import research_queue
 from app.api import amazon_matches
 from app.api import amazon_presence
+from app.api import market_snapshots
 from app.api import keepa
 from app.api import deals
 from app.api import pipeline
@@ -43,6 +44,7 @@ app.include_router(reports_router)
 app.include_router(research_queue.router)
 app.include_router(amazon_matches.router)
 app.include_router(amazon_presence.router)
+app.include_router(market_snapshots.router)
 app.include_router(keepa.router)
 app.include_router(deals.router)
 app.include_router(pipeline.router)

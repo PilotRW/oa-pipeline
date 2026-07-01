@@ -12,7 +12,14 @@ class KeepaConfigurationError(ValueError):
     pass
 
 
+class KeepaRateLimitError(RuntimeError):
+    pass
+
+
 class KeepaMetricsClient:
+    PRODUCT_QUERY_TOKEN_COST = 1
+    BUYBOX_EXTRA_TOKEN_COST = 2
+
     @staticmethod
     def is_api_key_configured(
         api_key: str | None = None,
@@ -44,20 +51,27 @@ class KeepaMetricsClient:
         self,
         asin: str,
         marketplace: str,
+        include_buybox: bool = True,
     ) -> dict | None:
         if not asin:
             return None
 
-        products = await asyncio.to_thread(
-            self.api.query,
-            asin,
-            stats=30,
-            domain=keepa_domain_for_marketplace(marketplace),
-            history=False,
-            product_code_is_asin=True,
-            progress_bar=False,
-            buybox=True,
-        )
+        try:
+            products = await asyncio.to_thread(
+                self.api.query,
+                asin,
+                stats=30,
+                domain=keepa_domain_for_marketplace(marketplace),
+                history=False,
+                product_code_is_asin=True,
+                progress_bar=False,
+                buybox=include_buybox,
+                wait=False,
+            )
+        except RuntimeError as exc:
+            if "NOT_ENOUGH_TOKEN" in str(exc):
+                raise KeepaRateLimitError(str(exc)) from exc
+            raise
 
         if not products:
             return None
@@ -101,6 +115,86 @@ class KeepaMetricsClient:
                 "stats_current": current,
             },
         }
+
+    async def fetch_market_snapshot(
+        self,
+        asin: str,
+        marketplace: str,
+    ) -> dict | None:
+        if not asin:
+            return None
+
+        metric = await self.fetch_product_metrics(
+            asin=asin,
+            marketplace=marketplace,
+            include_buybox=False,
+        )
+
+        if not metric:
+            return None
+
+        raw_data = metric.get("raw_data") or {}
+        current = raw_data.get("stats_current") or {}
+
+        current_price = self.first_price(
+            current,
+            [
+                "BUY_BOX_SHIPPING",
+                "NEW_FBA",
+                "NEW",
+                "AMAZON",
+            ],
+        )
+        buy_box_price = self.decimal_or_none(
+            current.get("BUY_BOX_SHIPPING")
+        )
+
+        return {
+            "asin": metric["asin"],
+            "marketplace": marketplace,
+            "current_price": current_price,
+            "buy_box_price": buy_box_price,
+            "buy_box_exists": buy_box_price is not None,
+            "sales_rank": metric["sales_rank"],
+            "seller_count": self.int_or_none(
+                current.get("COUNT_NEW")
+            ),
+            "amazon_present": metric["amazon_in_stock"],
+            "fba_fee_estimate": None,
+            "estimated_monthly_sales": metric["estimated_monthly_sales"],
+            "snapshot_source": "keepa_real",
+            "raw_data": {
+                **raw_data,
+                "snapshot_mode": "current_market",
+            },
+        }
+
+    async def get_token_status(self) -> dict:
+        await asyncio.to_thread(self.api.update_status)
+
+        return self.token_status_from_api()
+
+    def token_status_from_api(self) -> dict:
+        status = self.api.status
+
+        return {
+            "tokens_left": self.api.tokens_left,
+            "refill_in": status.refillIn,
+            "refill_rate": status.refillRate,
+            "timestamp": status.timestamp,
+            "time_to_refill_seconds": self.api.time_to_refill,
+        }
+
+    @classmethod
+    def product_query_token_cost(
+        cls,
+        include_buybox: bool = False,
+    ) -> int:
+        return cls.PRODUCT_QUERY_TOKEN_COST + (
+            cls.BUYBOX_EXTRA_TOKEN_COST
+            if include_buybox
+            else 0
+        )
 
     def first_price(
         self,

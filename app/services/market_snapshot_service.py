@@ -1,12 +1,10 @@
-from datetime import datetime, timezone
-
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.settings import settings as app_settings
-from app.models.amazon_presence_check import AmazonPresenceCheck
 from app.models.amazon_product_match import AmazonProductMatch
-from app.models.keepa_product_metric import KeepaProductMetric
+from app.models.market_snapshot import MarketSnapshot
+from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
 from app.services.config_service import ConfigService
@@ -15,13 +13,14 @@ from app.services.keepa_client import (
     KeepaMetricsClient,
     KeepaRateLimitError,
 )
+from app.services.marketplace import currency_for_marketplace
 
 
-class AmazonPresenceService:
+class MarketSnapshotService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_pending_checks(
+    async def create_pending_snapshots(
         self,
         limit: int | None = None,
         supplier_id: int | None = None,
@@ -40,11 +39,18 @@ class AmazonPresenceService:
         )
 
         existing_match_ids_subquery = select(
-            AmazonPresenceCheck.amazon_product_match_id
+            MarketSnapshot.amazon_product_match_id
         )
 
         query = (
-            select(AmazonProductMatch)
+            select(
+                AmazonProductMatch,
+                OfferResearchQueue,
+            )
+            .join(
+                OfferResearchQueue,
+                OfferResearchQueue.id == AmazonProductMatch.queue_id,
+            )
             .where(AmazonProductMatch.match_status == "matched")
             .where(AmazonProductMatch.asin.is_not(None))
             .where(
@@ -69,33 +75,48 @@ class AmazonPresenceService:
         ).limit(batch_limit)
 
         result = await self.db.execute(query)
-        matches = result.scalars().all()
+        rows_result = result.all()
 
-        if not matches:
+        if not rows_result:
             return 0
 
-        rows = [
-            {
-                "amazon_product_match_id": match.id,
-                "supplier_offer_id": match.supplier_offer_id,
-                "asin": match.asin,
-                "presence_status": "pending",
-                "amazon_present": None,
-                "data_source": None,
-                "raw_data": None,
-            }
-            for match in matches
-        ]
+        rows = []
+
+        for match, queue_item in rows_result:
+            rows.append(
+                {
+                    "amazon_product_match_id": match.id,
+                    "queue_id": match.queue_id,
+                    "supplier_offer_id": match.supplier_offer_id,
+                    "asin": match.asin,
+                    "marketplace": None,
+                    "current_price": None,
+                    "buy_box_price": None,
+                    "buy_box_exists": None,
+                    "sales_rank": None,
+                    "seller_count": None,
+                    "amazon_present": None,
+                    "fba_fee_estimate": None,
+                    "estimated_monthly_sales": None,
+                    "snapshot_source": None,
+                    "snapshot_status": "pending",
+                    "error_message": None,
+                    "raw_data": None,
+                }
+            )
+
+            queue_item.status = "market_snapshot_pending"
 
         await self.db.execute(
-            insert(AmazonPresenceCheck),
+            insert(MarketSnapshot),
             rows,
         )
+
         await self.db.commit()
 
         return len(rows)
 
-    async def process_pending_checks(
+    async def process_pending_snapshots(
         self,
         limit: int | None = None,
         use_real_keepa: bool | None = None,
@@ -132,7 +153,6 @@ class AmazonPresenceService:
         token_cost_per_item = 0
         token_status = None
         processed = 0
-        not_found = 0
 
         if real_keepa_enabled:
             token_cost_per_item = (
@@ -178,8 +198,15 @@ class AmazonPresenceService:
                 }
 
         query = (
-            select(AmazonPresenceCheck)
-            .where(AmazonPresenceCheck.presence_status == "pending")
+            select(
+                MarketSnapshot,
+                OfferResearchQueue,
+            )
+            .join(
+                OfferResearchQueue,
+                OfferResearchQueue.id == MarketSnapshot.queue_id,
+            )
+            .where(MarketSnapshot.snapshot_status == "pending")
         )
 
         if supplier_id is not None:
@@ -187,33 +214,32 @@ class AmazonPresenceService:
                 query
                 .join(
                     SupplierOffer,
-                    SupplierOffer.id == AmazonPresenceCheck.supplier_offer_id,
+                    SupplierOffer.id == MarketSnapshot.supplier_offer_id,
                 )
                 .where(SupplierOffer.supplier_id == supplier_id)
             )
 
-        query = query.order_by(
-            AmazonPresenceCheck.created_at.asc()
-        ).limit(batch_limit)
+        query = query.limit(batch_limit)
 
         result = await self.db.execute(query)
-        checks = result.scalars().all()
+        rows = result.all()
 
         if real_keepa_enabled:
-            for check in checks:
+            not_found = 0
+
+            for snapshot, queue_item in rows:
                 try:
-                    metric_result = await client.fetch_product_metrics(
-                        asin=check.asin,
+                    snapshot_result = await client.fetch_market_snapshot(
+                        asin=snapshot.asin,
                         marketplace=target_marketplace,
-                        include_buybox=False,
                     )
                 except KeepaRateLimitError as exc:
                     await self.db.commit()
 
                     return {
                         "processed_count": processed,
-                        "not_found_count": not_found,
                         "data_source": "keepa_real",
+                        "not_found_count": not_found,
                         "status": "rate_limited",
                         "reason": str(exc),
                         "requested_limit": requested_limit,
@@ -222,38 +248,28 @@ class AmazonPresenceService:
                         "token_status": token_status,
                     }
 
-                if not metric_result:
-                    check.presence_status = "not_found"
-                    check.data_source = "keepa_real"
-                    check.marketplace = target_marketplace
-                    check.raw_data = {
-                        "source": "keepa_real",
-                        "reason": "product_not_found",
-                    }
-                    check.checked_at = datetime.now(timezone.utc)
+                if not snapshot_result:
+                    snapshot.snapshot_status = "not_found"
+                    snapshot.snapshot_source = "keepa_real"
+                    queue_item.status = "market_snapshot_not_found"
                     not_found += 1
                     continue
 
-                await self._complete_check(
-                    check=check,
-                    amazon_present=bool(metric_result["amazon_in_stock"]),
-                    data_source="keepa_real",
-                    marketplace=target_marketplace,
-                    raw_data={
-                        "source": "keepa_real",
-                        "asin": metric_result["asin"],
-                        "amazon_in_stock": metric_result["amazon_in_stock"],
-                        "raw_data": metric_result["raw_data"],
-                    },
+                self.apply_snapshot_result(
+                    snapshot=snapshot,
+                    result=snapshot_result,
                 )
+                snapshot.snapshot_status = "completed"
+                queue_item.status = "market_snapshot_completed"
+
                 processed += 1
 
             await self.db.commit()
 
             return {
                 "processed_count": processed,
-                "not_found_count": not_found,
                 "data_source": "keepa_real",
+                "not_found_count": not_found,
                 "requested_limit": requested_limit,
                 "effective_limit": batch_limit,
                 "token_cost_per_item": token_cost_per_item,
@@ -261,51 +277,77 @@ class AmazonPresenceService:
                 "status": "ok",
             }
 
-        for check in checks:
-            amazon_present = self.mock_amazon_presence(check.asin)
-            await self._complete_check(
-                check=check,
-                amazon_present=amazon_present,
-                data_source="presence_mock",
-                marketplace=target_marketplace,
-                raw_data={
-                    "mock": True,
-                    "source": "presence_mock",
-                    "rule": "deterministic_asin_checksum",
+        for snapshot, queue_item in rows:
+            self.apply_snapshot_result(
+                snapshot=snapshot,
+                result={
+                    "marketplace": target_marketplace,
+                    "current_price": 199.99,
+                    "buy_box_price": 199.99,
+                    "buy_box_exists": True,
+                    "sales_rank": 12500,
+                    "seller_count": 8,
+                    "amazon_present": True,
+                    "fba_fee_estimate": None,
+                    "estimated_monthly_sales": 85,
+                    "snapshot_source": "market_snapshot_mock",
+                    "raw_data": {
+                        "mock": True,
+                        "source": "market_snapshot_mock",
+                        "currency": currency_for_marketplace(
+                            target_marketplace
+                        ),
+                    },
                 },
             )
+            snapshot.snapshot_status = "completed"
+            queue_item.status = "market_snapshot_completed"
+
             processed += 1
 
         await self.db.commit()
 
         return {
             "processed_count": processed,
-            "data_source": "presence_mock",
+            "data_source": "market_snapshot_mock",
             "status": "ok",
         }
 
-    async def list_checks(
+    def apply_snapshot_result(
         self,
-        presence_status: str | None = None,
-        amazon_present: bool | None = None,
+        snapshot: MarketSnapshot,
+        result: dict,
+    ) -> None:
+        snapshot.marketplace = result.get("marketplace")
+        snapshot.current_price = result.get("current_price")
+        snapshot.buy_box_price = result.get("buy_box_price")
+        snapshot.buy_box_exists = result.get("buy_box_exists")
+        snapshot.sales_rank = result.get("sales_rank")
+        snapshot.seller_count = result.get("seller_count")
+        snapshot.amazon_present = result.get("amazon_present")
+        snapshot.fba_fee_estimate = result.get("fba_fee_estimate")
+        snapshot.estimated_monthly_sales = result.get(
+            "estimated_monthly_sales"
+        )
+        snapshot.snapshot_source = result.get("snapshot_source")
+        snapshot.error_message = None
+        snapshot.raw_data = result.get("raw_data")
+
+    async def list_snapshots(
+        self,
+        snapshot_status: str | None = None,
         supplier_id: int | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[dict]:
         query = (
             select(
-                AmazonPresenceCheck,
+                MarketSnapshot,
                 Supplier.name.label("supplier_name"),
-                AmazonProductMatch.amazon_title.label("amazon_title"),
-            )
-            .join(
-                AmazonProductMatch,
-                AmazonProductMatch.id
-                == AmazonPresenceCheck.amazon_product_match_id,
             )
             .join(
                 SupplierOffer,
-                SupplierOffer.id == AmazonPresenceCheck.supplier_offer_id,
+                SupplierOffer.id == MarketSnapshot.supplier_offer_id,
             )
             .join(
                 Supplier,
@@ -313,14 +355,9 @@ class AmazonPresenceService:
             )
         )
 
-        if presence_status:
+        if snapshot_status:
             query = query.where(
-                AmazonPresenceCheck.presence_status == presence_status
-            )
-
-        if amazon_present is not None:
-            query = query.where(
-                AmazonPresenceCheck.amazon_present.is_(amazon_present)
+                MarketSnapshot.snapshot_status == snapshot_status
             )
 
         if supplier_id is not None:
@@ -332,7 +369,7 @@ class AmazonPresenceService:
 
         query = (
             query
-            .order_by(AmazonPresenceCheck.created_at.desc())
+            .order_by(MarketSnapshot.created_at.desc())
             .limit(limit)
             .offset(offset)
         )
@@ -342,53 +379,38 @@ class AmazonPresenceService:
 
         return [
             {
-                "id": check.id,
+                "id": snapshot.id,
                 "supplier_name": supplier_name,
-                "asin": check.asin,
-                "amazon_title": amazon_title,
-                "amazon_present": check.amazon_present,
-                "presence_status": check.presence_status,
-                "data_source": check.data_source,
-                "marketplace": check.marketplace,
-                "checked_at": (
-                    check.checked_at.isoformat()
-                    if check.checked_at
+                "amazon_product_match_id": snapshot.amazon_product_match_id,
+                "queue_id": snapshot.queue_id,
+                "supplier_offer_id": snapshot.supplier_offer_id,
+                "asin": snapshot.asin,
+                "marketplace": snapshot.marketplace,
+                "current_price": (
+                    float(snapshot.current_price)
+                    if snapshot.current_price is not None
                     else None
                 ),
+                "buy_box_price": (
+                    float(snapshot.buy_box_price)
+                    if snapshot.buy_box_price is not None
+                    else None
+                ),
+                "buy_box_exists": snapshot.buy_box_exists,
+                "sales_rank": snapshot.sales_rank,
+                "seller_count": snapshot.seller_count,
+                "amazon_present": snapshot.amazon_present,
+                "fba_fee_estimate": (
+                    float(snapshot.fba_fee_estimate)
+                    if snapshot.fba_fee_estimate is not None
+                    else None
+                ),
+                "estimated_monthly_sales": snapshot.estimated_monthly_sales,
+                "snapshot_source": snapshot.snapshot_source,
+                "snapshot_status": snapshot.snapshot_status,
+                "error_message": snapshot.error_message,
+                "created_at": snapshot.created_at,
+                "updated_at": snapshot.updated_at,
             }
-            for check, supplier_name, amazon_title in rows
+            for snapshot, supplier_name in rows
         ]
-
-    async def _complete_check(
-        self,
-        *,
-        check: AmazonPresenceCheck,
-        amazon_present: bool,
-        data_source: str,
-        marketplace: str,
-        raw_data: dict,
-    ) -> None:
-        check.amazon_present = amazon_present
-        check.presence_status = "completed"
-        check.data_source = data_source
-        check.marketplace = marketplace
-        check.raw_data = raw_data
-        check.checked_at = datetime.now(timezone.utc)
-
-        metric_result = await self.db.execute(
-            select(KeepaProductMetric).where(
-                KeepaProductMetric.asin == check.asin
-            )
-        )
-        metric = metric_result.scalar_one_or_none()
-
-        if metric is not None:
-            metric.amazon_in_stock = amazon_present
-
-    def mock_amazon_presence(
-        self,
-        asin: str,
-    ) -> bool:
-        checksum = sum(ord(character) for character in asin or "")
-
-        return checksum % 3 == 0

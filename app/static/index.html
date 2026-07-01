@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
     <link rel="icon" type="image/png" href="/ui/favicon.png">
-    <link rel="stylesheet" href="/ui/styles.css?v=20260623-6">
+    <link rel="stylesheet" href="/ui/styles.css?v=20260626-1">
   </head>
   <body>
     <div class="app-shell">
@@ -110,7 +110,8 @@
               <div class="overview-actions">
                 <button class="primary-button" data-overview-action="upload" data-i18n="action.uploadFeed" type="button">Upload feed</button>
                 <button class="ghost-button" data-overview-action="research" data-i18n="action.runResearch" type="button">Run research</button>
-                <button class="ghost-button" data-overview-action="keepa" data-i18n="action.runKeepa" type="button">Run Keepa</button>
+                <button class="ghost-button" data-overview-action="snapshot" data-i18n="action.runMarketSnapshot" type="button">Run snapshot</button>
+                <button class="ghost-button" data-overview-action="deals" data-i18n="action.createDeals" type="button">Create deals</button>
                 <button class="ghost-button" data-overview-action="pipeline" data-i18n="nav.pipeline" type="button">Pipeline</button>
               </div>
             </section>
@@ -402,7 +403,38 @@
           <section class="panel">
             <div class="panel-header">
               <div class="panel-title-row">
-                <h3 data-i18n="panel.keepaMetrics">Keepa Metrics</h3>
+                <h3 data-i18n="panel.marketSnapshots">Market Snapshots</h3>
+                <span class="badge ok" data-i18n="summary.marketSnapshots">Market Snapshots</span>
+              </div>
+              <div class="button-row">
+                <button class="ghost-button" data-export-table="#market-snapshot-table" type="button">CSV</button>
+                <button class="primary-button" id="run-market-snapshot-button" data-i18n="action.runMarketSnapshot" type="button">Run snapshot</button>
+              </div>
+            </div>
+            <div class="table-wrap scroll-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="table.supplier">Supplier</th>
+                    <th>ASIN</th>
+                    <th data-i18n="table.status">Status</th>
+                    <th data-i18n="table.source">Source</th>
+                    <th data-i18n="table.currentPrice">Current price</th>
+                    <th data-i18n="table.buyBox">Buy Box</th>
+                    <th data-i18n="table.salesRank">Sales rank</th>
+                    <th data-i18n="table.sellerCount">Sellers</th>
+                    <th data-i18n="table.amazonPresent">Amazon present</th>
+                  </tr>
+                </thead>
+                <tbody id="market-snapshot-table"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div class="panel-title-row">
+                <h3 data-i18n="panel.keepaMetrics">Deep Keepa Metrics</h3>
                 <span id="keepa-mode-badge" class="badge warn" data-i18n="keepa.modeMock">Mock mode</span>
               </div>
               <div class="button-row">
@@ -537,7 +569,16 @@
               <div class="preview-section">
                 <div class="section-title-row">
                   <h4 data-i18n="panel.previewRows">Preview Rows</h4>
-                  <button class="ghost-button compact-button" id="download-upload-preview-csv" type="button">CSV</button>
+                  <div class="button-row">
+                    <button class="ghost-button compact-button" id="download-upload-preview-csv" type="button">CSV</button>
+                    <button class="ghost-button compact-button" id="toggle-upload-preview-search" data-i18n="action.searchPreview" type="button">Search</button>
+                  </div>
+                </div>
+                <div class="preview-search hidden" id="upload-preview-search">
+                  <input id="upload-preview-search-input" type="search" autocomplete="off">
+                  <button class="primary-button compact-button" id="run-upload-preview-search" data-i18n="action.search" type="button">Search</button>
+                  <button class="ghost-button compact-button" id="clear-upload-preview-search" data-i18n="action.clearSearch" type="button">Clear</button>
+                  <span class="muted-note" id="upload-preview-search-status"></span>
                 </div>
                 <div class="table-wrap preview-table-wrap">
                   <table>
@@ -579,6 +620,6 @@
       </section>
     </div>
 
-    <script src="/ui/app.js?v=20260623-10"></script>
+    <script src="/ui/app.js?v=20260630-2"></script>
   </body>
 </html>

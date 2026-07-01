@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import current_user
+from app.auth.permissions import has_permission
 from app.db.database import get_db
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.deal_candidate import DealCandidate
 from app.models.keepa_product_metric import KeepaProductMetric
+from app.models.market_snapshot import MarketSnapshot
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
@@ -17,13 +20,35 @@ router = APIRouter(
 )
 
 
+async def require_keepa_permission_when_real(
+    request: Request,
+    db: AsyncSession,
+):
+    settings = await PipelineService(db).config_service.get_pipeline_settings()
+
+    if (
+        settings.use_real_keepa
+        and not has_permission(
+            current_user(request).get("permissions", []),
+            "automation:use_keepa_real",
+        )
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing permission: automation:use_keepa_real",
+        )
+
+
 @router.post("/run-batch")
 async def run_pipeline_batch(
+    request: Request,
     min_priority_score: float | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1, le=500),
     supplier_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_keepa_permission_when_real(request, db)
+
     service = PipelineService(db)
 
     return await service.run_batch(
@@ -35,6 +60,7 @@ async def run_pipeline_batch(
 
 @router.post("/run-research")
 async def run_research(
+    request: Request,
     min_priority_score: float | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1, le=500),
     supplier_id: int | None = Query(default=None, ge=1),
@@ -44,6 +70,8 @@ async def run_research(
     max_cost: float | None = Query(default=None, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_keepa_permission_when_real(request, db)
+
     service = PipelineService(db)
 
     return await service.run_research(
@@ -119,6 +147,15 @@ async def count_by_status(
                 )
                 .where(SupplierOffer.supplier_id == supplier_id)
             )
+        elif model is MarketSnapshot:
+            query = (
+                query
+                .join(
+                    SupplierOffer,
+                    SupplierOffer.id == MarketSnapshot.supplier_offer_id,
+                )
+                .where(SupplierOffer.supplier_id == supplier_id)
+            )
     else:
         if model is OfferResearchQueue:
             query = (
@@ -142,6 +179,16 @@ async def count_by_status(
                 .join(
                     SupplierOffer,
                     SupplierOffer.id == DealCandidate.supplier_offer_id,
+                )
+                .join(Supplier, Supplier.id == SupplierOffer.supplier_id)
+                .where(Supplier.is_visible.is_(True))
+            )
+        elif model is MarketSnapshot:
+            query = (
+                query
+                .join(
+                    SupplierOffer,
+                    SupplierOffer.id == MarketSnapshot.supplier_offer_id,
                 )
                 .join(Supplier, Supplier.id == SupplierOffer.supplier_id)
                 .where(Supplier.is_visible.is_(True))
@@ -231,6 +278,13 @@ async def pipeline_summary(
         supplier_id=supplier_id,
     )
 
+    market_snapshots = await count_by_status(
+        db=db,
+        model=MarketSnapshot,
+        status_column=MarketSnapshot.snapshot_status,
+        supplier_id=supplier_id,
+    )
+
     deal_candidates = await count_by_status(
         db=db,
         model=DealCandidate,
@@ -250,6 +304,10 @@ async def pipeline_summary(
         "keepa_metrics": {
             "total": sum(keepa_metrics.values()),
             "by_status": keepa_metrics,
+        },
+        "market_snapshots": {
+            "total": sum(market_snapshots.values()),
+            "by_status": market_snapshots,
         },
         "deal_candidates": {
             "total": sum(deal_candidates.values()),

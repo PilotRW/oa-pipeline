@@ -1,6 +1,7 @@
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.settings import settings as app_settings
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.keepa_product_metric import KeepaProductMetric
 from app.models.offer_research_queue import OfferResearchQueue
@@ -10,6 +11,7 @@ from app.services.config_service import ConfigService
 from app.services.keepa_client import (
     KeepaConfigurationError,
     KeepaMetricsClient,
+    KeepaRateLimitError,
 )
 from app.services.marketplace import currency_for_marketplace
 
@@ -29,6 +31,15 @@ class KeepaService:
             "default_marketplace": settings.default_marketplace,
             "api_key_configured": api_key_configured,
             "can_run_real": settings.use_real_keepa and api_key_configured,
+            "real_batch_limit": max(1, app_settings.KEEPA_REAL_BATCH_LIMIT),
+            "token_costs": {
+                "product": KeepaMetricsClient.product_query_token_cost(),
+                "product_with_buybox": (
+                    KeepaMetricsClient.product_query_token_cost(
+                        include_buybox=True
+                    )
+                ),
+            },
             "data_source": (
                 "keepa_real"
                 if settings.use_real_keepa
@@ -157,6 +168,53 @@ class KeepaService:
             if marketplace is not None
             else settings.default_marketplace
         )
+        requested_limit = batch_limit
+        token_cost_per_item = 0
+        token_status = None
+        processed = 0
+
+        if real_keepa_enabled:
+            token_cost_per_item = (
+                KeepaMetricsClient.product_query_token_cost(
+                    include_buybox=True
+                )
+            )
+            try:
+                client = KeepaMetricsClient()
+                token_status = await client.get_token_status()
+            except KeepaConfigurationError as exc:
+                return {
+                    "processed_count": processed,
+                    "data_source": "keepa_real",
+                    "status": "not_configured",
+                    "reason": str(exc),
+                    "requested_limit": requested_limit,
+                    "effective_limit": 0,
+                    "token_cost_per_item": token_cost_per_item,
+                    "token_status": token_status,
+                }
+
+            token_limited_batch = (
+                max(0, int(token_status["tokens_left"]))
+                // token_cost_per_item
+            )
+            batch_limit = min(
+                batch_limit,
+                max(1, app_settings.KEEPA_REAL_BATCH_LIMIT),
+                token_limited_batch,
+            )
+
+            if batch_limit < 1:
+                return {
+                    "processed_count": processed,
+                    "data_source": "keepa_real",
+                    "status": "rate_limited",
+                    "reason": "Not enough Keepa API tokens",
+                    "requested_limit": requested_limit,
+                    "effective_limit": 0,
+                    "token_cost_per_item": token_cost_per_item,
+                    "token_status": token_status,
+                }
 
         query = (
             select(
@@ -190,26 +248,30 @@ class KeepaService:
         result = await self.db.execute(query)
         rows = result.all()
 
-        processed = 0
-
         if real_keepa_enabled:
-            try:
-                client = KeepaMetricsClient()
-            except KeepaConfigurationError as exc:
-                return {
-                    "processed_count": processed,
-                    "data_source": "keepa_real",
-                    "status": "not_configured",
-                    "reason": str(exc),
-                }
-
             not_found = 0
 
             for metric, match, queue_item in rows:
-                metric_result = await client.fetch_product_metrics(
-                    asin=metric.asin,
-                    marketplace=target_marketplace,
-                )
+                try:
+                    metric_result = await client.fetch_product_metrics(
+                        asin=metric.asin,
+                        marketplace=target_marketplace,
+                        include_buybox=True,
+                    )
+                except KeepaRateLimitError as exc:
+                    await self.db.commit()
+
+                    return {
+                        "processed_count": processed,
+                        "data_source": "keepa_real",
+                        "not_found_count": not_found,
+                        "status": "rate_limited",
+                        "reason": str(exc),
+                        "requested_limit": requested_limit,
+                        "effective_limit": batch_limit,
+                        "token_cost_per_item": token_cost_per_item,
+                        "token_status": token_status,
+                    }
 
                 if not metric_result:
                     metric.data_status = "not_found"
@@ -240,6 +302,10 @@ class KeepaService:
                 "processed_count": processed,
                 "data_source": "keepa_real",
                 "not_found_count": not_found,
+                "requested_limit": requested_limit,
+                "effective_limit": batch_limit,
+                "token_cost_per_item": token_cost_per_item,
+                "token_status": token_status,
                 "status": "ok",
             }
 

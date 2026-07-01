@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     KEEPA_API_KEY: str | None = None
     USE_KEEPA_REAL_API: bool = False
+    KEEPA_REAL_BATCH_LIMIT: int = 100
 
     AUTH_ENABLED: bool = False
     AUTH_SESSION_SECRET: str = "dev-insecure-session-secret"

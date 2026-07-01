@@ -3,16 +3,19 @@
 Backend and local control panel for ecommerce Online Arbitrage automation.
 
 The project ingests supplier catalog files, normalizes supplier offers, queues
-offers for Amazon research, enriches matched products with marketplace metrics,
-evaluates profitability, and produces ranked deal candidates.
+offers for Amazon research, captures lightweight marketplace snapshots,
+evaluates profitability, and reserves deep Keepa history for finalist manual
+review.
 
 ## Current Status
 
 Project is currently paused after adding supplier-managed latest-price URLs,
 generic price-update tracking, persistent supplier-specific import filter
-profiles, size-aware Maintenance controls, and the first shared-auth/RBAC
-layer. See `PROJECT_STATE.md` for the exact resume point and current
-working-tree expectations.
+profiles, size-aware Maintenance controls, the first shared-auth/RBAC layer,
+Upload preview/search/export refinements, and token-bucket-aware Keepa live API
+preparation. The first Market Snapshot boundary is implemented in mock mode.
+See `PROJECT_STATE.md` for the exact resume point and current working-tree
+expectations.
 
 Implemented:
 
@@ -22,6 +25,8 @@ Implemented:
 - UI localization for English, German, and Ukrainian.
 - First-pass OIDC/session authentication layer with local dev mode and
   coarse automation RBAC.
+- Live Keepa permission boundary with token-bucket-aware batching and
+  controlled `not_configured` / `rate_limited` states.
 - CSV and Excel supplier feed ingestion.
 - Two-step import flow: preview first, then save.
 - Human-readable import preview table, column mapping preview, and quality
@@ -32,6 +37,8 @@ Implemented:
   brands, with select-all and clear-all controls.
 - Import preview CSV export downloads the full confirmed filtered preview, not
   only the visible sample rows.
+- Import preview search can query the full filtered draft, not only currently
+  rendered preview rows.
 - Import preview marks rows stale after filter changes until the filtered
   preview is applied again.
 - Multilingual semantic column normalization and fuzzy matching.
@@ -50,6 +57,10 @@ Implemented:
 - Configurable `pipeline_settings` and `research_rules`.
 - Help buttons for each research-rule metric in the UI.
 - Mock Amazon EAN to ASIN matching.
+- Market Snapshot model/service/API for lightweight current marketplace data
+  between Amazon matching and deal candidate creation.
+- Mock Market Snapshot processing with UI run controls, pipeline summary,
+  supplier status, issue modal, and CSV export support.
 - Amazon Presence Service for checking whether Amazon itself is present on a
   matched listing.
 - Keepa wrapper with mock mode, real Keepa mode, status checks, and
@@ -67,6 +78,8 @@ Implemented:
 - Saved Research lookup filter defaults with status/helper UI, scoped globally
   or to the selected supplier through `research_rules`, plus a clear action for
   returning the scope to an unfiltered lookup plan.
+- Deal candidate generation now reads from `market_snapshots` instead of
+  directly from `keepa_product_metrics`.
 - Mock fee estimation and deal candidate generation.
 - Pipeline orchestration endpoints.
 - Pipeline issue modals with CSV and real XLSX downloads.
@@ -74,10 +87,24 @@ Implemented:
 Current stage:
 
 - The backend and UI are being shaped into a supplier-driven operator console.
+- The pipeline is being reshaped into a multi-stage sourcing funnel rather than
+  a linear "send everything to Keepa" flow.
 - Business rules are moving into `research_rules`.
 - Operational/provider settings are moving into `pipeline_settings`.
 - Supplier visibility now controls default UI/list behavior without deleting
   historical data.
+
+Planned funnel:
+
+```text
+Supplier Feed
+  -> Cheap filtering / Research Queue
+  -> Amazon Match
+  -> Market Snapshot
+  -> Deal Candidate
+  -> Deep Keepa Analysis
+  -> Human Validation
+```
 
 Still not production-grade:
 
@@ -180,7 +207,8 @@ Main UI areas:
 - `Rules`: business and scoring rules, grouped by function, with help buttons.
 - `Research`: lookup plan, pre-provider filters, research queue, and Amazon
   match results.
-- `Keepa`: explicit Keepa enrichment step, mode badge, and real/mock toggle.
+- `Keepa`: Market Snapshot controls, explicit deep Keepa enrichment step, mode
+  badge, and real/mock toggle.
 - `Amazon Presence`: listing-level Amazon seller presence checks inside the
   Keepa view.
 - `Suppliers`: supplier management, details, import history, and visibility.
@@ -250,6 +278,7 @@ Current permissions:
 automation:view
 automation:operate
 automation:configure
+automation:use_keepa_real
 automation:admin
 ```
 
@@ -260,6 +289,7 @@ Middleware behavior:
 - GET requests generally require `automation:view`;
 - non-GET requests generally require `automation:operate`;
 - config and supplier changes require `automation:configure`;
+- enabling or running live Keepa requires `automation:use_keepa_real`;
 - database cleanup requires `automation:admin`;
 - `automation:admin` is treated as an override permission.
 
@@ -429,6 +459,23 @@ Current provider behavior:
   Keepa metrics. Amazon Presence uses deterministic mock presence results.
 - `pipeline_settings.use_real_keepa=true` uses Keepa for Amazon EAN to ASIN
   matching, Amazon Presence checks, and Keepa metric enrichment.
+- Live Keepa access is permission-gated with `automation:use_keepa_real`.
+  During the pre-production stage all automation roles have this permission to
+  reduce operator overhead. Before production, remove it from non-owner roles
+  so one authorized Keepa seat controls live API usage.
+- Live Keepa processing follows Keepa's token bucket model. Before each real
+  run the backend checks current `tokensLeft` and limits the batch to what can
+  be paid for immediately instead of blocking the HTTP request while waiting
+  for refills. `KEEPA_REAL_BATCH_LIMIT` (default `100`) remains an upper bound
+  for one operator-triggered run.
+- The quota guard applies to all current Keepa-backed calls: EAN to ASIN
+  matching, Amazon Presence, and Keepa metric enrichment.
+- Current token assumptions: EAN to ASIN matching costs 1 token per product,
+  Amazon Presence costs 1 token per product, and Keepa metric enrichment with
+  Buy Box data costs 3 tokens per product.
+- If `use_real_keepa=true`, direct Amazon match processing and pipeline
+  research/batch runs also require `automation:use_keepa_real`, so the
+  pipeline cannot bypass the live Keepa permission by orchestration.
 - Amazon Presence is a separate provider step. It creates pending checks from
   matched ASINs and records whether Amazon itself is currently present on the
   listing.
@@ -596,6 +643,14 @@ Amazon Presence:
 POST /amazon-presence/create-pending
 POST /amazon-presence/process-pending
 GET  /amazon-presence/
+```
+
+Market Snapshots:
+
+```text
+POST /market-snapshots/create-pending
+POST /market-snapshots/process-pending
+GET  /market-snapshots/
 ```
 
 Keepa:
@@ -786,6 +841,14 @@ oa-pipeline/
   catalogs exist.
 - Keepa detailed history should be a candidate-review feature, not part of
   default catalog processing.
+- Introduce a `Market Snapshot` stage before deep Keepa analysis. Snapshot data
+  should contain only current marketplace state needed for Analyzer-like
+  filtering: current Buy Box/current price, BSR, seller count, Amazon present,
+  Buy Box existence, and current fee estimates.
+- Deep Keepa analysis should run only for top/finalist candidates and may
+  include price history, Amazon presence history, seller history, Buy Box
+  history, seller dynamics, seasonality, drops, sales velocity, and price
+  stability.
 - Analytics should be designed for Grafana views or dashboards rather than
   bloating the operator UI.
 - Preview-driven filters should be used before import commit and before
@@ -807,22 +870,25 @@ oa-pipeline/
    sample rows, supplier costs, and estimated Keepa/API usage before calling
    providers. Initial operator-adjustable lookup filters are implemented; saved
    reusable filter profiles are still future work.
-4. Clean up provider abstraction for mock / Keepa / future Amazon SP-API:
-   product matcher provider, Amazon presence provider, market metrics provider,
+4. Introduce the Market Snapshot boundary:
+   create the service/model/API shape for current marketplace metrics after
+   ASIN matching, separate from expensive historical Keepa analysis.
+5. Clean up provider abstraction for mock / Keepa / future Amazon SP-API:
+   product matcher provider, market snapshot provider, deep history provider,
    fee provider, future sales management provider.
-5. Validate Amazon Presence against real matched ASINs and wire the results into
-   deal rejection/explanation views.
-6. Real Keepa-based Amazon matching and metric enrichment with token-aware
-   batching and controlled failure states.
-7. Deal Candidate enrichment:
+6. Validate Amazon Presence/current Buy Box/current BSR/current seller count as
+   snapshot fields and wire them into deal rejection/explanation views.
+7. Real Keepa-based Amazon matching and lightweight market snapshot collection
+   with token-aware batching and controlled failure states.
+8. Deal Candidate enrichment:
    title, brand, supplier cost, Amazon price, Buy Box presence, seller count,
    max sell price, margin/ROI clarity, rejection reasons, and filters.
-8. Candidate review workflow:
+9. Candidate review workflow:
    manual review states, reviewer notes, approve/reject/postpone actions, and
    final decision support.
-9. Candidate review enrichment for finalists only:
+10. Candidate review enrichment for finalists only:
    deep Keepa history, snapshots/events, and Grafana dashboard links.
-10. Real fee engine for FBA/VAT/shipping/marketplace rules.
-11. Grafana dashboard layer backed by SQL views or snapshot/event tables.
-12. Future UI rewrite after concept validation: React + Mantine,
+11. Real fee engine for FBA/VAT/shipping/marketplace rules.
+12. Grafana dashboard layer backed by SQL views or snapshot/event tables.
+13. Future UI rewrite after concept validation: React + Mantine,
    Grafana-like operations dashboard.

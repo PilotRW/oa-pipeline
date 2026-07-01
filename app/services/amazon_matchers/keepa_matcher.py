@@ -3,7 +3,10 @@ import asyncio
 import keepa
 
 from app.config.settings import settings
-from app.services.keepa_client import KeepaConfigurationError
+from app.services.keepa_client import (
+    KeepaConfigurationError,
+    KeepaRateLimitError,
+)
 from app.services.marketplace import keepa_domain_for_marketplace
 
 
@@ -30,15 +33,21 @@ class KeepaAmazonMatcher:
         if not ean:
             return None
 
-        products = await asyncio.to_thread(
-            self.api.query,
-            ean,
-            product_code_is_asin=False,
-            domain=keepa_domain_for_marketplace(marketplace),
-            stats=1,
-            history=False,
-            progress_bar=False,
-        )
+        try:
+            products = await asyncio.to_thread(
+                self.api.query,
+                ean,
+                product_code_is_asin=False,
+                domain=keepa_domain_for_marketplace(marketplace),
+                stats=1,
+                history=False,
+                progress_bar=False,
+                wait=False,
+            )
+        except RuntimeError as exc:
+            if "NOT_ENOUGH_TOKEN" in str(exc):
+                raise KeepaRateLimitError(str(exc)) from exc
+            raise
 
         if not products:
             return None

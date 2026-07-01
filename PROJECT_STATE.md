@@ -1,12 +1,89 @@
 # Mirenelle Automation - Project State
 
-Last updated: 2026-06-23
+Last updated: 2026-06-30
 
 ## Current Position
 
-Project is paused after adding supplier-managed latest-price URLs, generic
-price-update tracking, persistent supplier-specific import filter profiles,
-size-aware Maintenance controls, and the first shared-auth/RBAC layer.
+Project is paused after the first shared-auth/RBAC layer, supplier-managed
+latest-price URLs, persistent supplier-specific import filter profiles,
+size-aware Maintenance controls, Upload preview/search/export refinements, and
+Keepa live API preparation. The first Market Snapshot boundary is now
+implemented in mock mode.
+
+Architecture decision update: the product should be modeled as a multi-stage
+sourcing funnel, not as a linear "Supplier -> Amazon Match -> Keepa -> Deals"
+pipeline. The previous linear shape would spend Keepa tokens and expensive
+analysis on too many supplier products. The intended funnel is now:
+
+```text
+Supplier Feed
+  -> Cheap filtering / Research Queue
+  -> Amazon Match
+  -> Market Snapshot
+  -> Deal Candidate
+  -> Deep Keepa Analysis
+  -> Human Validation
+```
+
+Stage intent:
+
+- Cheap filtering: supplier feed, EAN, cost, title, brand, stock, local scoring,
+  configurable thresholds, and no expensive history calls.
+- Market Snapshot: lightweight current marketplace state after ASIN matching,
+  such as current Buy Box, current price, BSR, seller count, Amazon present,
+  Buy Box existence, and current FBA fees.
+- Deal Candidate: use snapshot data and configurable rules to produce a smaller
+  candidate set.
+- Deep Keepa Analysis: only for finalist/top candidates; includes price
+  history, Amazon presence history, seller history, Buy Box history, seller
+  dynamics, seasonality, drops, sales velocity, and price stability.
+
+Possible future data model split:
+
+```text
+market_snapshot   -> current lightweight marketplace metrics
+market_history    -> expensive historical Keepa metrics for finalist review
+```
+
+The `market_snapshots` table/service/API now owns the lightweight current
+marketplace metrics stage. The current `keepa_product_metrics` model should be
+treated as the legacy/deep-history transition model, not the default source for
+deal candidate creation.
+
+Implemented before real Keepa credentials:
+
+- `market_snapshots` database table and Alembic migration;
+- `MarketSnapshotService` with create pending, process pending, and list flows;
+- `/market-snapshots/create-pending`, `/market-snapshots/process-pending`, and
+  `/market-snapshots/` endpoints;
+- mock Market Snapshot processing for pre-credential testing;
+- `PipelineService.run_batch()` now runs Amazon match -> Market Snapshot ->
+  Deal Candidate;
+- `DealService.create_deal_candidates()` now reads from completed
+  `market_snapshots`;
+- Overview and Supplier status include Market Snapshots;
+- Keepa view has a Market Snapshots panel and manual `Run snapshot` action;
+- Overview has explicit `Run snapshot` and `Create deals` actions;
+- Pipeline issues include pending Market Snapshots;
+- Maintenance cleanup includes `market_snapshots`.
+
+The latest work moved live Keepa handling from a crude fixed sleep guard to a
+token-bucket-aware model aligned with Keepa API plan behavior:
+
+- real Keepa calls use the official Python `keepa` wrapper with `wait=False`;
+- the backend checks Keepa `tokensLeft` before live runs;
+- the backend limits each run to the number of products that current tokens can
+  pay for immediately;
+- if there are not enough tokens for one item, services return controlled
+  `rate_limited` responses instead of blocking HTTP workers;
+- `KEEPA_REAL_BATCH_LIMIT` defaults to `100` and acts only as an upper bound for
+  one operator-triggered run;
+- current token assumptions are:
+  - EAN to ASIN matching: 1 token per product;
+  - Amazon Presence: 1 token per product;
+  - Keepa metrics with Buy Box data: 3 tokens per product;
+- `/keepa/status` reports `real_batch_limit` and token cost assumptions;
+- UI actions surface `rate_limited` with token/wait context.
 
 Authentication/RBAC now exists in this repo as a first implementation:
 
@@ -26,30 +103,37 @@ role/group naming alignment with `mirenelle-ops`.
 Resume from here:
 
 1. Commit or review the current working tree.
-2. Validate auth in local dev mode:
+2. Test the mock funnel with real imported supplier data:
+   import -> Research -> Amazon Match -> Run snapshot -> Create deals.
+3. Add a real `KEEPA_API_KEY` locally, keep it out of git, restart the app
+   container, and verify `/keepa/status` reports `api_key_configured=true`.
+4. Enable `use_real_keepa=true` and run a tiny live smoke with one known EAN/ASIN:
+   first EAN to ASIN matching, then a lightweight Market Snapshot/Amazon
+   Presence call, then a limited Keepa metric call only if needed.
+5. Inspect the real Keepa Product/Statistics payload returned by the smoke and
+   decide which fields belong in `market_snapshot` versus future
+   `market_history`.
+6. Validate auth in local dev mode:
    open `/ui/` -> confirm `/auth/me` returns the dev owner -> confirm normal
    UI actions still work with `AUTH_ENABLED=false`.
-3. Validate auth against Authentik or the selected OIDC provider:
+7. Validate auth against Authentik or the selected OIDC provider:
    configure issuer/client/secret/redirect -> set `AUTH_ENABLED=true` -> login
    -> verify group-to-role mapping -> verify forbidden actions return `403`.
-4. Configure a real supplier price URL and validate the full operator flow:
+8. Configure a real supplier price URL and validate the full operator flow:
    load latest price -> remembered filters -> refine -> apply preview -> export
    CSV or save import.
-5. Test the redesigned UI with real imported supplier data, especially wide
+9. Test the redesigned UI with real imported supplier data, especially wide
    Research, Upload preview, Supplier detail, and Rules tables.
-6. Test Amazon Presence on a non-empty pipeline run:
-   import offers -> run research/Amazon matching -> open Keepa tab -> Check
-   Amazon presence -> verify `amazon_presence_checks` rows and the UI table.
-7. Re-upload the Cyberport feed and retest:
+10. Re-upload the Cyberport feed and retest:
    preview -> keep only Kingston, Rain Design, Satechi -> apply filtered preview
    -> export CSV -> open in Numbers/Excel -> verify EAN search with leading
    zero.
-8. Re-import the Jacob feed from a clean database and test the operator flow:
+11. Re-import the Jacob feed from a clean database and test the operator flow:
    preview -> keep only Makita -> exclude non-new/refurbished -> apply filtered
    preview -> export CSV -> save import.
-9. Continue with category/product-type filtering if enough source data exists.
-10. After local filters are stable, move toward real Keepa-based matching and
-   enrichment with token-aware batching.
+12. Continue with category/product-type filtering if enough source data exists.
+13. After the first real Keepa payload is understood, add candidate details and
+   optional Grafana dashboard links for finalist manual review.
 
 The current local workflow is:
 
@@ -63,9 +147,10 @@ Upload supplier file
   -> operator-selected Research filters
   -> Run research
   -> Amazon match provider (mock or Keepa)
-  -> Amazon Presence check
-  -> Keepa market metrics
+  -> Market Snapshot
   -> Deal candidates
+  -> Deep Keepa Analysis for finalists only
+  -> Human validation
 ```
 
 ## Local Database State
@@ -154,6 +239,7 @@ Current permissions:
 automation:view
 automation:operate
 automation:configure
+automation:use_keepa_real
 automation:admin
 ```
 
@@ -166,12 +252,37 @@ Coarse middleware policy:
 - GET requests generally require `automation:view`;
 - non-GET requests generally require `automation:operate`;
 - config/supplier changes require `automation:configure`;
+- live Keepa enable/run requires `automation:use_keepa_real`;
 - database cleanup requires `automation:admin`;
 - `automation:admin` acts as an override permission.
 
 The UI now calls `/auth/me`, shows the current user, and posts to
 `/auth/logout`. This is enough for first production auth smoke testing, but the
 provider configuration and real Authentik group claims still need validation.
+
+Live Keepa is intentionally treated as a named seat-level capability. Enabling
+`use_real_keepa` and processing Keepa/Amazon Presence in real mode require
+`automation:use_keepa_real`. During the pre-production stage all automation
+roles have this permission to reduce operator overhead. Before production,
+remove it from non-owner roles so one authorized person remains responsible for
+the Keepa subscription/API key instead of turning it into a shared team-wide
+backend service.
+
+Live Keepa processing is also token-bucket guarded. Before each real run the
+backend checks Keepa `tokensLeft` and limits the batch to what can be paid for
+immediately instead of blocking the HTTP request while waiting for refills.
+`KEEPA_REAL_BATCH_LIMIT` (default `100`) remains an upper bound for one
+operator-triggered run.
+
+The guard now applies to all Keepa-backed live calls: EAN to ASIN matching,
+Amazon Presence, and Keepa metric enrichment. Direct Amazon match processing,
+`/pipeline/run-research`, and `/pipeline/run-batch` also check
+`automation:use_keepa_real` when `use_real_keepa=true`, so orchestration cannot
+bypass the named live Keepa capability.
+
+Current token assumptions: EAN to ASIN matching costs 1 token per product,
+Amazon Presence costs 1 token per product, and Keepa metric enrichment with
+Buy Box data costs 3 tokens per product.
 
 ### Supplier Price Update Tracking
 
@@ -752,19 +863,24 @@ alembic/versions/8c2d9a1f0b34_add_amazon_presence_checks.py
 
 ## Next Recommended Step
 
-Continue from Upload/import validation:
+Continue from real Keepa activation:
 
-1. Run Amazon Presence against actual matched ASINs and verify the UI/table plus
-   `keepa_product_metrics.amazon_in_stock` sync.
-2. Retest Cyberport CSV export after re-uploading the file, because the restart
-   cleared the previous in-memory upload draft.
-3. Re-import Jacob Makita with the confirmed filter flow.
-4. Use `Max cost` deliberately if the operator wants to avoid high-ticket
-   Makita rows before external lookup.
-5. Add category/product-type filtering once product type can be detected or
-   inferred reliably from imported fields.
-6. Then proceed toward real Keepa-based matching/enrichment with token-aware
-   batching.
+1. Add `KEEPA_API_KEY` to local `.env` without printing or committing it.
+2. Restart the app container and confirm `/keepa/status` reports:
+   `api_key_configured=true`, `real_batch_limit=100`, and token costs
+   `product=1`, `product_with_buybox=3`.
+3. Enable `use_real_keepa=true` from Settings.
+4. Run the smallest live path:
+   - create/process one Amazon match from a known EAN;
+   - create/process one Amazon Presence check;
+   - create/process one Keepa metric row.
+5. Inspect the actual Keepa Product/Statistics payload and update the
+   first-class metric fields only after seeing real data shape.
+6. Keep Grafana postponed until real Keepa payloads exist. Next UI step should
+   be candidate detail/review fields plus optional Grafana URL hooks, not a
+   full Grafana stack yet.
+7. After live Keepa smoke, retest Cyberport and Jacob import/export flows with
+   real supplier files.
 
 ## Important Product Decisions
 

@@ -626,12 +626,60 @@ button.badge:hover {
 
 .preview-table-wrap {
   max-height: 460px;
+  width: 100%;
 }
 
 .preview-table-wrap thead th {
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.preview-table-wrap table {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.preview-table-wrap th,
+.preview-table-wrap td {
+  width: auto;
+  min-width: 80px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-table-wrap .preview-col-numeric {
+  min-width: 84px;
+  max-width: 110px;
+}
+
+.preview-table-wrap .preview-col-identifier,
+.preview-table-wrap .preview-col-code {
+  min-width: 120px;
+  max-width: 170px;
+}
+
+.preview-table-wrap .preview-col-brand {
+  min-width: 120px;
+  max-width: 190px;
+}
+
+.preview-table-wrap .preview-col-category {
+  min-width: 180px;
+  max-width: 260px;
+}
+
+.preview-table-wrap .preview-col-title {
+  min-width: 280px;
+  max-width: 460px;
+}
+
+.preview-table-wrap .preview-col-description {
+  min-width: 320px;
+  max-width: 520px;
 }
 
 table {
@@ -814,7 +862,8 @@ select:focus {
 }
 
 .upload-panel {
-  max-width: 1120px;
+  width: 100%;
+  max-width: none;
 }
 
 .import-preview {
@@ -874,6 +923,17 @@ select:focus {
 
 .section-title-row h4 {
   margin: 0;
+}
+
+.preview-search {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto minmax(180px, auto);
+  gap: 10px;
+  align-items: center;
+}
+
+.preview-search.hidden {
+  display: none;
 }
 
 .quality-grid {

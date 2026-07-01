@@ -7,14 +7,17 @@ from app.db.database import get_db
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.deal_candidate import DealCandidate
 from app.models.ingestion_run import IngestionRun
+from app.models.market_snapshot import MarketSnapshot
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
 from app.services.supplier_price_service import (
     SupplierPriceDownloadError,
     check_supplier_price,
+    download_supplier_price,
     validate_public_price_url,
 )
+from app.services.price_file_fingerprint import price_file_fingerprint
 
 router = APIRouter(
     prefix="/suppliers",
@@ -213,14 +216,28 @@ async def count_supplier_statuses(
         .where(SupplierOffer.supplier_id == supplier_id)
         .group_by(DealCandidate.status)
     )
+    snapshots_query = (
+        select(MarketSnapshot.snapshot_status, func.count())
+        .join(
+            SupplierOffer,
+            SupplierOffer.id == MarketSnapshot.supplier_offer_id,
+        )
+        .where(SupplierOffer.supplier_id == supplier_id)
+        .group_by(MarketSnapshot.snapshot_status)
+    )
 
     queue_rows = (await db.execute(queue_query)).all()
     match_rows = (await db.execute(matches_query)).all()
+    snapshot_rows = (await db.execute(snapshots_query)).all()
     deal_rows = (await db.execute(deals_query)).all()
 
     return {
         "research_queue": {status: count for status, count in queue_rows},
         "amazon_matches": {status: count for status, count in match_rows},
+        "market_snapshots": {
+            status: count
+            for status, count in snapshot_rows
+        },
         "deal_candidates": {status: count for status, count in deal_rows},
     }
 
@@ -366,7 +383,48 @@ async def check_supplier_price_update(
             previous_content_length=supplier.price_content_length,
             has_downloaded_file=bool(supplier.price_file_hash),
         )
-    except SupplierPriceDownloadError as exc:
+
+        needs_fingerprint_check = (
+            bool(supplier.price_file_hash)
+            and result["update_status"] in {
+                "no_changes",
+                "verification_required",
+            }
+        )
+
+        if needs_fingerprint_check:
+            content, filename, metadata = await download_supplier_price(
+                supplier.price_url
+            )
+            fingerprint = price_file_fingerprint(
+                content=content,
+                filename=filename,
+            )
+            file_changed = (
+                supplier.price_file_hash != fingerprint["file_hash"]
+            )
+            data_changed = (
+                supplier.price_data_hash != fingerprint["data_hash"]
+            )
+
+            result = {
+                **result,
+                **metadata,
+                "update_status": (
+                    "new_available"
+                    if file_changed or data_changed
+                    else "no_changes"
+                ),
+                "checked_at": result["checked_at"],
+                "verified_by_download": True,
+                "verified_filename": filename,
+                "verified_file_hash": fingerprint["file_hash"],
+                "verified_data_hash": fingerprint["data_hash"],
+                "verified_row_count": fingerprint["row_count"],
+                "file_changed": file_changed,
+                "data_changed": data_changed,
+            }
+    except (SupplierPriceDownloadError, ValueError) as exc:
         supplier.price_update_status = "check_failed"
         await db.commit()
         raise HTTPException(

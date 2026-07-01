@@ -4,13 +4,18 @@ import re
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config.settings import settings as app_settings
 from app.models.amazon_product_match import AmazonProductMatch
 from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
 from app.services.amazon_matchers.factory import get_amazon_matcher
 from app.services.config_service import ConfigService
-from app.services.keepa_client import KeepaConfigurationError
+from app.services.keepa_client import (
+    KeepaConfigurationError,
+    KeepaMetricsClient,
+    KeepaRateLimitError,
+)
 from app.services.research_queue_service import ResearchQueueService
 
 
@@ -622,6 +627,56 @@ class AmazonMatchService:
             if marketplace is not None
             else settings.default_marketplace
         )
+        requested_limit = batch_limit
+        token_cost_per_item = 0
+        token_status = None
+
+        if real_keepa_enabled:
+            token_cost_per_item = (
+                KeepaMetricsClient.product_query_token_cost(
+                    include_buybox=False
+                )
+            )
+            try:
+                token_client = KeepaMetricsClient()
+                token_status = await token_client.get_token_status()
+            except KeepaConfigurationError as exc:
+                return {
+                    "processed_count": 0,
+                    "matched_count": 0,
+                    "not_found_count": 0,
+                    "data_source": "keepa_real",
+                    "status": "not_configured",
+                    "reason": str(exc),
+                    "requested_limit": requested_limit,
+                    "effective_limit": 0,
+                    "token_cost_per_item": token_cost_per_item,
+                    "token_status": token_status,
+                }
+
+            token_limited_batch = (
+                max(0, int(token_status["tokens_left"]))
+                // token_cost_per_item
+            )
+            batch_limit = min(
+                batch_limit,
+                max(1, app_settings.KEEPA_REAL_BATCH_LIMIT),
+                token_limited_batch,
+            )
+
+            if batch_limit < 1:
+                return {
+                    "processed_count": 0,
+                    "matched_count": 0,
+                    "not_found_count": 0,
+                    "data_source": "keepa_real",
+                    "status": "rate_limited",
+                    "reason": "Not enough Keepa API tokens",
+                    "requested_limit": requested_limit,
+                    "effective_limit": 0,
+                    "token_cost_per_item": token_cost_per_item,
+                    "token_status": token_status,
+                }
 
         try:
             matcher = get_amazon_matcher(
@@ -635,6 +690,10 @@ class AmazonMatchService:
                 "data_source": "keepa_real",
                 "status": "not_configured",
                 "reason": str(exc),
+                "requested_limit": requested_limit,
+                "effective_limit": 0,
+                "token_cost_per_item": token_cost_per_item,
+                "token_status": token_status,
             }
 
         query = select(AmazonProductMatch).where(
@@ -662,10 +721,26 @@ class AmazonMatchService:
         not_found_count = 0
 
         for match in matches:
-            match_result = await matcher.match_by_ean(
-                match.ean,
-                marketplace=target_marketplace,
-            )
+            try:
+                match_result = await matcher.match_by_ean(
+                    match.ean,
+                    marketplace=target_marketplace,
+                )
+            except KeepaRateLimitError as exc:
+                await self.db.commit()
+
+                return {
+                    "processed_count": matched_count + not_found_count,
+                    "matched_count": matched_count,
+                    "not_found_count": not_found_count,
+                    "data_source": "keepa_real",
+                    "status": "rate_limited",
+                    "reason": str(exc),
+                    "requested_limit": requested_limit,
+                    "effective_limit": batch_limit,
+                    "token_cost_per_item": token_cost_per_item,
+                    "token_status": token_status,
+                }
 
             queue_result = await self.db.execute(
                 select(OfferResearchQueue).where(
@@ -706,6 +781,11 @@ class AmazonMatchService:
                 if real_keepa_enabled
                 else "mock"
             ),
+            "requested_limit": requested_limit,
+            "effective_limit": batch_limit,
+            "token_cost_per_item": token_cost_per_item,
+            "token_status": token_status,
+            "status": "ok",
         }
 
     async def list_matches(
