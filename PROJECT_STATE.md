@@ -11,11 +11,7 @@ Keepa live API preparation. The first Market Snapshot boundary is now
 implemented in mock mode.
 
 2026-09-21 update: supplier latest-price sources now support credentialed FTP
-feeds via environment variables. Vedelec was added locally as supplier
-`vedelec` with `ftp://data.visynet.be:2122/`; credentials must live in ignored
-`.env.local` variables `VEDELEC_FTP_USERNAME` and `VEDELEC_FTP_PASSWORD`, not in
-tracked `.env` or supplier `price_url`. Remote supplier previews now start with
-clean/default import filters unless `apply_saved_filters=true` is requested.
+feeds via environment variables. 
 
 2026-09-21 refactoring update (completed backend hardening pass):
 
