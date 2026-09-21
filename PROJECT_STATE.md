@@ -1,14 +1,43 @@
 # Mirenelle Automation - Project State
 
-Last updated: 2026-06-30
+Last updated: 2026-09-21
 
 ## Current Position
 
-Project is paused after the first shared-auth/RBAC layer, supplier-managed
+Project is in active pre-release hardening after the first shared-auth/RBAC layer, supplier-managed
 latest-price URLs, persistent supplier-specific import filter profiles,
 size-aware Maintenance controls, Upload preview/search/export refinements, and
 Keepa live API preparation. The first Market Snapshot boundary is now
 implemented in mock mode.
+
+2026-09-21 update: supplier latest-price sources now support credentialed FTP
+feeds via environment variables. Vedelec was added locally as supplier
+`vedelec` with `ftp://data.visynet.be:2122/`; credentials must live in ignored
+`.env.local` variables `VEDELEC_FTP_USERNAME` and `VEDELEC_FTP_PASSWORD`, not in
+tracked `.env` or supplier `price_url`. Remote supplier previews now start with
+clean/default import filters unless `apply_saved_filters=true` is requested.
+
+2026-09-21 refactoring update (completed backend hardening pass):
+
+- supplier price handling is split into common validation, HTTP, FTP, and a
+  compatibility facade;
+- Upload preview helpers, filtering, draft storage, and commit persistence are
+  separated into focused services;
+- `app/api/upload.py` now primarily owns HTTP request orchestration;
+- public endpoints and existing service imports remain compatible;
+- a `unittest` regression suite now covers column normalization, duplicate
+  EAN/price handling, European prices, FTP selection, HTTP metadata, preview
+  CSV/search/hashes, filters, quality reports, and price tracking;
+- Amazon external preflight filtering and rejection breakdowns are isolated
+  from queue/database orchestration;
+- Market Snapshot, Keepa metric, and Amazon Presence result mapping share
+  tested provider mappers;
+- Amazon match, Market Snapshot, Keepa, and Amazon Presence use one tested
+  token-aware Keepa batch policy;
+- shared frontend formatting/status helpers live in `ui-helpers.js`; the
+  established static UI behavior and layout remain unchanged;
+- 32 tests pass, including supplier-specific cases for Vedelec and prior
+  regressions involving leading-zero EAN values.
 
 Architecture decision update: the product should be modeled as a multi-stage
 sourcing funnel, not as a linear "Supplier -> Amazon Match -> Keepa -> Deals"
@@ -834,32 +863,23 @@ docker compose exec app python -m py_compile app/services/amazon_match_service.p
 git diff --check
 ```
 
-## Working Tree At Pause
+## Active Refactoring
 
-Expected modified files:
-
-```text
-PROJECT_STATE.md
-README.md
-alembic/env.py
-app/main.py
-app/api/upload.py
-app/api/amazon_presence.py
-app/models/amazon_presence_check.py
-app/services/amazon_presence_service.py
-app/ingestion/cleaners.py
-app/ingestion/synonyms.py
-app/services/import_draft_service.py
-app/static/app.js
-app/static/index.html
-app/static/styles.css
-```
-
-Expected untracked migration:
+The current working tree contains the Vedelec FTP/import work and the first
+backend refactoring pass. New focused modules are:
 
 ```text
-alembic/versions/8c2d9a1f0b34_add_amazon_presence_checks.py
+app/services/import_commit_service.py
+app/services/import_filter_service.py
+app/services/import_preview_service.py
+app/services/supplier_price_common.py
+app/services/supplier_price_ftp.py
+app/services/supplier_price_http.py
+tests/
 ```
+
+Do not discard these changes. `.env.local` contains ignored local FTP
+credentials and must never be committed.
 
 ## Next Recommended Step
 

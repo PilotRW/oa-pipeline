@@ -1242,54 +1242,8 @@ function setStatus(ok) {
   status.textContent = ok ? t("api.online") : t("api.offline");
 }
 
-function formatNumber(value) {
-  if (value === null || value === undefined) return "-";
-  return Number(value).toLocaleString(undefined, {
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatBytes(value) {
-  let bytes = Number(value || 0);
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let unitIndex = 0;
-
-  while (bytes >= 1024 && unitIndex < units.length - 1) {
-    bytes /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${bytes.toLocaleString(undefined, {
-    maximumFractionDigits: unitIndex ? 1 : 0,
-  })} ${units[unitIndex]}`;
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(value).toLocaleString();
-}
-
-function statusClass(status) {
-  if (!status) return "";
-  if (String(status).includes("candidate") || status === "completed") return "ok";
-  if (String(status).includes("reject") || String(status).includes("not")) return "bad";
-  return "warn";
-}
-
 function priceUpdateLabel(status) {
   return t(`priceStatus.${status || "not_configured"}`);
-}
-
-function priceUpdateClass(status) {
-  if (["current", "no_changes"].includes(status)) return "ok";
-  if (["new_available"].includes(status)) return "bad";
-  return "warn";
-}
-
-function priceDownloadButtonClass(status) {
-  return status === "new_available"
-    ? "primary-button"
-    : "ghost-button price-download-muted";
 }
 
 function keepaSourceLabel(source) {
@@ -1307,13 +1261,6 @@ function keepaRateLimitMessage(result) {
   const wait = Math.ceil(tokenStatus.time_to_refill_seconds || 0);
 
   return t("message.keepaRateLimited", { tokens, wait });
-}
-
-function formatBoolean(value) {
-  if (value === true) return "Yes";
-  if (value === false) return "No";
-
-  return "-";
 }
 
 function renderSummary() {

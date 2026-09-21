@@ -6,6 +6,7 @@ COLUMN_SYNONYMS = {
         "ean",
         "ean code",
         "barcode",
+        "gtin code",
         "gtin",
         "upc",
 
@@ -37,6 +38,8 @@ COLUMN_SYNONYMS = {
         "title",
         "name",
         "product name",
+        "product desc",
+        "product description",
 
         # italian
         "nome prodotto",
@@ -91,6 +94,9 @@ COLUMN_SYNONYMS = {
         # english
         "price",
         "cost",
+        "cost price",
+        "cost price excl vat",
+        "cost price excl vat excl tax",
         "wholesale price",
         "net price",
 
@@ -205,6 +211,7 @@ COLUMN_SYNONYMS = {
         "sku",
         "supplier sku",
         "supplier code",
+        "product id",
 
         # italian
         "codice prodotto",

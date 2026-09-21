@@ -1,7 +1,3 @@
-import hashlib
-from datetime import datetime, timezone
-
-import pandas as pd
 from pydantic import BaseModel
 
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query, Response
@@ -9,27 +5,29 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.ingestion.parser import parse_content, parse_file
-from app.ingestion.normalizer import normalize_columns
-from app.ingestion.cleaners import clean_dataframe
+from app.ingestion.parser import parse_file
 from app.models.supplier import Supplier
-from app.services.ingestion_service import (
-    get_or_create_supplier,
-    save_ingestion_run,
-    save_column_mappings,
+from app.services.import_commit_service import (
+    ImportSupplierNotFoundError,
+    commit_import_draft,
 )
-from app.services.config_service import ConfigService
 from app.services.import_draft_service import (
     apply_import_filters,
-    build_filter_suggestions,
-    build_quality_report,
     consume_import_draft,
     create_import_draft,
     get_import_draft,
     serialize_import_draft,
 )
-from app.services.marketplace import currency_for_marketplace
-from app.services.supplier_offer_service import save_supplier_offers
+from app.services.import_preview_service import (
+    apply_saved_filter_profile,
+    build_import_dataframe_from_content,
+    content_hash,
+    dataframe_hash,
+    export_filename,
+    normalize_import_dataframe,
+    search_dataframe,
+    spreadsheet_safe_csv,
+)
 from app.services.supplier_price_service import (
     SupplierPriceDownloadError,
     download_supplier_price,
@@ -60,250 +58,16 @@ class ImportPreviewSearchRequest(BaseModel):
     limit: int = 100
 
 
-def export_filename(value: str) -> str:
-    safe = "".join(
-        character.lower() if character.isalnum() else "-"
-        for character in value
-    )
-    safe = "-".join(part for part in safe.split("-") if part)
-
-    return safe or "import-preview"
-
-
-def spreadsheet_safe_csv(df) -> bytes:
-    export_df = df.copy()
-    text_identifier_columns = {
-        "ean",
-        "gtin",
-        "upc",
-        "barcode",
-    }
-
-    for column in export_df.columns:
-        if str(column).strip().lower() not in text_identifier_columns:
-            continue
-
-        export_df[column] = export_df[column].apply(
-            lambda value: f'="{value}"' if str(value).strip() else ""
-        )
-
-    return export_df.to_csv(index=False).encode("utf-8-sig")
-
-
-def dataframe_hash(df) -> str:
-    canonical = df.fillna("").to_csv(
-        index=False,
-        lineterminator="\n",
-    )
-    return hashlib.sha256(
-        canonical.encode("utf-8")
-    ).hexdigest()
-
-
-def search_dataframe(df: pd.DataFrame, query: str, limit: int) -> dict:
-    needle = query.strip()
-
-    if not needle:
-        raise HTTPException(status_code=400, detail="Search query is required")
-
-    result_limit = max(1, min(limit, 500))
-    mask = pd.Series(False, index=df.index)
-
-    for column in df.columns:
-        values = df[column].fillna("").astype(str)
-        mask |= values.str.contains(
-            needle,
-            case=False,
-            regex=False,
-            na=False,
-        )
-
-    matches = df.loc[mask]
-
-    return {
-        "query": needle,
-        "total_matches": int(len(matches)),
-        "limit": result_limit,
-        "columns": list(df.columns),
-        "rows": matches.head(result_limit).to_dict(orient="records"),
-    }
-
-
 async def build_import_dataframe(file: UploadFile):
     try:
         df = await parse_file(file)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    if df.empty:
-        raise HTTPException(status_code=400, detail="Uploaded file contains no rows")
-
-    original_columns = list(df.columns)
-
-    df, normalization_report = normalize_columns(df)
-
-    df = clean_dataframe(df)
-
-    return df, original_columns, normalization_report
-
-
-def build_import_dataframe_from_content(
-    content: bytes,
-    filename: str,
-):
-    df = parse_content(
-        content=content,
-        filename=filename,
-    )
-
-    if df.empty:
-        raise ValueError("Uploaded file contains no rows")
-
-    original_columns = list(df.columns)
-    df, normalization_report = normalize_columns(df)
-    df = clean_dataframe(df)
-
-    return df, original_columns, normalization_report
-
-
-def apply_saved_filter_profile(
-    draft: dict,
-    filters: dict | None,
-) -> dict:
-    if not filters:
-        return serialize_import_draft(draft)
-
-    df, filter_summary = apply_import_filters(
-        draft["df"],
-        filters,
-    )
-
-    if df.empty:
-        return {
-            **serialize_import_draft(draft),
-            "saved_filter_warning": (
-                "Saved supplier filters excluded all rows and were not applied"
-            ),
-        }
-
-    draft["confirmed_filters"] = filter_summary["filters"]
-    draft["filter_summary"] = filter_summary
-
-    return serialize_import_draft(
-        {
-            **draft,
-            "df": df,
-            "filter_summary": filter_summary,
-        }
-    )
-
-
-async def commit_import_draft(
-    *,
-    session: AsyncSession,
-    supplier_name: str,
-    supplier_id: int | None,
-    filename: str,
-    df,
-    original_columns: list,
-    normalization_report: list[dict],
-    filter_summary: dict | None = None,
-    price_tracking: dict | None = None,
-):
-    settings = await ConfigService(
-        session
-    ).get_pipeline_settings()
-
-    supplier = (
-        await session.get(Supplier, supplier_id)
-        if supplier_id is not None
-        else None
-    )
-
-    if supplier_id is not None and supplier is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Configured supplier no longer exists",
-        )
-
-    if supplier is None:
-        supplier = await get_or_create_supplier(
-            session=session,
-            supplier_name=supplier_name,
-        )
-
-    rows_total = len(df)
-    rows_valid = len(df)
-    rows_failed = 0
-
-    ingestion_run = await save_ingestion_run(
-        session=session,
-        supplier_id=supplier.id,
-        filename=filename,
-        rows_total=rows_total,
-        rows_valid=rows_valid,
-        rows_failed=rows_failed,
-        normalization_report=normalization_report,
-    )
-
-    mappings_saved = await save_column_mappings(
-        session=session,
-        supplier_id=supplier.id,
-        normalization_report=normalization_report,
-    )
-
-    offers_saved = await save_supplier_offers(
-        session=session,
-        supplier_id=supplier.id,
-        df=df,
-        currency=currency_for_marketplace(settings.default_marketplace),
-    )
-
-    if price_tracking:
-        now = datetime.now(timezone.utc)
-        supplier.price_etag = price_tracking.get("etag")
-        supplier.price_last_modified = price_tracking.get("last_modified")
-        supplier.price_content_length = price_tracking.get("content_length")
-        supplier.price_file_hash = price_tracking.get("file_hash")
-        supplier.price_data_hash = price_tracking.get("data_hash")
-        supplier.price_last_filename = (
-            price_tracking.get("filename") or filename
-        )
-        supplier.price_update_status = "current"
-        supplier.price_last_checked_at = now
-        supplier.price_last_downloaded_at = now
-
-        if price_tracking.get("changed"):
-            supplier.price_last_changed_at = now
-
-    await session.commit()
-
-    return {
-        "supplier": {
-            "id": supplier.id,
-            "name": supplier.name,
-        },
-        "ingestion_run": {
-            "id": ingestion_run.id,
-            "status": ingestion_run.status,
-        },
-        "filename": filename,
-        "rows": rows_total,
-        "rows_valid": rows_valid,
-        "rows_failed": rows_failed,
-        "mappings_saved": mappings_saved,
-        "offers_saved": offers_saved,
-        "original_columns": original_columns,
-        "normalized_columns": list(df.columns),
-        "normalization_report": normalization_report,
-        "quality_report": build_quality_report(
-            df=df,
-            normalization_report=normalization_report,
-        ),
-        "filter_suggestions": build_filter_suggestions(df),
-        "filter_summary": filter_summary,
-        "preview": df.head(50).to_dict(orient="records"),
-    }
+    try:
+        return normalize_import_dataframe(df)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/upload/preview")
@@ -342,6 +106,7 @@ async def preview_upload(
 @router.post("/upload/supplier-price-preview")
 async def preview_supplier_price_url(
     supplier_id: int = Query(..., ge=1),
+    apply_saved_filters: bool = Query(default=False),
     session: AsyncSession = Depends(get_db),
 ):
     supplier = await session.get(Supplier, supplier_id)
@@ -373,7 +138,7 @@ async def preview_supplier_price_url(
             detail=str(exc),
         ) from exc
 
-    file_hash = hashlib.sha256(content).hexdigest()
+    file_hash = content_hash(content)
     data_hash = dataframe_hash(df)
     previous_file_hash = supplier.price_file_hash
     previous_data_hash = supplier.price_data_hash
@@ -404,7 +169,15 @@ async def preview_supplier_price_url(
 
     result = apply_saved_filter_profile(
         draft=draft,
-        filters=supplier.import_filter_profile,
+        filters=(
+            supplier.import_filter_profile
+            if apply_saved_filters
+            else None
+        ),
+    )
+    result["has_saved_import_filters"] = bool(supplier.import_filter_profile)
+    result["saved_filters_applied"] = bool(
+        apply_saved_filters and supplier.import_filter_profile
     )
     result["price_change_detected"] = changed
     result["price_file_hash"] = file_hash
@@ -442,17 +215,20 @@ async def commit_upload(
             detail="Selected filters excluded all rows",
         )
 
-    return await commit_import_draft(
-        session=session,
-        supplier_name=draft["supplier_name"],
-        supplier_id=draft.get("supplier_id"),
-        filename=draft["filename"],
-        df=df,
-        original_columns=draft["original_columns"],
-        normalization_report=draft["normalization_report"],
-        filter_summary=filter_summary,
-        price_tracking=draft.get("price_tracking"),
-    )
+    try:
+        return await commit_import_draft(
+            session=session,
+            supplier_name=draft["supplier_name"],
+            supplier_id=draft.get("supplier_id"),
+            filename=draft["filename"],
+            df=df,
+            original_columns=draft["original_columns"],
+            normalization_report=draft["normalization_report"],
+            filter_summary=filter_summary,
+            price_tracking=draft.get("price_tracking"),
+        )
+    except ImportSupplierNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/upload/filter-preview")
@@ -569,11 +345,14 @@ async def search_import_preview(
             detail="Selected filters excluded all rows",
         )
 
-    return search_dataframe(
-        df=df,
-        query=payload.query,
-        limit=payload.limit,
-    )
+    try:
+        return search_dataframe(
+            df=df,
+            query=payload.query,
+            limit=payload.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/upload")

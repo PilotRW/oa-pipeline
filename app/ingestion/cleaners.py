@@ -166,11 +166,78 @@ def clean_vat_rate(value):
         return None
 
 
+def is_present(value) -> bool:
+    if pd.isna(value):
+        return False
+
+    return str(value).strip() != ""
+
+
+def first_present(values):
+    for value in values:
+        if is_present(value):
+            return value
+
+    return ""
+
+
+def first_valid_ean(values):
+    first_value = first_present(values)
+
+    for value in values:
+        cleaned = clean_ean(value)
+
+        if 8 <= len(cleaned) <= 14:
+            return value
+
+    return first_value
+
+
+def first_valid_price(values):
+    first_value = first_present(values)
+
+    for value in values:
+        cleaned = clean_price(value)
+
+        if cleaned is not None:
+            return value
+
+    return first_value
+
+
+def merge_duplicate_columns(df: pd.DataFrame) -> pd.DataFrame:
+    duplicate_names = [
+        column
+        for column in df.columns[df.columns.duplicated()].unique()
+        if str(column).strip()
+    ]
+
+    for column in duplicate_names:
+        matching = df.loc[:, df.columns == column]
+
+        if column == "ean":
+            df[column] = matching.apply(
+                lambda row: first_valid_ean(row.tolist()),
+                axis=1,
+            )
+        elif column == "price":
+            df[column] = matching.apply(
+                lambda row: first_valid_price(row.tolist()),
+                axis=1,
+            )
+        else:
+            df[column] = matching.apply(
+                lambda row: first_present(row.tolist()),
+                axis=1,
+            )
+
+    return df.loc[:, ~df.columns.duplicated()]
+
+
 def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = drop_garbage_columns(df)
 
-    # remove duplicate columns after normalization
-    df = df.loc[:, ~df.columns.duplicated()]
+    df = merge_duplicate_columns(df)
 
     if "ean" in df.columns:
         df["ean"] = df["ean"].apply(clean_ean)

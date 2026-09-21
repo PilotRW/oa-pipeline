@@ -1,5 +1,4 @@
 from datetime import datetime
-import re
 
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,12 +9,20 @@ from app.models.offer_research_queue import OfferResearchQueue
 from app.models.supplier import Supplier
 from app.models.supplier_offer import SupplierOffer
 from app.services.amazon_matchers.factory import get_amazon_matcher
+from app.services.amazon_match_filters import (
+    external_filter_reasons,
+    normalize_filter_terms,
+    offer_matches_external_filters,
+    skipped_breakdown,
+    title_keywords,
+)
 from app.services.config_service import ConfigService
 from app.services.keepa_client import (
     KeepaConfigurationError,
     KeepaMetricsClient,
     KeepaRateLimitError,
 )
+from app.services.keepa_batch_policy import effective_batch_limit
 from app.services.research_queue_service import ResearchQueueService
 
 
@@ -27,16 +34,7 @@ class AmazonMatchService:
         self,
         values: list[str] | None = None,
     ) -> list[str]:
-        terms = []
-
-        for value in values or []:
-            for part in str(value or "").split(","):
-                term = part.strip()
-
-                if term:
-                    terms.append(term)
-
-        return sorted(set(terms), key=str.casefold)
+        return normalize_filter_terms(values)
 
     def pending_match_query(
         self,
@@ -102,30 +100,7 @@ class AmazonMatchService:
         titles: list[str | None],
         limit: int = 12,
     ) -> list[dict]:
-        counts: dict[str, int] = {}
-
-        for title in titles:
-            seen = set()
-
-            for token in re.findall(r"[A-Za-zÀ-ž0-9]+", str(title or "").lower()):
-                if len(token) < 4:
-                    continue
-
-                seen.add(token)
-
-            for token in seen:
-                counts[token] = counts.get(token, 0) + 1
-
-        return [
-            {
-                "value": value,
-                "count": count,
-            }
-            for value, count in sorted(
-                counts.items(),
-                key=lambda item: (-item[1], item[0]),
-            )[:limit]
-        ]
+        return title_keywords(titles, limit)
 
     def offer_matches_external_filters(
         self,
@@ -135,25 +110,13 @@ class AmazonMatchService:
         min_cost: float | None = None,
         max_cost: float | None = None,
     ) -> bool:
-        brand = str(offer.brand or "").casefold()
-        title = str(offer.title or "").casefold()
-        cost = float(offer.cost) if offer.cost is not None else None
-
-        for excluded_brand in self.normalize_filter_terms(exclude_brands):
-            if excluded_brand.casefold() in brand:
-                return False
-
-        for excluded_keyword in self.normalize_filter_terms(exclude_title_keywords):
-            if excluded_keyword.casefold() in title:
-                return False
-
-        if min_cost is not None and (cost is None or cost < min_cost):
-            return False
-
-        if max_cost is not None and (cost is None or cost > max_cost):
-            return False
-
-        return True
+        return offer_matches_external_filters(
+            offer,
+            exclude_brands=exclude_brands,
+            exclude_title_keywords=exclude_title_keywords,
+            min_cost=min_cost,
+            max_cost=max_cost,
+        )
 
     def external_filter_reasons(
         self,
@@ -163,52 +126,13 @@ class AmazonMatchService:
         min_cost: float | None = None,
         max_cost: float | None = None,
     ) -> list[dict]:
-        reasons = []
-        brand = str(offer.brand or "").casefold()
-        title = str(offer.title or "").casefold()
-        cost = float(offer.cost) if offer.cost is not None else None
-
-        for excluded_brand in self.normalize_filter_terms(exclude_brands):
-            if excluded_brand.casefold() in brand:
-                reasons.append(
-                    {
-                        "reason": "excluded_brand",
-                        "value": excluded_brand,
-                    }
-                )
-
-        for excluded_keyword in self.normalize_filter_terms(exclude_title_keywords):
-            if excluded_keyword.casefold() in title:
-                reasons.append(
-                    {
-                        "reason": "excluded_title_keyword",
-                        "value": excluded_keyword,
-                    }
-                )
-
-        if cost is None and (min_cost is not None or max_cost is not None):
-            reasons.append(
-                {
-                    "reason": "missing_cost",
-                    "value": None,
-                }
-            )
-        elif min_cost is not None and cost < min_cost:
-            reasons.append(
-                {
-                    "reason": "below_min_cost",
-                    "value": min_cost,
-                }
-            )
-        elif max_cost is not None and cost > max_cost:
-            reasons.append(
-                {
-                    "reason": "above_max_cost",
-                    "value": max_cost,
-                }
-            )
-
-        return reasons
+        return external_filter_reasons(
+            offer,
+            exclude_brands=exclude_brands,
+            exclude_title_keywords=exclude_title_keywords,
+            min_cost=min_cost,
+            max_cost=max_cost,
+        )
 
     def skipped_breakdown(
         self,
@@ -218,50 +142,13 @@ class AmazonMatchService:
         min_cost: float | None = None,
         max_cost: float | None = None,
     ) -> list[dict]:
-        counts: dict[str, int] = {}
-        values: dict[str, dict[str, int]] = {}
-
-        for candidate in candidates:
-            reasons = self.external_filter_reasons(
-                offer=candidate["offer"],
-                exclude_brands=exclude_brands,
-                exclude_title_keywords=exclude_title_keywords,
-                min_cost=min_cost,
-                max_cost=max_cost,
-            )
-
-            for reason in reasons:
-                reason_key = reason["reason"]
-                reason_value = reason["value"]
-                counts[reason_key] = counts.get(reason_key, 0) + 1
-
-                if reason_value is not None:
-                    value_key = str(reason_value)
-                    values.setdefault(reason_key, {})
-                    values[reason_key][value_key] = (
-                        values[reason_key].get(value_key, 0) + 1
-                    )
-
-        return [
-            {
-                "reason": reason,
-                "count": count,
-                "values": [
-                    {
-                        "value": value,
-                        "count": value_count,
-                    }
-                    for value, value_count in sorted(
-                        values.get(reason, {}).items(),
-                        key=lambda item: (-item[1], item[0]),
-                    )[:8]
-                ],
-            }
-            for reason, count in sorted(
-                counts.items(),
-                key=lambda item: (-item[1], item[0]),
-            )
-        ]
+        return skipped_breakdown(
+            candidates,
+            exclude_brands=exclude_brands,
+            exclude_title_keywords=exclude_title_keywords,
+            min_cost=min_cost,
+            max_cost=max_cost,
+        )
 
     async def unqueued_offer_candidates(
         self,
@@ -654,14 +541,11 @@ class AmazonMatchService:
                     "token_status": token_status,
                 }
 
-            token_limited_batch = (
-                max(0, int(token_status["tokens_left"]))
-                // token_cost_per_item
-            )
-            batch_limit = min(
+            batch_limit = effective_batch_limit(
                 batch_limit,
-                max(1, app_settings.KEEPA_REAL_BATCH_LIMIT),
-                token_limited_batch,
+                tokens_left=token_status["tokens_left"],
+                token_cost_per_item=token_cost_per_item,
+                configured_limit=app_settings.KEEPA_REAL_BATCH_LIMIT,
             )
 
             if batch_limit < 1:

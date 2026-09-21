@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     USE_KEEPA_REAL_API: bool = False
     KEEPA_REAL_BATCH_LIMIT: int = 100
 
+    VEDELEC_FTP_USERNAME: str | None = None
+    VEDELEC_FTP_PASSWORD: str | None = None
+
     AUTH_ENABLED: bool = False
     AUTH_SESSION_SECRET: str = "dev-insecure-session-secret"
     AUTH_ISSUER: str | None = None

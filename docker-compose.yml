@@ -30,6 +30,8 @@ services:
 
     env_file:
       - .env
+      - path: .env.local
+        required: false
 
 volumes:
   postgres_data:

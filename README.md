@@ -9,13 +9,13 @@ review.
 
 ## Current Status
 
-Project is currently paused after adding supplier-managed latest-price URLs,
-generic price-update tracking, persistent supplier-specific import filter
-profiles, size-aware Maintenance controls, the first shared-auth/RBAC layer,
-Upload preview/search/export refinements, and token-bucket-aware Keepa live API
-preparation. The first Market Snapshot boundary is implemented in mock mode.
-See `PROJECT_STATE.md` for the exact resume point and current working-tree
-expectations.
+The project is in active pre-release hardening. Supplier-managed latest-price
+URLs, generic update tracking, persistent supplier filters, Maintenance
+controls, shared auth/RBAC, preview/search/export, and token-aware Keepa
+preparation are implemented. The first Market Snapshot boundary is available
+in mock mode. The backend hardening pass separates transport, filtering,
+preview, commit, provider mapping, and token-policy responsibilities without
+changing public API contracts.
 
 Implemented:
 
@@ -28,6 +28,11 @@ Implemented:
 - Live Keepa permission boundary with token-bucket-aware batching and
   controlled `not_configured` / `rate_limited` states.
 - CSV and Excel supplier feed ingestion.
+- HTTP and credentialed FTP supplier price sources behind protocol-specific
+  adapters; credentials remain outside tracked supplier configuration.
+- Regression tests for supplier normalization, import filters, preview export
+  and search, price-source transports, Amazon preflight filters, Keepa token
+  limits, and provider result mapping.
 - Two-step import flow: preview first, then save.
 - Human-readable import preview table, column mapping preview, and quality
   checks.
@@ -334,9 +339,12 @@ PATCH /suppliers/{supplier_id}/price-source
 POST  /upload/supplier-price-preview?supplier_id={supplier_id}
 ```
 
-The supplier's last confirmed import filters are applied automatically.
-Operators can refine them, export the full filtered CSV for separate analysis,
-or commit exactly that filtered dataset to the database.
+Remote previews start with clean/default import filters so a new supplier file
+can be inspected before old saved filters hide rows. Saved supplier filters can
+still be applied explicitly by calling the preview endpoint with
+`apply_saved_filters=true`. Operators can refine filters, export the full
+filtered CSV for separate analysis, or commit exactly that filtered dataset to
+the database.
 
 Supplier Management shows separate URL and saved-filter indicators. Open
 `Price & filters` for a supplier to edit its latest-price URL and load the
@@ -362,6 +370,16 @@ Supplier records retain the last downloaded metadata, hashes, filename,
 download/check/change timestamps, and current update status. Checking alone
 never replaces the baseline, so a detected update stays visible until the
 operator actually loads the new file.
+
+Supplier price sources support public `http://`, `https://`, and credentialed
+`ftp://` URLs. FTP credentials must not be stored in `price_url`; keep them in
+local environment variables. Docker Compose loads `.env.local` when present,
+and `.env.local` is git-ignored. Current FTP credential variables:
+
+```text
+VEDELEC_FTP_USERNAME
+VEDELEC_FTP_PASSWORD
+```
 
 `Load latest price` remains functional as a recovery/manual override, but is
 visually muted until a check reports `New price available`. At that point it
@@ -804,23 +822,34 @@ oa-pipeline/
 │   │   └── supplier_offer.py
 │   ├── services/
 │   │   ├── amazon_match_service.py
+│   │   ├── amazon_match_filters.py
 │   │   ├── amazon_matchers/
 │   │   ├── config_service.py
 │   │   ├── deal_service.py
+│   │   ├── import_commit_service.py
 │   │   ├── import_draft_service.py
+│   │   ├── import_filter_service.py
+│   │   ├── import_preview_service.py
 │   │   ├── ingestion_service.py
 │   │   ├── keepa_client.py
+│   │   ├── keepa_batch_policy.py
 │   │   ├── keepa_service.py
 │   │   ├── marketplace.py
 │   │   ├── pipeline_service.py
+│   │   ├── provider_result_mappers.py
 │   │   ├── research_queue_service.py
+│   │   ├── supplier_price_common.py
+│   │   ├── supplier_price_ftp.py
+│   │   ├── supplier_price_http.py
+│   │   ├── supplier_price_service.py
 │   │   └── supplier_offer_service.py
 │   ├── static/
 │   │   ├── app.js
 │   │   ├── favicon.png
 │   │   ├── index.html
 │   │   ├── mirenelle-logo.png
-│   │   └── styles.css
+│   │   ├── styles.css
+│   │   └── ui-helpers.js
 │   └── main.py
 ├── docker-compose.yml
 ├── Dockerfile
@@ -854,6 +883,10 @@ oa-pipeline/
 - Preview-driven filters should be used before import commit and before
   external provider calls. Avoid hardcoded exclusion lists unless they are
   operator-managed rules created from preview.
+- The current static UI keeps its established interaction model. Shared
+  formatting helpers are separated, while the larger component/module rewrite
+  remains part of the planned React + Mantine migration rather than a second
+  temporary frontend architecture.
 
 ## Near-Term Roadmap
 

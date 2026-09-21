@@ -13,7 +13,9 @@ from app.services.keepa_client import (
     KeepaMetricsClient,
     KeepaRateLimitError,
 )
+from app.services.keepa_batch_policy import effective_batch_limit
 from app.services.marketplace import currency_for_marketplace
+from app.services.provider_result_mappers import apply_market_snapshot_result
 
 
 class MarketSnapshotService:
@@ -175,14 +177,11 @@ class MarketSnapshotService:
                     "token_status": token_status,
                 }
 
-            token_limited_batch = (
-                max(0, int(token_status["tokens_left"]))
-                // token_cost_per_item
-            )
-            batch_limit = min(
+            batch_limit = effective_batch_limit(
                 batch_limit,
-                max(1, app_settings.KEEPA_REAL_BATCH_LIMIT),
-                token_limited_batch,
+                tokens_left=token_status["tokens_left"],
+                token_cost_per_item=token_cost_per_item,
+                configured_limit=app_settings.KEEPA_REAL_BATCH_LIMIT,
             )
 
             if batch_limit < 1:
@@ -318,20 +317,7 @@ class MarketSnapshotService:
         snapshot: MarketSnapshot,
         result: dict,
     ) -> None:
-        snapshot.marketplace = result.get("marketplace")
-        snapshot.current_price = result.get("current_price")
-        snapshot.buy_box_price = result.get("buy_box_price")
-        snapshot.buy_box_exists = result.get("buy_box_exists")
-        snapshot.sales_rank = result.get("sales_rank")
-        snapshot.seller_count = result.get("seller_count")
-        snapshot.amazon_present = result.get("amazon_present")
-        snapshot.fba_fee_estimate = result.get("fba_fee_estimate")
-        snapshot.estimated_monthly_sales = result.get(
-            "estimated_monthly_sales"
-        )
-        snapshot.snapshot_source = result.get("snapshot_source")
-        snapshot.error_message = None
-        snapshot.raw_data = result.get("raw_data")
+        apply_market_snapshot_result(snapshot, result)
 
     async def list_snapshots(
         self,

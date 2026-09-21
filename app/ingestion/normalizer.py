@@ -8,6 +8,24 @@ from app.ingestion.synonyms import COLUMN_SYNONYMS
 
 MATCH_THRESHOLD = 80
 
+EXACT_COLUMN_MAPPINGS = {
+    "barcode": "ean",
+    "barcode2": "ean",
+    "barcode3": "ean",
+    "barcode4": "ean",
+    "gtin code": "ean",
+    "gtincode": "ean",
+    "product desc": "title",
+    "productdesc": "title",
+    "product id": "supplier_sku",
+    "productid": "supplier_sku",
+    "cost price excl vat": "price",
+    "costpriceexclvat": "price",
+    "cost price excl vat excl tax": "price",
+    "costpriceexclvatexcltax": "price",
+    "vat": "vat_rate",
+}
+
 STOPWORDS = {
     "code",
     "number",
@@ -93,6 +111,26 @@ def score_against_synonym(
 def score_column(column: str) -> dict[str, Any]:
     cleaned = clean_column_name(column)
     tokens = tokenize_column(column)
+    exact_mapping = EXACT_COLUMN_MAPPINGS.get(cleaned)
+
+    if exact_mapping:
+        return {
+            "column": column,
+            "cleaned_column": cleaned,
+            "tokens": tokens,
+            "mapped_to": exact_mapping,
+            "confidence": 100,
+            "exact_matches": len(tokens),
+            "matched_synonym": cleaned,
+            "alternatives": [
+                {
+                    "field": exact_mapping,
+                    "score": 100,
+                    "exact_matches": len(tokens),
+                    "matched_synonym": cleaned,
+                }
+            ],
+        }
 
     candidates = []
 

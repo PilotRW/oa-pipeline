@@ -13,7 +13,9 @@ from app.services.keepa_client import (
     KeepaMetricsClient,
     KeepaRateLimitError,
 )
+from app.services.keepa_batch_policy import effective_batch_limit
 from app.services.marketplace import currency_for_marketplace
+from app.services.provider_result_mappers import apply_keepa_metric_result
 
 
 class KeepaService:
@@ -194,14 +196,11 @@ class KeepaService:
                     "token_status": token_status,
                 }
 
-            token_limited_batch = (
-                max(0, int(token_status["tokens_left"]))
-                // token_cost_per_item
-            )
-            batch_limit = min(
+            batch_limit = effective_batch_limit(
                 batch_limit,
-                max(1, app_settings.KEEPA_REAL_BATCH_LIMIT),
-                token_limited_batch,
+                tokens_left=token_status["tokens_left"],
+                token_cost_per_item=token_cost_per_item,
+                configured_limit=app_settings.KEEPA_REAL_BATCH_LIMIT,
             )
 
             if batch_limit < 1:
@@ -279,18 +278,11 @@ class KeepaService:
                     not_found += 1
                     continue
 
-                metric.buy_box_price = metric_result["buy_box_price"]
-                metric.currency = (
-                    metric_result["currency"]
-                    or currency_for_marketplace(target_marketplace)
+                apply_keepa_metric_result(
+                    metric,
+                    metric_result,
+                    currency_for_marketplace(target_marketplace),
                 )
-                metric.sales_rank = metric_result["sales_rank"]
-                metric.amazon_in_stock = metric_result["amazon_in_stock"]
-                metric.estimated_monthly_sales = (
-                    metric_result["estimated_monthly_sales"]
-                )
-                metric.data_status = "completed"
-                metric.raw_data = metric_result["raw_data"]
 
                 queue_item.status = "keepa_completed"
 
@@ -310,18 +302,18 @@ class KeepaService:
             }
 
         for metric, match, queue_item in rows:
-            metric.buy_box_price = 199.99
-            metric.currency = currency_for_marketplace(
-                target_marketplace
+            apply_keepa_metric_result(
+                metric,
+                {
+                    "buy_box_price": 199.99,
+                    "currency": currency_for_marketplace(target_marketplace),
+                    "sales_rank": 12500,
+                    "amazon_in_stock": True,
+                    "estimated_monthly_sales": 85,
+                    "raw_data": {"mock": True, "source": "keepa_mock"},
+                },
+                currency_for_marketplace(target_marketplace),
             )
-            metric.sales_rank = 12500
-            metric.amazon_in_stock = True
-            metric.estimated_monthly_sales = 85
-            metric.data_status = "completed"
-            metric.raw_data = {
-                "mock": True,
-                "source": "keepa_mock",
-            }
 
             queue_item.status = "keepa_completed"
 

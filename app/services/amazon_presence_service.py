@@ -15,6 +15,11 @@ from app.services.keepa_client import (
     KeepaMetricsClient,
     KeepaRateLimitError,
 )
+from app.services.keepa_batch_policy import effective_batch_limit
+from app.services.provider_result_mappers import (
+    apply_presence_result,
+    mock_amazon_presence,
+)
 
 
 class AmazonPresenceService:
@@ -155,14 +160,11 @@ class AmazonPresenceService:
                     "token_status": token_status,
                 }
 
-            token_limited_batch = (
-                max(0, int(token_status["tokens_left"]))
-                // token_cost_per_item
-            )
-            batch_limit = min(
+            batch_limit = effective_batch_limit(
                 batch_limit,
-                max(1, app_settings.KEEPA_REAL_BATCH_LIMIT),
-                token_limited_batch,
+                tokens_left=token_status["tokens_left"],
+                token_cost_per_item=token_cost_per_item,
+                configured_limit=app_settings.KEEPA_REAL_BATCH_LIMIT,
             )
 
             if batch_limit < 1:
@@ -262,7 +264,7 @@ class AmazonPresenceService:
             }
 
         for check in checks:
-            amazon_present = self.mock_amazon_presence(check.asin)
+            amazon_present = mock_amazon_presence(check.asin)
             await self._complete_check(
                 check=check,
                 amazon_present=amazon_present,
@@ -368,12 +370,13 @@ class AmazonPresenceService:
         marketplace: str,
         raw_data: dict,
     ) -> None:
-        check.amazon_present = amazon_present
-        check.presence_status = "completed"
-        check.data_source = data_source
-        check.marketplace = marketplace
-        check.raw_data = raw_data
-        check.checked_at = datetime.now(timezone.utc)
+        apply_presence_result(
+            check,
+            amazon_present=amazon_present,
+            data_source=data_source,
+            marketplace=marketplace,
+            raw_data=raw_data,
+        )
 
         metric_result = await self.db.execute(
             select(KeepaProductMetric).where(
@@ -389,6 +392,4 @@ class AmazonPresenceService:
         self,
         asin: str,
     ) -> bool:
-        checksum = sum(ord(character) for character in asin or "")
-
-        return checksum % 3 == 0
+        return mock_amazon_presence(asin)
