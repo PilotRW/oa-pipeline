@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import httpx
 
@@ -9,6 +10,7 @@ from app.services.supplier_price_service import (
     ftp_select_price_file,
     validate_public_price_url,
 )
+from app.services.supplier_price_ftp import ftp_credentials
 from app.services.supplier_price_http import (
     response_filename,
     response_metadata,
@@ -35,6 +37,21 @@ class FakeFtp:
 
 
 class FtpPriceSelectionTests(unittest.TestCase):
+    def test_credentials_are_resolved_from_generic_host_registry(self):
+        registry = (
+            '{"ftp.example.com":'
+            '{"username":"test-user","password":"test-password"}}'
+        )
+
+        with patch(
+            "app.services.supplier_price_ftp.settings."
+            "SUPPLIER_FTP_CREDENTIALS_JSON",
+            registry,
+        ):
+            credentials = ftp_credentials("FTP.EXAMPLE.COM")
+
+        self.assertEqual(("test-user", "test-password"), credentials)
+
     def test_parse_modify_supports_ftp_response_and_fraction(self):
         expected = datetime(2026, 9, 20, 21, 46, 31, tzinfo=timezone.utc)
 
@@ -46,13 +63,13 @@ class FtpPriceSelectionTests(unittest.TestCase):
             [
                 ("old.csv", {"modify": "20260901080000", "size": "10"}),
                 ("notes.txt", {"modify": "20260921100000", "size": "20"}),
-                ("Products_26834.xlsx", {"modify": "20260920214631", "size": "30"}),
+                ("catalog.xlsx", {"modify": "20260920214631", "size": "30"}),
             ]
         )
 
         filename, size, modified_at = ftp_select_price_file(ftp, "/")
 
-        self.assertEqual("Products_26834.xlsx", filename)
+        self.assertEqual("catalog.xlsx", filename)
         self.assertEqual(30, size)
         self.assertEqual(
             datetime(2026, 9, 20, 21, 46, 31, tzinfo=timezone.utc),

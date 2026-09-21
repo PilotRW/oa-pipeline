@@ -1,5 +1,6 @@
 import asyncio
 import ftplib
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -13,26 +14,27 @@ from app.services.supplier_price_common import (
 )
 
 
-FTP_CREDENTIALS_BY_HOST = {
-    "data.visynet.be": (
-        "VEDELEC_FTP_USERNAME",
-        "VEDELEC_FTP_PASSWORD",
-    ),
-}
-
-
 def ftp_credentials(hostname: str) -> tuple[str, str]:
-    env_names = FTP_CREDENTIALS_BY_HOST.get(hostname.lower())
-    if not env_names:
-        raise SupplierPriceDownloadError(
-            f"FTP credentials are not configured for {hostname}"
+    try:
+        credential_registry = json.loads(
+            settings.SUPPLIER_FTP_CREDENTIALS_JSON or "{}"
         )
+    except json.JSONDecodeError as exc:
+        raise SupplierPriceDownloadError(
+            "Supplier FTP credential registry is invalid JSON"
+        ) from exc
 
-    username = getattr(settings, env_names[0], None)
-    password = getattr(settings, env_names[1], None)
+    credentials = (
+        credential_registry.get(hostname.lower())
+        or credential_registry.get("*")
+        or {}
+    )
+    username = credentials.get("username")
+    password = credentials.get("password")
+
     if not username or not password:
         raise SupplierPriceDownloadError(
-            f"FTP credentials are missing for {hostname}"
+            f"FTP credentials are not configured for {hostname}"
         )
     return username, password
 

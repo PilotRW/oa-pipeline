@@ -29,11 +29,11 @@ class ImportCommitServiceTests(unittest.TestCase):
                 "data_hash": "data-hash",
                 "changed": True,
             },
-            "Products_26834.xlsx",
+            "catalog.xlsx",
         )
 
         self.assertEqual("current", supplier.price_update_status)
-        self.assertEqual("Products_26834.xlsx", supplier.price_last_filename)
+        self.assertEqual("catalog.xlsx", supplier.price_last_filename)
         self.assertEqual("file-hash", supplier.price_file_hash)
         self.assertIsNotNone(supplier.price_last_changed_at)
 

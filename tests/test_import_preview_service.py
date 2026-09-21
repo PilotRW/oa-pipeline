@@ -16,8 +16,8 @@ from app.services.import_preview_service import (
 class ImportPreviewServiceTests(unittest.TestCase):
     def test_export_filename_is_filesystem_safe(self):
         self.assertEqual(
-            "vedelec-products-26834-xlsx-preview",
-            export_filename("Vedelec Products_26834.xlsx preview"),
+            "supplier-catalog-xlsx-preview",
+            export_filename("Supplier catalog.xlsx preview"),
         )
 
     def test_csv_preserves_identifier_leading_zeroes(self):

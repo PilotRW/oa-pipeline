@@ -374,12 +374,15 @@ operator actually loads the new file.
 Supplier price sources support public `http://`, `https://`, and credentialed
 `ftp://` URLs. FTP credentials must not be stored in `price_url`; keep them in
 local environment variables. Docker Compose loads `.env.local` when present,
-and `.env.local` is git-ignored. Current FTP credential variables:
+and `.env.local` is git-ignored. Credentials are configured as a JSON object:
 
 ```text
-VEDELEC_FTP_USERNAME
-VEDELEC_FTP_PASSWORD
+SUPPLIER_FTP_CREDENTIALS_JSON={"ftp.example.com":{"username":"...","password":"..."}}
 ```
+
+Use a hostname key for separate accounts, or `*` when one account is shared.
+Hosts, ports, usernames, and passwords are deployment data and are not
+hardcoded in the application.
 
 `Load latest price` remains functional as a recovery/manual override, but is
 visually muted until a check reports `New price available`. At that point it

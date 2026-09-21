@@ -7,7 +7,7 @@ from app.ingestion.normalizer import normalize_columns, score_column
 
 
 class ColumnNormalizationTests(unittest.TestCase):
-    def test_vedelec_columns_use_exact_mappings(self):
+    def test_product_feed_columns_use_exact_mappings(self):
         expected = {
             "ProductID": "supplier_sku",
             "ProductDesc": "title",

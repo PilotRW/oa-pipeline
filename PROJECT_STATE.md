@@ -11,7 +11,10 @@ Keepa live API preparation. The first Market Snapshot boundary is now
 implemented in mock mode.
 
 2026-09-21 update: supplier latest-price sources now support credentialed FTP
-feeds via environment variables. 
+feeds through the generic `SUPPLIER_FTP_CREDENTIALS_JSON` registry. Connection
+details are deployment data and credentials live only in ignored `.env.local`,
+never in tracked code or documentation. Remote supplier previews start with
+clean/default import filters unless `apply_saved_filters=true` is requested.
 
 2026-09-21 refactoring update (completed backend hardening pass):
 
@@ -32,8 +35,8 @@ feeds via environment variables.
   token-aware Keepa batch policy;
 - shared frontend formatting/status helpers live in `ui-helpers.js`; the
   established static UI behavior and layout remain unchanged;
-- 32 tests pass, including supplier-specific cases for Vedelec and prior
-  regressions involving leading-zero EAN values.
+- 32 tests pass, including FTP catalog cases and prior regressions involving
+  leading-zero EAN values.
 
 Architecture decision update: the product should be modeled as a multi-stage
 sourcing funnel, not as a linear "Supplier -> Amazon Match -> Keepa -> Deals"
@@ -861,7 +864,7 @@ git diff --check
 
 ## Active Refactoring
 
-The current working tree contains the Vedelec FTP/import work and the first
+The current working tree contains the generic FTP/import work and the first
 backend refactoring pass. New focused modules are:
 
 ```text
