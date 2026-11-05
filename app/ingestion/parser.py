@@ -1,7 +1,9 @@
 import csv
+import re
 from io import BytesIO, StringIO
 
 import pandas as pd
+from unidecode import unidecode
 
 
 DELIMITERS = [",", ";", "|", "\t"]
@@ -23,10 +25,13 @@ HEADER_KEYWORDS = {
     "descrizione",
     "description",
     "product name",
+    "product",
+    "product code",
     "name",
     "title",
     "prezzo",
     "price",
+    "price eur",
     "preis",
     "sku",
     "artnr",
@@ -73,11 +78,17 @@ def clean_cell(value) -> str:
     return str(value).strip().lower()
 
 
+def clean_header_cell(value) -> str:
+    value = unidecode(clean_cell(value))
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
 def score_header_row(row) -> int:
     values = [
-        clean_cell(value)
+        clean_header_cell(value)
         for value in row
-        if clean_cell(value)
+        if clean_header_cell(value)
     ]
 
     if not values:
@@ -85,10 +96,20 @@ def score_header_row(row) -> int:
 
     score = 0
 
+    cleaned_keywords = {
+        clean_header_cell(keyword)
+        for keyword in HEADER_KEYWORDS
+    }
     for value in values:
-        for keyword in HEADER_KEYWORDS:
-            if keyword in value:
-                score += 1
+        if value in cleaned_keywords:
+            score += 2
+            continue
+        if any(
+            value.startswith(f"{keyword} ")
+            or value.endswith(f" {keyword}")
+            for keyword in cleaned_keywords
+        ):
+            score += 1
 
     return score
 
@@ -96,7 +117,7 @@ def score_header_row(row) -> int:
 def detect_excel_header_row(
     content: bytes,
     max_rows: int = 30,
-) -> int:
+) -> int | None:
     preview_df = pd.read_excel(
         BytesIO(content),
         header=None,
@@ -115,7 +136,7 @@ def detect_excel_header_row(
             best_score = score
             best_row_index = row_index
 
-    return best_row_index
+    return best_row_index if best_score >= 2 else None
 
 
 def parse_excel(content: bytes) -> pd.DataFrame:

@@ -39,6 +39,10 @@ def create_import_draft(
     original_columns: list,
     normalization_report: list[dict],
     supplier_id: int | None = None,
+    filenames: list[str] | None = None,
+    skipped_files: list[str] | None = None,
+    file_diagnostics: list[dict] | None = None,
+    supply_channel_suggestions: list[dict] | None = None,
 ) -> dict:
     _cleanup_expired_drafts()
     token = uuid4().hex
@@ -47,6 +51,12 @@ def create_import_draft(
         "supplier_name": supplier_name,
         "supplier_id": supplier_id,
         "filename": filename,
+        "filenames": list(filenames or [filename]),
+        "skipped_files": list(skipped_files or []),
+        "file_diagnostics": list(file_diagnostics or []),
+        "supply_channel_suggestions": list(
+            supply_channel_suggestions or []
+        ),
         "df": df.copy(),
         "original_columns": list(original_columns),
         "normalization_report": normalization_report,

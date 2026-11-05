@@ -21,13 +21,29 @@ class SupplierOffer(Base):
 
     supplier_sku = Column(Text)
 
-    ean = Column(Text)
+    ean = Column(Text, index=True)
 
     brand = Column(Text)
 
     title = Column(Text)
 
     cost = Column(Numeric(10, 2))
+
+    vat_rate = Column(Numeric(5, 2), nullable=True)
+
+    price_tiers = Column(JSONB, nullable=True)
+
+    supply_channel = Column(
+        Text,
+        nullable=False,
+        default="stock",
+        server_default="stock",
+        index=True,
+    )
+
+    lead_time_min_days = Column(Integer, nullable=True)
+
+    lead_time_max_days = Column(Integer, nullable=True)
 
     currency = Column(Text)
 

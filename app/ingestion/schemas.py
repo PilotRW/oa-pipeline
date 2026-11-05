@@ -2,6 +2,8 @@ CANONICAL_COLUMNS = [
     "ean",
     "title",
     "price",
+    "vat_rate",
+    "currency",
     "brand",
     "stock",
     "moq",
@@ -19,4 +21,6 @@ OPTIONAL_COLUMNS = [
     "stock",
     "moq",
     "condition",
+    "vat_rate",
+    "currency",
 ]

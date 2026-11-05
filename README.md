@@ -34,10 +34,21 @@ Implemented:
   and search, price-source transports, Amazon preflight filters, Keepa token
   limits, and provider result mapping.
 - Two-step import flow: preview first, then save.
+- Multi-file supplier imports merge up to 20 CSV/XLSX files into one atomic
+  preview/filter/commit flow while preserving each row's source filename.
+- ZIP price archives can contain multiple CSV/XLSX files; supported entries
+  join the same batch while unsafe or unsupported entries are reported and
+  archive size/file-count limits remain deployment-configurable.
+- Multi-file previews include a per-file quality table for missing EANs,
+  missing prices, duplicate identifiers, and mapping coverage.
 - Human-readable import preview table, column mapping preview, and quality
   checks.
 - Preview-driven import filters for excluding brands, title keywords, missing
   EAN rows, and supplier price ranges before commit.
+- Tester products are detected from condition/title/description, marked as
+  `tester` in import diagnostics, and always skipped before persistence. This
+  is a mandatory ingestion rule rather than an operator-controlled filter, so
+  tester rows never enter research or consume marketplace/Keepa requests.
 - Import brand filters can either exclude selected brands or keep only selected
   brands, with select-all and clear-all controls.
 - Import preview CSV export downloads the full confirmed filtered preview, not
@@ -47,6 +58,9 @@ Implemented:
 - Import preview marks rows stale after filter changes until the filtered
   preview is applied again.
 - Multilingual semantic column normalization and fuzzy matching.
+- When a feed contains both `Price`/`Old Price` and `New Price`, the normalized
+  cost prefers `New Price` row by row and falls back to the regular price only
+  when the new value is blank or invalid.
 - Supplier offer persistence, feed refresh, and duplicate prevention.
 - Supplier management with visible/hidden toggle.
 - Supplier latest-price URLs with remembered supplier-specific import filters.
@@ -56,6 +70,20 @@ Implemented:
   row/size counters, and separate guarded cleanup actions.
 - Supplier detail page with offer stats, pipeline status, import history, recent
   offers, supplier scope actions, and supplier-scoped research.
+- Bulk procurement price comparison by EAN across visible suppliers, including
+  GTIN/UPC zero-padding equivalence, supplier-price ranking, alternatives, and CSV
+  export.
+- Supplier VAT profiles (`prices_include_vat` and `default_vat_rate`) plus
+  persisted per-offer VAT rates from supplier feeds.
+- Quantity-aware supplier price tiers, including base MOQ and common bulk/
+  tier/volume quantity-price column pairs such as `Bulk1Qty/Bulk1Price`.
+- Multi-file supplier feeds classify each file as `stock`, `incoming`, or
+  `preorder` from filename/workbook signals. The operator must confirm or
+  change every category before saving. Offers persist the category and detected
+  lead-time range, and importing one category refreshes only that category.
+- Procurement comparison shows each offer's import timestamp and age so
+  operators can judge price-list freshness, supply category, and expected lead
+  time alongside cost.
 - Supplier-scoped Overview, Research, Pipeline, Deals, and issue exports.
 - Supplier-specific research rule profiles with reset-to-default behavior.
 - Research queue population, priority scoring, and rejection reasons.
@@ -119,6 +147,9 @@ Still not production-grade:
 - Keepa metrics are mock unless real Keepa mode is enabled.
 - Fee estimation is still simplified.
 - No real FBA/VAT/shipping fee engine yet.
+- Procurement comparison treats supplier feeds as net price lists and does not
+  perform VAT or currency conversion; only offers in the selected target
+  currency compete.
 - No Grafana dashboards or candidate review enrichment tables yet.
 
 ## Pipeline Flow
@@ -639,8 +670,21 @@ GET   /suppliers/dashboard
 GET   /suppliers/{supplier_id}
 PATCH /suppliers/{supplier_id}/visibility
 PATCH /suppliers/{supplier_id}/price-source
+PATCH /suppliers/{supplier_id}/pricing
 POST  /suppliers/{supplier_id}/check-price-update
 ```
+
+Procurement:
+
+```text
+POST /procurement/compare
+```
+
+The comparison endpoint accepts a multiline product list containing EAN/UPC/
+GTIN values plus a requested purchase quantity. It selects the applicable
+volume-price tier for every offer, then ranks matching suppliers by the price
+stored from the supplier feed. Supplier price lists are treated as net and VAT
+is intentionally excluded from this comparison and its CSV export.
 
 Research queue:
 
@@ -869,8 +913,9 @@ oa-pipeline/
   exposing them as user-facing settings.
 - Hidden suppliers should not appear in default UI lists, but their historical
   data should remain available through explicit supplier detail/scope access.
-- Comparison engine work is postponed until multiple overlapping supplier
-  catalogs exist.
+- Procurement comparison is implemented for overlapping supplier catalogs.
+  Keep currency conversion outside the comparison until an explicit FX-rate
+  source and timestamp policy are introduced.
 - Keepa detailed history should be a candidate-review feature, not part of
   default catalog processing.
 - Introduce a `Market Snapshot` stage before deep Keepa analysis. Snapshot data

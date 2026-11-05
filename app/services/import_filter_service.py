@@ -2,6 +2,12 @@ import re
 
 import pandas as pd
 
+from app.ingestion.cleaners import (
+    is_supplier_internal_code,
+    is_valid_gtin,
+    tester_mask,
+)
+
 
 WEAK_MAPPING_CONFIDENCE = 90
 SUSPICIOUS_LOW_PRICE = 0.01
@@ -76,6 +82,9 @@ def build_quality_report(
     report = {
         "total_rows": len(df),
         "missing_ean_count": _missing_count(df, "ean"),
+        "invalid_ean_count": 0,
+        "supplier_code_count": 0,
+        "tester_count": int(tester_mask(df).sum()),
         "missing_price_count": _missing_count(df, "price"),
         "duplicate_ean_count": 0,
         "suspicious_price_count": 0,
@@ -83,6 +92,9 @@ def build_quality_report(
         "weak_mappings": [],
         "examples": {
             "missing_ean": [],
+            "invalid_ean": [],
+            "supplier_code": [],
+            "tester": [],
             "missing_price": [],
             "duplicate_ean": [],
             "suspicious_price": [],
@@ -92,7 +104,14 @@ def build_quality_report(
     if "ean" in df.columns:
         ean = df["ean"].astype(str).str.strip()
         present = ean != ""
+        valid_gtin = ean.apply(is_valid_gtin)
+        supplier_codes = (
+            present & ~valid_gtin & ean.apply(is_supplier_internal_code)
+        )
+        invalid = present & ~supplier_codes & ~valid_gtin
         duplicates = present & ean.duplicated(keep=False)
+        report["invalid_ean_count"] = int(invalid.sum())
+        report["supplier_code_count"] = int(supplier_codes.sum())
         report["duplicate_ean_count"] = int(duplicates.sum())
         report["examples"]["duplicate_ean"] = _examples(
             df,
@@ -104,6 +123,23 @@ def build_quality_report(
             ~present,
             ["brand", "title", "price", "stock"],
         )
+        report["examples"]["invalid_ean"] = _examples(
+            df,
+            invalid,
+            ["ean", "brand", "title", "price", "stock"],
+        )
+        report["examples"]["supplier_code"] = _examples(
+            df,
+            supplier_codes,
+            ["ean", "brand", "title", "price", "stock"],
+        )
+
+    testers = tester_mask(df)
+    report["examples"]["tester"] = _examples(
+        df,
+        testers,
+        ["ean", "brand", "title", "price", "stock", "offer_type"],
+    )
 
     if "price" in df.columns:
         prices = pd.to_numeric(df["price"], errors="coerce")
@@ -126,15 +162,16 @@ def build_quality_report(
 
     for item in normalization_report:
         if not item.get("mapped_to"):
-            report["unmapped_columns"].append(item["column"])
+            if item["column"] not in report["unmapped_columns"]:
+                report["unmapped_columns"].append(item["column"])
         elif item.get("confidence", 0) < WEAK_MAPPING_CONFIDENCE:
-            report["weak_mappings"].append(
-                {
-                    "column": item["column"],
-                    "mapped_to": item["mapped_to"],
-                    "confidence": item["confidence"],
-                }
-            )
+            weak_mapping = {
+                "column": item["column"],
+                "mapped_to": item["mapped_to"],
+                "confidence": item["confidence"],
+            }
+            if weak_mapping not in report["weak_mappings"]:
+                report["weak_mappings"].append(weak_mapping)
     return report
 
 
@@ -237,6 +274,7 @@ def build_filter_suggestions(df: pd.DataFrame) -> dict:
         "title_keyword_suggestion_limit": KEYWORD_FILTER_SUGGESTION_LIMIT,
         "missing_ean_count": _missing_count(df, "ean"),
         "non_new_count": int(non_new_mask(df).sum()),
+        "tester_count": int(tester_mask(df).sum()),
         "price": _price_summary(df),
     }
 
@@ -254,7 +292,8 @@ def apply_import_filters(
     filters: dict | None,
 ) -> tuple[pd.DataFrame, dict]:
     filters = filters or {}
-    include_mask = pd.Series(True, index=df.index)
+    testers = tester_mask(df)
+    include_mask = ~testers
     excluded_brands = _normalized_text_set(
         filters.get("excluded_brands", [])
     )
@@ -302,6 +341,7 @@ def apply_import_filters(
         "rows_before": int(len(df)),
         "rows_after": int(len(filtered)),
         "rows_excluded": int(len(df) - len(filtered)),
+        "tester_rows_skipped": int(testers.sum()),
         "filters": {
             "brand_filter_mode": mode,
             "excluded_brands": sorted(excluded_brands),
@@ -309,6 +349,7 @@ def apply_import_filters(
             "excluded_keywords": excluded_keywords,
             "exclude_missing_ean": bool(filters.get("exclude_missing_ean")),
             "exclude_non_new": bool(filters.get("exclude_non_new")),
+            "exclude_testers": True,
             "min_price": filters.get("min_price"),
             "max_price": filters.get("max_price"),
         },
@@ -322,6 +363,14 @@ def serialize_import_draft(draft: dict, preview_rows: int = 50) -> dict:
         "import_token": draft["token"],
         "supplier_name": draft["supplier_name"],
         "filename": draft["filename"],
+        "filenames": draft.get("filenames", [draft["filename"]]),
+        "file_count": len(draft.get("filenames", [draft["filename"]])),
+        "skipped_files": draft.get("skipped_files", []),
+        "skipped_file_count": len(draft.get("skipped_files", [])),
+        "file_diagnostics": draft.get("file_diagnostics", []),
+        "supply_channel_suggestions": draft.get(
+            "supply_channel_suggestions", []
+        ),
         "rows": len(df),
         "rows_valid": len(df),
         "rows_failed": 0,

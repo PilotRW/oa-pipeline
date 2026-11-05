@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     KEEPA_API_KEY: str | None = None
     USE_KEEPA_REAL_API: bool = False
     KEEPA_REAL_BATCH_LIMIT: int = 100
+    MAX_IMPORT_BATCH_FILES: int = 20
+    MAX_IMPORT_EXPANDED_FILES: int = 200
+    MAX_IMPORT_UNCOMPRESSED_BYTES: int = 536870912
 
     SUPPLIER_FTP_CREDENTIALS_JSON: str = "{}"
 

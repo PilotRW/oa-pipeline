@@ -18,6 +18,7 @@ from app.api import pipeline
 from app.api import config
 from app.api import suppliers
 from app.api import maintenance
+from app.api import procurement
 from app.auth.middleware import auth_middleware
 from app.auth.routes import router as auth_router
 from app.config.settings import settings
@@ -51,6 +52,7 @@ app.include_router(pipeline.router)
 app.include_router(config.router)
 app.include_router(suppliers.router)
 app.include_router(maintenance.router)
+app.include_router(procurement.router)
 
 
 @app.get("/")

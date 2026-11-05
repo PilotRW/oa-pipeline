@@ -6,6 +6,18 @@ from app.models.ingestion_run import IngestionRun
 from app.models.supplier_column_mapping import SupplierColumnMapping
 
 
+def column_mapping_from_report(
+    supplier_id: int,
+    item: dict,
+) -> SupplierColumnMapping:
+    return SupplierColumnMapping(
+        supplier_id=supplier_id,
+        source_column=str(item["column"]),
+        target_column=str(item["mapped_to"]),
+        confidence=item["confidence"],
+    )
+
+
 async def get_or_create_supplier(
     session: AsyncSession,
     supplier_name: str,
@@ -37,6 +49,7 @@ async def save_ingestion_run(
     rows_valid: int,
     rows_failed: int,
     normalization_report: list[dict],
+    supply_channel_assignments: dict[str, str] | None = None,
 ) -> IngestionRun:
     run = IngestionRun(
         supplier_id=supplier_id,
@@ -46,6 +59,7 @@ async def save_ingestion_run(
         rows_valid=rows_valid,
         rows_failed=rows_failed,
         normalization_report=normalization_report,
+        supply_channel_assignments=supply_channel_assignments,
     )
 
     session.add(run)
@@ -75,12 +89,7 @@ async def save_column_mappings(
         if not mapped_to:
             continue
 
-        mapping = SupplierColumnMapping(
-            supplier_id=supplier_id,
-            source_column=item["column"],
-            target_column=mapped_to,
-            confidence=item["confidence"],
-        )
+        mapping = column_mapping_from_report(supplier_id, item)
 
         session.add(mapping)
 

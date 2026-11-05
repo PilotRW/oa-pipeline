@@ -6,10 +6,15 @@ const state = {
   suppliers: [],
   supplierManagement: [],
   supplierDashboard: [],
+  savedImports: [],
   supplierDetail: null,
+  procurementComparison: null,
+  procurementGrid: null,
+  procurementGridLanguage: null,
   supplierId: localStorage.getItem("oaSupplierId") || "",
   importDraft: null,
   importFiltersConfirmed: false,
+  supplyChannelsConfirmed: false,
   importPreview: null,
   issueExport: null,
   tableExports: {},
@@ -45,13 +50,18 @@ const translations = {
     "action.saveSupplierRules": "Save supplier rules",
     "action.resetToDefault": "Reset to default",
     "action.resetToSystemDefaults": "Reset to system defaults",
+    "action.resetColumns": "Reset columns",
     "action.newUpload": "New upload",
     "action.saveImport": "Save import",
+    "action.deleteImport": "Delete import",
+    "action.deleteOldImports": "Delete imports older than 30 days",
     "action.selectAll": "Select all",
     "action.clearAll": "Clear all",
     "action.search": "Search",
     "action.searchPreview": "Search",
     "action.clearSearch": "Clear search",
+    "action.clear": "Clear",
+    "action.compare": "Compare",
     "action.clearWorkspace": "Clear preview workspace",
     "action.clearDatabase": "Clear database data",
     "action.managePrice": "Price & filters",
@@ -78,12 +88,19 @@ const translations = {
     "field.allSuppliers": "All suppliers",
     "field.batchSize": "Batch size",
     "field.excludeAmazonStock": "Exclude Amazon stock",
-    "field.feedFile": "CSV or Excel file",
+    "field.feedFile": "CSV, Excel or ZIP files",
+    "field.fileCount": "Files",
+    "field.skippedFiles": "Skipped archive entries",
     "field.file": "File",
+    "field.supplyChannel": "Supply category",
+    "field.leadTime": "Lead time",
+    "field.leadTimeMinDays": "Lead time min (days)",
+    "field.leadTimeMaxDays": "Lead time max (days)",
     "field.filterBrands": "Exclude brands",
     "field.filterKeywords": "Exclude title keywords",
     "field.excludeMissingEan": "Exclude missing EAN",
     "field.excludeNonNew": "Exclude non-new / refurbished",
+    "field.excludeTesters": "Tester products are always skipped",
     "field.fulfillmentFee": "Fulfillment fee",
     "field.highStock": "High stock",
     "field.lowStock": "Low stock",
@@ -115,10 +132,19 @@ const translations = {
     "field.scoreStockVeryLow": "Score stock very low",
     "field.scoreTitle": "Score title",
     "field.supplierName": "Supplier name",
+    "field.productList": "Product list",
+    "field.targetCurrency": "Currency",
+    "field.includeHiddenSuppliers": "Include hidden suppliers",
+    "field.pricesIncludeVat": "Prices already include VAT",
+    "field.defaultVatRate": "Default VAT rate %",
+    "field.purchaseQuantity": "Quantity",
     "field.columns": "Columns",
     "field.mapped": "Mapped",
     "quality.duplicateEan": "Duplicate EAN",
     "quality.missingEan": "Missing EAN",
+    "quality.invalidEan": "Invalid EAN",
+    "quality.supplierCode": "Supplier code (not GTIN)",
+    "quality.testerRows": "Tester products (skipped)",
     "quality.missingPrice": "Missing price",
     "quality.suspiciousPrice": "Suspicious price",
     "quality.unmappedColumns": "Unmapped columns",
@@ -138,6 +164,10 @@ const translations = {
     "message.maintenanceResult": "{action}: {rows} rows removed, {size} released",
     "message.noSuppliersYet": "No suppliers yet. Add one above with an optional price URL, or preview and save the first price file in Upload.",
     "message.noRecords": "No records",
+    "message.productListPlaceholder": "1. Product name — EAN 4006381333931",
+    "message.comparisonComplete": "Compared {count} products",
+    "message.invalidProductLines": "Lines without a valid EAN: {count}",
+    "message.supplierPricingSaved": "Supplier VAT settings saved",
     "message.processedMatches": "Processed {count} matches",
     "message.keepaRun": "Keepa completed: {created} queued, {processed} processed",
     "message.keepaRunWithSource": "Keepa completed via {source}: {created} queued, {processed} processed",
@@ -154,7 +184,9 @@ const translations = {
     "message.lookupFilterResult": "{eligible} eligible, {batch} in next lookup batch",
     "message.suggestionsShown": "Showing {shown} of {total}",
     "message.previewReady": "Preview ready: {count} rows",
+    "message.batchPreviewReady": "Preview ready: {files} files, {count} rows",
     "message.importFilterResult": "{after} of {before} rows will be imported",
+    "message.testersSkipped": "Tester products skipped: {count}",
     "message.applyFiltersToUpdatePreview": "Apply filters preview to update rows",
     "message.filteredPreviewReady": "Filtered preview ready: {count} rows",
     "message.searchPlaceholder": "Search all filtered rows by SKU, EAN, title, brand...",
@@ -167,6 +199,13 @@ const translations = {
     "message.noSavedSupplierFilters": "No saved supplier filters yet",
     "message.rulesReset": "Rules reset",
     "message.savedImport": "Saved {count} offers",
+    "message.supplyChannelHint": "The category is detected from the filename and workbook content. Review it before saving.",
+    "message.confirmSupplyChannels": "I confirm the supply category for every file",
+    "message.confirmDeleteImport": "Delete this saved import from history?",
+    "message.confirmDeleteActiveImport": "Delete the current saved price list? Current supplier offers and derived pipeline data will also be removed.",
+    "message.confirmDeleteOldImports": "Delete all imports older than 30 days? If the current catalog is older, its offers and derived pipeline data will also be removed.",
+    "message.importsDeleted": "Deleted {imports} imports and {offers} current offers",
+    "message.savedPriceListsHint": "Manage imported supplier price lists without opening a supplier first.",
     "message.uploaded": "Uploaded",
     "nav.pipeline": "Pipeline",
     "nav.keepa": "Keepa",
@@ -176,6 +215,7 @@ const translations = {
     "nav.settings": "Settings",
     "nav.suppliers": "Suppliers",
     "nav.upload": "Upload",
+    "nav.procurement": "Price comparison",
     "panel.recentImports": "Recent Imports",
     "panel.amazonMatches": "Amazon Matches",
     "panel.dealCandidates": "Deal Candidates",
@@ -184,13 +224,23 @@ const translations = {
     "panel.pipelineIssues": "Pipeline Issues",
     "panel.columnMapping": "Column Mapping",
     "panel.previewRows": "Preview Rows",
+    "panel.supplyChannels": "Supply categories",
+    "supply.stock": "In stock",
+    "supply.incoming": "Incoming",
+    "supply.preorder": "Preorder",
     "panel.qualityChecks": "Quality Checks",
+    "panel.fileDiagnostics": "Quality by file",
     "panel.researchQueue": "Research Queue",
     "panel.researchRules": "Research Rules",
     "panel.supplierFeed": "Supplier Feed",
     "panel.supplierDetails": "Supplier Details",
     "panel.supplierManagement": "Supplier Management",
+    "panel.procurementComparison": "Supplier price comparison",
+    "procurement.gridHint": "Drag columns to reorder them and drag their borders to resize.",
+    "panel.comparisonResults": "Comparison results",
+    "panel.vatSettings": "VAT settings",
     "panel.importHistory": "Import History",
+    "panel.savedPriceLists": "Saved price lists",
     "panel.importFilters": "Import Filters",
     "panel.externalLookupPreview": "Research lookup plan",
     "panel.lookupSample": "Lookup sample",
@@ -228,6 +278,12 @@ const translations = {
     "summary.skippedReasons": "Skipped reasons",
     "summary.unqueuedOffers": "Not queued yet",
     "summary.researchQueue": "Research Queue",
+    "summary.requestedProducts": "Requested",
+    "summary.locatedProducts": "Offers found",
+    "summary.matchedProducts": "Ready to compare",
+    "summary.needsConfiguration": "Needs setup",
+    "summary.unmatchedProducts": "Not found",
+    "summary.invalidLines": "Invalid lines",
     "issue.amazonNotFound": "Amazon not found",
     "issue.available": "Available",
     "issue.dealCandidates": "Deal candidates",
@@ -243,6 +299,12 @@ const translations = {
     "keepa.sourceMock": "Mock",
     "keepa.sourceReal": "Real",
     "keepa.sourceUnknown": "Unknown",
+    "comparison.matched": "Matched",
+    "comparison.not_found": "Not found",
+    "comparison.currency_mismatch": "Currency mismatch",
+    "comparison.missing_cost": "Missing cost",
+    "comparison.minimum_quantity": "Below minimum quantity",
+    "comparison.minimumQuantityValue": "minimum {count}",
     "table.brand": "Brand",
     "table.buyBox": "Buy Box",
     "table.confidence": "Confidence",
@@ -261,6 +323,11 @@ const translations = {
     "table.stock": "Stock",
     "table.status": "Status",
     "table.supplier": "Supplier",
+    "table.requestedProduct": "Requested product",
+    "table.bestSupplier": "Supplier / best offer",
+    "table.sourceCost": "Price",
+    "table.offers": "Offers",
+    "table.winner": "Winner",
     "table.file": "File",
     "table.rows": "Rows",
     "table.valid": "Valid",
@@ -268,6 +335,10 @@ const translations = {
     "table.amazonPresent": "Amazon present",
     "table.failed": "Failed",
     "table.importedAt": "Imported at",
+    "table.priceDate": "Price imported",
+    "freshness.today": "today",
+    "freshness.oneDayAgo": "1 day ago",
+    "freshness.daysAgo": "{count} days ago",
     "table.sku": "SKU",
     "table.cost": "Cost",
     "table.title": "Title",
@@ -318,13 +389,18 @@ const translations = {
     "action.saveSupplierRules": "Lieferantenregeln speichern",
     "action.resetToDefault": "Auf Standard zurücksetzen",
     "action.resetToSystemDefaults": "Auf Systemstandard zurücksetzen",
+    "action.resetColumns": "Spalten zurücksetzen",
     "action.newUpload": "Neuer Upload",
     "action.saveImport": "Import speichern",
+    "action.deleteImport": "Import löschen",
+    "action.deleteOldImports": "Importe älter als 30 Tage löschen",
     "action.selectAll": "Alle auswählen",
     "action.clearAll": "Alle abwählen",
     "action.search": "Suchen",
     "action.searchPreview": "Suchen",
     "action.clearSearch": "Suche löschen",
+    "action.clear": "Leeren",
+    "action.compare": "Vergleichen",
     "action.clearWorkspace": "Vorschau-Workspace leeren",
     "action.clearDatabase": "Datenbankdaten leeren",
     "action.managePrice": "Preis & Filter",
@@ -351,12 +427,19 @@ const translations = {
     "field.allSuppliers": "Alle Lieferanten",
     "field.batchSize": "Batchgröße",
     "field.excludeAmazonStock": "Amazon-Bestand ausschließen",
-    "field.feedFile": "CSV- oder Excel-Datei",
+    "field.feedFile": "CSV-, Excel- oder ZIP-Dateien",
+    "field.fileCount": "Dateien",
+    "field.skippedFiles": "Übersprungene Archiveinträge",
     "field.file": "Datei",
+    "field.supplyChannel": "Lieferkategorie",
+    "field.leadTime": "Lieferzeit",
+    "field.leadTimeMinDays": "Lieferzeit min. (Tage)",
+    "field.leadTimeMaxDays": "Lieferzeit max. (Tage)",
     "field.filterBrands": "Marken ausschließen",
     "field.filterKeywords": "Titel-Keywords ausschließen",
     "field.excludeMissingEan": "Fehlende EAN ausschließen",
     "field.excludeNonNew": "Nicht neue / refurbished ausschließen",
+    "field.excludeTesters": "Tester-Produkte werden immer übersprungen",
     "field.fulfillmentFee": "Fulfillment-Gebühr",
     "field.highStock": "Hoher Bestand",
     "field.lowStock": "Niedriger Bestand",
@@ -388,10 +471,19 @@ const translations = {
     "field.scoreStockVeryLow": "Punkte Bestand sehr niedrig",
     "field.scoreTitle": "Punkte Titel",
     "field.supplierName": "Lieferantenname",
+    "field.productList": "Produktliste",
+    "field.targetCurrency": "Währung",
+    "field.includeHiddenSuppliers": "Ausgeblendete einbeziehen",
+    "field.pricesIncludeVat": "Preise enthalten bereits MwSt.",
+    "field.defaultVatRate": "Standard-MwSt. %",
+    "field.purchaseQuantity": "Menge",
     "field.columns": "Spalten",
     "field.mapped": "Zugeordnet",
     "quality.duplicateEan": "Doppelte EAN",
     "quality.missingEan": "Fehlende EAN",
+    "quality.invalidEan": "Ungültige EAN",
+    "quality.supplierCode": "Lieferantencode (kein GTIN)",
+    "quality.testerRows": "Tester-Produkte (übersprungen)",
     "quality.missingPrice": "Fehlender Preis",
     "quality.suspiciousPrice": "Verdächtiger Preis",
     "quality.unmappedColumns": "Nicht zugeordnete Spalten",
@@ -411,6 +503,10 @@ const translations = {
     "message.maintenanceResult": "{action}: {rows} Zeilen entfernt, {size} freigegeben",
     "message.noSuppliersYet": "Noch keine Lieferanten. Oben mit optionaler Preis-URL anlegen oder die erste Preisliste unter Upload prüfen und speichern.",
     "message.noRecords": "Keine Einträge",
+    "message.productListPlaceholder": "1. Produktname — EAN 4006381333931",
+    "message.comparisonComplete": "{count} Produkte verglichen",
+    "message.invalidProductLines": "Zeilen ohne gültige EAN: {count}",
+    "message.supplierPricingSaved": "MwSt.-Einstellungen gespeichert",
     "message.processedMatches": "{count} Matches verarbeitet",
     "message.keepaRun": "Keepa fertig: {created} vorbereitet, {processed} verarbeitet",
     "message.keepaRunWithSource": "Keepa fertig über {source}: {created} vorbereitet, {processed} verarbeitet",
@@ -427,7 +523,9 @@ const translations = {
     "message.lookupFilterResult": "{eligible} geeignet, {batch} im nächsten Lookup-Batch",
     "message.suggestionsShown": "{shown} von {total} angezeigt",
     "message.previewReady": "Vorschau bereit: {count} Zeilen",
+    "message.batchPreviewReady": "Vorschau bereit: {files} Dateien, {count} Zeilen",
     "message.importFilterResult": "{after} von {before} Zeilen werden importiert",
+    "message.testersSkipped": "Übersprungene Tester-Produkte: {count}",
     "message.applyFiltersToUpdatePreview": "Filtervorschau anwenden, um Zeilen zu aktualisieren",
     "message.filteredPreviewReady": "Gefilterte Vorschau bereit: {count} Zeilen",
     "message.searchPlaceholder": "Alle gefilterten Zeilen nach SKU, EAN, Titel, Marke suchen...",
@@ -440,6 +538,13 @@ const translations = {
     "message.noSavedSupplierFilters": "Noch keine gespeicherten Lieferantenfilter",
     "message.rulesReset": "Regeln zurückgesetzt",
     "message.savedImport": "{count} Angebote gespeichert",
+    "message.supplyChannelHint": "Die Kategorie wird aus Dateiname und Inhalt erkannt. Bitte vor dem Speichern prüfen.",
+    "message.confirmSupplyChannels": "Ich bestätige die Lieferkategorie für jede Datei",
+    "message.confirmDeleteImport": "Diesen gespeicherten Import aus der Historie löschen?",
+    "message.confirmDeleteActiveImport": "Die aktuelle gespeicherte Preisliste löschen? Aktuelle Lieferantenangebote und abgeleitete Pipeline-Daten werden ebenfalls entfernt.",
+    "message.confirmDeleteOldImports": "Alle Importe löschen, die älter als 30 Tage sind? Ist der aktuelle Katalog älter, werden auch seine Angebote und Pipeline-Daten entfernt.",
+    "message.importsDeleted": "{imports} Importe und {offers} aktuelle Angebote gelöscht",
+    "message.savedPriceListsHint": "Importierte Preislisten verwalten, ohne zuerst einen Lieferanten zu öffnen.",
     "message.uploaded": "Hochgeladen",
     "nav.pipeline": "Pipeline",
     "nav.keepa": "Keepa",
@@ -449,6 +554,7 @@ const translations = {
     "nav.settings": "Einstellungen",
     "nav.suppliers": "Lieferanten",
     "nav.upload": "Upload",
+    "nav.procurement": "Preisvergleich",
     "panel.recentImports": "Letzte Importe",
     "panel.amazonMatches": "Amazon Matches",
     "panel.dealCandidates": "Deal-Kandidaten",
@@ -457,13 +563,23 @@ const translations = {
     "panel.pipelineIssues": "Pipeline-Probleme",
     "panel.columnMapping": "Spaltenzuordnung",
     "panel.previewRows": "Vorschauzeilen",
+    "panel.supplyChannels": "Lieferkategorien",
+    "supply.stock": "Auf Lager",
+    "supply.incoming": "Im Zulauf",
+    "supply.preorder": "Vorbestellung",
     "panel.qualityChecks": "Qualitätsprüfung",
+    "panel.fileDiagnostics": "Qualität nach Datei",
     "panel.researchQueue": "Recherche-Queue",
     "panel.researchRules": "Recherche-Regeln",
     "panel.supplierFeed": "Lieferanten-Feed",
     "panel.supplierDetails": "Lieferanten-Details",
     "panel.supplierManagement": "Lieferantenverwaltung",
+    "panel.procurementComparison": "Lieferanten-Preisvergleich",
+    "procurement.gridHint": "Spalten zum Verschieben ziehen und ihre Ränder zum Ändern der Breite verwenden.",
+    "panel.comparisonResults": "Vergleichsergebnisse",
+    "panel.vatSettings": "MwSt.-Einstellungen",
     "panel.importHistory": "Importhistorie",
+    "panel.savedPriceLists": "Gespeicherte Preislisten",
     "panel.importFilters": "Importfilter",
     "panel.externalLookupPreview": "Recherche-Lookup-Plan",
     "panel.lookupSample": "Lookup-Beispiele",
@@ -501,6 +617,12 @@ const translations = {
     "summary.skippedReasons": "Ausfilter-Gründe",
     "summary.unqueuedOffers": "Noch nicht in Queue",
     "summary.researchQueue": "Recherche-Queue",
+    "summary.requestedProducts": "Angefragt",
+    "summary.locatedProducts": "Angebote gefunden",
+    "summary.matchedProducts": "Vergleichbar",
+    "summary.needsConfiguration": "Einrichtung nötig",
+    "summary.unmatchedProducts": "Nicht gefunden",
+    "summary.invalidLines": "Ungültige Zeilen",
     "issue.amazonNotFound": "Amazon nicht gefunden",
     "issue.available": "Verfügbar",
     "issue.dealCandidates": "Deal-Kandidaten",
@@ -516,6 +638,12 @@ const translations = {
     "keepa.sourceMock": "Mock",
     "keepa.sourceReal": "Echt",
     "keepa.sourceUnknown": "Unbekannt",
+    "comparison.matched": "Gefunden",
+    "comparison.not_found": "Nicht gefunden",
+    "comparison.currency_mismatch": "Andere Währung",
+    "comparison.missing_cost": "Preis fehlt",
+    "comparison.minimum_quantity": "Unter Mindestmenge",
+    "comparison.minimumQuantityValue": "mindestens {count}",
     "table.brand": "Marke",
     "table.buyBox": "Buy Box",
     "table.confidence": "Konfidenz",
@@ -534,6 +662,11 @@ const translations = {
     "table.stock": "Bestand",
     "table.status": "Status",
     "table.supplier": "Lieferant",
+    "table.requestedProduct": "Gesuchtes Produkt",
+    "table.bestSupplier": "Lieferant / bestes Angebot",
+    "table.sourceCost": "Preis",
+    "table.offers": "Angebote",
+    "table.winner": "Gewinner",
     "table.file": "Datei",
     "table.rows": "Zeilen",
     "table.valid": "Gültig",
@@ -541,6 +674,10 @@ const translations = {
     "table.amazonPresent": "Amazon präsent",
     "table.failed": "Fehler",
     "table.importedAt": "Importiert am",
+    "table.priceDate": "Preis importiert",
+    "freshness.today": "heute",
+    "freshness.oneDayAgo": "vor 1 Tag",
+    "freshness.daysAgo": "vor {count} Tagen",
     "table.sku": "SKU",
     "table.cost": "Kosten",
     "table.title": "Titel",
@@ -591,13 +728,18 @@ const translations = {
     "action.saveSupplierRules": "Зберегти правила постачальника",
     "action.resetToDefault": "Скинути до дефолту",
     "action.resetToSystemDefaults": "Скинути до системного дефолту",
+    "action.resetColumns": "Скинути колонки",
     "action.newUpload": "Нове завантаження",
     "action.saveImport": "Зберегти імпорт",
+    "action.deleteImport": "Видалити імпорт",
+    "action.deleteOldImports": "Видалити імпорти старші 30 днів",
     "action.selectAll": "Вибрати всі",
     "action.clearAll": "Зняти всі",
     "action.search": "Шукати",
     "action.searchPreview": "Пошук",
     "action.clearSearch": "Очистити пошук",
+    "action.clear": "Очистити",
+    "action.compare": "Порівняти",
     "action.clearWorkspace": "Очистити preview workspace",
     "action.clearDatabase": "Очистити дані бази",
     "action.managePrice": "Прайс і фільтри",
@@ -624,12 +766,19 @@ const translations = {
     "field.allSuppliers": "Усі постачальники",
     "field.batchSize": "Розмір batch",
     "field.excludeAmazonStock": "Виключати Amazon in stock",
-    "field.feedFile": "CSV або Excel файл",
+    "field.feedFile": "CSV, Excel або ZIP файли",
+    "field.fileCount": "Файли",
+    "field.skippedFiles": "Пропущені файли архіву",
     "field.file": "Файл",
+    "field.supplyChannel": "Категорія постачання",
+    "field.leadTime": "Термін постачання",
+    "field.leadTimeMinDays": "Мін. термін постачання (дні)",
+    "field.leadTimeMaxDays": "Макс. термін постачання (дні)",
     "field.filterBrands": "Виключити бренди",
     "field.filterKeywords": "Виключити keywords у назві",
     "field.excludeMissingEan": "Виключити рядки без EAN",
     "field.excludeNonNew": "Виключити не нові / refurbished",
+    "field.excludeTesters": "Tester-позиції завжди пропускаються",
     "field.fulfillmentFee": "Fulfillment fee",
     "field.highStock": "Високий stock",
     "field.lowStock": "Низький stock",
@@ -661,10 +810,19 @@ const translations = {
     "field.scoreStockVeryLow": "Бали за дуже низький stock",
     "field.scoreTitle": "Бали за title",
     "field.supplierName": "Назва постачальника",
+    "field.productList": "Список товарів",
+    "field.targetCurrency": "Валюта",
+    "field.includeHiddenSuppliers": "Включити прихованих",
+    "field.pricesIncludeVat": "Ціни вже включають ПДВ",
+    "field.defaultVatRate": "Ставка ПДВ за замовчуванням, %",
+    "field.purchaseQuantity": "Кількість",
     "field.columns": "Колонки",
     "field.mapped": "Розпізнано",
     "quality.duplicateEan": "Дублікати EAN",
     "quality.missingEan": "Без EAN",
+    "quality.invalidEan": "Невалідний EAN",
+    "quality.supplierCode": "Код постачальника (не GTIN)",
+    "quality.testerRows": "Tester-позиції (пропущено)",
     "quality.missingPrice": "Без ціни",
     "quality.suspiciousPrice": "Підозріла ціна",
     "quality.unmappedColumns": "Нерозпізнані колонки",
@@ -684,6 +842,10 @@ const translations = {
     "message.maintenanceResult": "{action}: видалено {rows} рядків, звільнено {size}",
     "message.noSuppliersYet": "Постачальників ще немає. Додай постачальника вище з необовʼязковим URL прайсу або зроби preview і збережи перший прайс у Upload.",
     "message.noRecords": "Немає записів",
+    "message.productListPlaceholder": "1. Назва товару — EAN 4006381333931",
+    "message.comparisonComplete": "Порівняно товарів: {count}",
+    "message.invalidProductLines": "Рядків без валідного EAN: {count}",
+    "message.supplierPricingSaved": "Налаштування ПДВ постачальника збережено",
     "message.processedMatches": "Оброблено {count} matches",
     "message.keepaRun": "Keepa завершено: {created} поставлено в чергу, {processed} оброблено",
     "message.keepaRunWithSource": "Keepa завершено через {source}: {created} поставлено в чергу, {processed} оброблено",
@@ -700,7 +862,9 @@ const translations = {
     "message.lookupFilterResult": "{eligible} підходять, {batch} у наступному lookup batch",
     "message.suggestionsShown": "Показано {shown} з {total}",
     "message.previewReady": "Превʼю готове: {count} рядків",
+    "message.batchPreviewReady": "Превʼю готове: {files} файлів, {count} рядків",
     "message.importFilterResult": "Буде імпортовано {after} з {before} рядків",
+    "message.testersSkipped": "Пропущено tester-позицій: {count}",
     "message.applyFiltersToUpdatePreview": "Застосуй фільтри для оновлення рядків preview",
     "message.filteredPreviewReady": "Відфільтроване превʼю готове: {count} рядків",
     "message.searchPlaceholder": "Пошук по всіх відфільтрованих рядках: SKU, EAN, назва, бренд...",
@@ -713,6 +877,13 @@ const translations = {
     "message.noSavedSupplierFilters": "Збережених фільтрів постачальника ще немає",
     "message.rulesReset": "Правила скинуто",
     "message.savedImport": "Збережено {count} offers",
+    "message.supplyChannelHint": "Категорія визначається з назви та вмісту файла. Перевір її перед збереженням.",
+    "message.confirmSupplyChannels": "Підтверджую категорію постачання для кожного файла",
+    "message.confirmDeleteImport": "Видалити цей збережений імпорт з історії?",
+    "message.confirmDeleteActiveImport": "Видалити поточний збережений прайс? Поточні offers постачальника та похідні pipeline data також будуть видалені.",
+    "message.confirmDeleteOldImports": "Видалити всі імпорти старші 30 днів? Якщо поточний каталог теж застарів, його offers і похідні pipeline data також буде видалено.",
+    "message.importsDeleted": "Видалено імпортів: {imports}; поточних offers: {offers}",
+    "message.savedPriceListsHint": "Керування імпортованими прайсами без попереднього відкриття постачальника.",
     "message.uploaded": "Завантажено",
     "nav.pipeline": "Pipeline",
     "nav.keepa": "Keepa",
@@ -722,6 +893,7 @@ const translations = {
     "nav.settings": "Налаштування",
     "nav.suppliers": "Постачальники",
     "nav.upload": "Завантаження",
+    "nav.procurement": "Порівняння цін",
     "panel.recentImports": "Останні імпорти",
     "panel.amazonMatches": "Amazon збіги",
     "panel.dealCandidates": "Кандидати угод",
@@ -730,13 +902,23 @@ const translations = {
     "panel.pipelineIssues": "Проблеми pipeline",
     "panel.columnMapping": "Зіставлення колонок",
     "panel.previewRows": "Рядки превʼю",
+    "panel.supplyChannels": "Категорії постачання",
+    "supply.stock": "В наявності",
+    "supply.incoming": "Очікується",
+    "supply.preorder": "Передзамовлення",
     "panel.qualityChecks": "Перевірка якості",
+    "panel.fileDiagnostics": "Якість по файлах",
     "panel.researchQueue": "Черга дослідження",
     "panel.researchRules": "Правила дослідження",
     "panel.supplierFeed": "Фід постачальника",
     "panel.supplierDetails": "Деталі постачальника",
     "panel.supplierManagement": "Керування постачальниками",
+    "panel.procurementComparison": "Порівняння цін постачальників",
+    "procurement.gridHint": "Перетягуйте колонки для зміни порядку, а їхні межі — для зміни ширини.",
+    "panel.comparisonResults": "Результати порівняння",
+    "panel.vatSettings": "Налаштування ПДВ",
     "panel.importHistory": "Історія імпортів",
+    "panel.savedPriceLists": "Збережені прайси",
     "panel.importFilters": "Фільтри імпорту",
     "panel.externalLookupPreview": "План research lookup",
     "panel.lookupSample": "Приклад lookup",
@@ -774,6 +956,12 @@ const translations = {
     "summary.skippedReasons": "Причини відсіву",
     "summary.unqueuedOffers": "Ще не в черзі",
     "summary.researchQueue": "Черга дослідження",
+    "summary.requestedProducts": "У запиті",
+    "summary.locatedProducts": "Офери знайдено",
+    "summary.matchedProducts": "Готові до порівняння",
+    "summary.needsConfiguration": "Потрібне налаштування",
+    "summary.unmatchedProducts": "Не знайдено",
+    "summary.invalidLines": "Невалідні рядки",
     "issue.amazonNotFound": "Amazon не знайдено",
     "issue.available": "Доступно",
     "issue.dealCandidates": "Кандидати угод",
@@ -789,6 +977,12 @@ const translations = {
     "keepa.sourceMock": "Mock",
     "keepa.sourceReal": "Real",
     "keepa.sourceUnknown": "Невідомо",
+    "comparison.matched": "Знайдено",
+    "comparison.not_found": "Не знайдено",
+    "comparison.currency_mismatch": "Інша валюта",
+    "comparison.missing_cost": "Немає ціни",
+    "comparison.minimum_quantity": "Менше мінімальної кількості",
+    "comparison.minimumQuantityValue": "мінімум {count}",
     "table.brand": "Бренд",
     "table.buyBox": "Buy Box",
     "table.confidence": "Впевненість",
@@ -807,6 +1001,11 @@ const translations = {
     "table.stock": "Stock",
     "table.status": "Статус",
     "table.supplier": "Постачальник",
+    "table.requestedProduct": "Запитаний товар",
+    "table.bestSupplier": "Постачальник / кращий офер",
+    "table.sourceCost": "Ціна",
+    "table.offers": "Пропозиції",
+    "table.winner": "Переможець",
     "table.file": "Файл",
     "table.rows": "Рядки",
     "table.valid": "Валідні",
@@ -814,6 +1013,10 @@ const translations = {
     "table.amazonPresent": "Amazon присутній",
     "table.failed": "Помилки",
     "table.importedAt": "Імпортовано",
+    "table.priceDate": "Прайс імпортовано",
+    "freshness.today": "сьогодні",
+    "freshness.oneDayAgo": "1 день тому",
+    "freshness.daysAgo": "{count} днів тому",
     "table.sku": "SKU",
     "table.cost": "Ціна",
     "table.title": "Назва",
@@ -1049,6 +1252,10 @@ function applyLanguage() {
     element.title = t(element.dataset.i18nTitle);
   });
 
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.placeholder = t(element.dataset.i18nPlaceholder);
+  });
+
   document.querySelector("#view-title").textContent = t(
     `nav.${state.activeView}`,
   );
@@ -1059,6 +1266,7 @@ function applyLanguage() {
   renderSupplierManagement();
   renderSuppliersDashboard();
   renderSupplierDetail(state.supplierDetail);
+  renderProcurementComparison(state.procurementComparison);
 
   if (state.importPreview) {
     renderImportPreview(state.importPreview);
@@ -1083,15 +1291,25 @@ async function api(path, options = {}) {
   });
 
   const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (_error) {
+      data = { detail: text };
+    }
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
       window.location.href = "/auth/login";
       return null;
     }
-    const message = data?.detail
-      ? JSON.stringify(data.detail)
+    const detail = data?.detail;
+    const message = detail
+      ? `Request failed with ${response.status}: ${
+        typeof detail === "string" ? detail : JSON.stringify(detail)
+      }`
       : `Request failed with ${response.status}`;
     throw new Error(message);
   }
@@ -1204,7 +1422,7 @@ function renderSupplierSelect() {
 function updateSupplierScopeVisibility() {
   document.querySelector("#supplier-select").classList.toggle(
     "hidden",
-    state.activeView === "suppliers",
+    ["suppliers", "procurement"].includes(state.activeView),
   );
 }
 
@@ -1299,6 +1517,41 @@ function statusText(statuses = {}) {
     .join(" | ");
 
   return text || t("message.noRecords");
+}
+
+function renderSavedImports() {
+  const body = document.querySelector("#saved-imports-table");
+  if (!body) return;
+
+  body.innerHTML = state.savedImports.length
+    ? state.savedImports.map((run) => `
+      <tr>
+        <td>${escapeHtml(run.supplier_name)}</td>
+        <td>${escapeHtml(run.filename)}</td>
+        <td>${formatNumber(run.rows_total)}</td>
+        <td>${formatNumber(run.rows_valid)}</td>
+        <td>
+          <span class="badge ${statusClass(run.status)}">${escapeHtml(run.status)}</span>
+          ${run.is_active ? `<span class="badge ok">${t("priceStatus.current")}</span>` : ""}
+        </td>
+        <td>${formatDate(run.created_at)}</td>
+        <td>
+          <button
+            class="ghost-button danger-button compact-button"
+            data-delete-supplier-import="${run.id}"
+            data-supplier-id="${run.supplier_id}"
+            data-active-import="${run.is_active ? "true" : "false"}"
+            type="button"
+          >${t("action.deleteImport")}</button>
+        </td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="7">${t("message.noRecords")}</td></tr>`;
+}
+
+async function loadSavedImports() {
+  state.savedImports = await api("/suppliers/imports/history");
+  renderSavedImports();
 }
 
 function renderSuppliersDashboard() {
@@ -1637,6 +1890,36 @@ function renderSupplierDetail(detail) {
       </div>
     </section>
 
+    <section class="supplier-vat-settings">
+      <div class="section-title-row">
+        <h4>${t("panel.vatSettings")}</h4>
+        <button class="ghost-button" data-save-supplier-pricing="${detail.id}" type="button">
+          ${t("action.save")}
+        </button>
+      </div>
+      <div class="supplier-vat-form">
+        <label class="inline-toggle">
+          <span>${t("field.pricesIncludeVat")}</span>
+          <input
+            data-supplier-prices-include-vat
+            type="checkbox"
+            ${detail.prices_include_vat ? "checked" : ""}
+          >
+        </label>
+        <label>
+          <span>${t("field.defaultVatRate")}</span>
+          <input
+            data-supplier-default-vat-rate
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            value="${detail.default_vat_rate ?? ""}"
+          >
+        </label>
+      </div>
+    </section>
+
     <section class="supplier-detail-grid">
       <article class="supplier-detail-section">
         <h4>${t("panel.offerStats")}</h4>
@@ -1676,7 +1959,12 @@ function renderSupplierDetail(detail) {
     <section class="supplier-detail-section">
       <div class="section-title-row">
         <h4>${t("panel.importHistory")}</h4>
-        <button class="ghost-button compact-button" data-export-table="#supplier-import-history-table" type="button">CSV</button>
+        <div class="button-row">
+          <button class="ghost-button danger-button compact-button" data-delete-old-supplier-imports="${detail.id}" type="button">
+            ${t("action.deleteOldImports")}
+          </button>
+          <button class="ghost-button compact-button" data-export-table="#supplier-import-history-table" type="button">CSV</button>
+        </div>
       </div>
       <div class="table-wrap scroll-table compact-table">
         <table>
@@ -1689,22 +1977,32 @@ function renderSupplierDetail(detail) {
               <th>${t("field.mapped")}</th>
               <th>${t("table.status")}</th>
               <th>${t("metric.createdAt")}</th>
+              <th>${t("table.actions")}</th>
             </tr>
           </thead>
           <tbody id="supplier-import-history-table">
             ${imports.length
               ? imports.map((run) => `
                 <tr>
-                  <td>${escapeHtml(run.filename)}</td>
+                  <td>${escapeHtml((run.files || [run.filename]).join(", "))}</td>
                   <td>${formatNumber(run.rows_total)}</td>
                   <td>${formatNumber(run.rows_valid)}</td>
                   <td>${formatNumber(run.rows_failed)}</td>
                   <td>${importMappingSummary(run)}</td>
                   <td><span class="badge ${statusClass(run.status)}">${escapeHtml(run.status)}</span></td>
                   <td>${formatDate(run.created_at)}</td>
+                  <td>
+                    <button
+                      class="ghost-button danger-button compact-button"
+                      data-delete-supplier-import="${run.id}"
+                      data-supplier-id="${detail.id}"
+                      data-active-import="${run.is_active ? "true" : "false"}"
+                      type="button"
+                    >${t("action.deleteImport")}</button>
+                  </td>
                 </tr>
               `).join("")
-              : `<tr><td colspan="7">${t("message.noRecords")}</td></tr>`}
+              : `<tr><td colspan="8">${t("message.noRecords")}</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1725,6 +2023,7 @@ function renderSupplierDetail(detail) {
               <th>${t("table.title")}</th>
               <th>${t("table.cost")}</th>
               <th>${t("table.stock")}</th>
+              <th>${t("table.file")}</th>
               <th>${t("table.importedAt")}</th>
             </tr>
           </thead>
@@ -1738,10 +2037,11 @@ function renderSupplierDetail(detail) {
                   <td>${escapeHtml(offer.title) || "-"}</td>
                   <td>${formatNumber(offer.cost)} ${escapeHtml(offer.currency) || ""}</td>
                   <td>${formatNumber(offer.stock)}</td>
+                  <td>${escapeHtml(offer.source_file) || "-"}</td>
                   <td>${formatDate(offer.imported_at)}</td>
                 </tr>
               `).join("")
-              : `<tr><td colspan="7">${t("message.noRecords")}</td></tr>`}
+              : `<tr><td colspan="8">${t("message.noRecords")}</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -1753,7 +2053,11 @@ function renderSupplierDetail(detail) {
     `${detail.name}-${t("panel.importHistory")}`,
     imports,
     [
-      { key: "filename", label: t("table.file") },
+      {
+        key: "filename",
+        label: t("table.file"),
+        export: (run) => (run.files || [run.filename]).join(", "),
+      },
       { key: "rows_total", label: t("table.rows") },
       { key: "rows_valid", label: t("table.valid") },
       { key: "rows_failed", label: t("table.failed") },
@@ -1781,6 +2085,7 @@ function renderSupplierDetail(detail) {
         export: (offer) => [offer.cost, offer.currency].filter(Boolean).join(" "),
       },
       { key: "stock", label: t("table.stock") },
+      { key: "source_file", label: t("table.file") },
       { key: "imported_at", label: t("table.importedAt") },
     ],
   );
@@ -1795,6 +2100,9 @@ function renderQualityChecks(report = {}) {
   const details = document.querySelector("#quality-details");
   const checks = [
     ["quality.missingEan", report.missing_ean_count || 0],
+    ["quality.invalidEan", report.invalid_ean_count || 0],
+    ["quality.supplierCode", report.supplier_code_count || 0],
+    ["quality.testerRows", report.tester_count || 0],
     ["quality.missingPrice", report.missing_price_count || 0],
     ["quality.duplicateEan", report.duplicate_ean_count || 0],
     ["quality.suspiciousPrice", report.suspicious_price_count || 0],
@@ -1814,6 +2122,9 @@ function renderQualityChecks(report = {}) {
   const detailItems = [];
   const exampleLabels = {
     missing_ean: "quality.missingEan",
+    invalid_ean: "quality.invalidEan",
+    supplier_code: "quality.supplierCode",
+    tester: "quality.testerRows",
     missing_price: "quality.missingPrice",
     duplicate_ean: "quality.duplicateEan",
     suspicious_price: "quality.suspiciousPrice",
@@ -2070,9 +2381,10 @@ function renderRows(selector, rows, columns, options = {}) {
     .join("");
 }
 
-function registerTableExport(selector, title, rows, columns) {
+function registerTableExport(selector, title, rows, columns, options = {}) {
   state.tableExports[selector] = {
     title,
+    filename: options.filename || null,
     rows: rows || [],
     columns: (columns || []).filter((column) => column.export !== false),
   };
@@ -2141,7 +2453,7 @@ function downloadTableCsv(selector) {
     return;
   }
 
-  const { title, rows, columns } = tableExport;
+  const { title, filename, rows, columns } = tableExport;
 
   if (!rows.length) {
     showAlert(t("message.noRecords"), true);
@@ -2158,7 +2470,7 @@ function downloadTableCsv(selector) {
     .join("\n");
 
   downloadBlob(
-    `${filenameSafe(selectedSupplierName())}-${filenameSafe(title)}.csv`,
+    filename || `${filenameSafe(selectedSupplierName())}-${filenameSafe(title)}.csv`,
     "text/csv;charset=utf-8",
     `\uFEFF${header}\n${body}`,
   );
@@ -2241,6 +2553,13 @@ function filenameSafe(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     || "export";
+}
+
+function localDateStamp(value = new Date()) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function downloadBlob(filename, mimeType, content) {
@@ -2411,6 +2730,435 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function comparisonStatusLabel(status) {
+  return t(`comparison.${status || "not_found"}`);
+}
+
+function comparisonStatusClass(status) {
+  if (status === "matched") return "ok";
+  if (status === "not_found") return "bad";
+  return "warn";
+}
+
+function comparisonMoney(value, currency) {
+  if (value === null || value === undefined) return "-";
+  return `${formatNumber(value)} ${escapeHtml(currency || "")}`.trim();
+}
+
+function comparisonTierLabel(offer) {
+  if (!offer || !offer.tier_min_quantity) return "";
+  return `≥ ${formatNumber(offer.tier_min_quantity)}`;
+}
+
+function importAgeDays(value) {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 86400000));
+}
+
+function comparisonImportDate(offer) {
+  if (!offer?.imported_at) return "-";
+  const days = importAgeDays(offer.imported_at);
+  let age = "";
+  if (days === 0) age = t("freshness.today");
+  else if (days === 1) age = t("freshness.oneDayAgo");
+  else if (days !== null) age = t("freshness.daysAgo", { count: days });
+
+  return `
+    <span class="procurement-date">
+      ${escapeHtml(formatDate(offer.imported_at))}
+      ${age ? `<small>${escapeHtml(age)}</small>` : ""}
+    </span>
+  `;
+}
+
+function procurementOfferMarkup(offer, winnerId) {
+  let unavailable = offer.unavailable_reason
+    ? comparisonStatusLabel(offer.unavailable_reason)
+    : "";
+  if (offer.unavailable_reason === "minimum_quantity" && offer.minimum_quantity) {
+    unavailable += `: ${t("comparison.minimumQuantityValue", {
+      count: formatNumber(offer.minimum_quantity),
+    })}`;
+  }
+
+  return `
+    <div class="procurement-offer ${offer.offer_id === winnerId ? "winner" : ""}">
+      <strong>${escapeHtml(offer.supplier) || "-"}</strong>
+      <span>${comparisonMoney(offer.source_cost, offer.currency)} <small>${comparisonTierLabel(offer)}</small></span>
+      <span>${formatNumber(offer.stock)}</span>
+      <span>${escapeHtml(offer.source_file) || "-"}</span>
+      ${comparisonImportDate(offer)}
+      <span>${unavailable ? escapeHtml(unavailable) : `+${formatNumber(offer.difference_to_best || 0)}`}</span>
+    </div>
+  `;
+}
+
+function procurementOffersSummary(offers) {
+  const prices = offers
+    .map((offer) => Number(offer.source_cost))
+    .filter(Number.isFinite);
+  const currencies = [...new Set(
+    offers.map((offer) => offer.currency).filter(Boolean),
+  )];
+  let priceSummary = "";
+
+  if (prices.length) {
+    const minimum = Math.min(...prices);
+    const maximum = Math.max(...prices);
+    const range = minimum === maximum
+      ? formatNumber(minimum)
+      : `${formatNumber(minimum)}–${formatNumber(maximum)}`;
+    priceSummary = ` · ${range} ${escapeHtml(currencies.length === 1 ? currencies[0] : "")}`;
+  }
+
+  return `${formatNumber(offers.length)} ${t("table.offers")}${priceSummary}`;
+}
+
+function procurementGridRows(data) {
+  return (data.results || []).flatMap((result) => {
+    const productName = result.title
+      || result.winner?.title
+      || result.offers?.[0]?.title
+      || result.input;
+    const offers = result.offers || [];
+
+    if (!offers.length) {
+      return [{
+        id: `line-${result.line}`,
+        product_name: productName,
+        ean: result.ean,
+        supplier: null,
+        source_cost: null,
+        currency: data.target_currency,
+        stock: null,
+        supply_channel: null,
+        lead_time_min_days: null,
+        lead_time_max_days: null,
+        source_file: null,
+        imported_at: null,
+        status: result.status,
+        is_winner: false,
+      }];
+    }
+
+    return offers.map((offer, index) => ({
+      id: `${result.line}-${offer.offer_id || index}`,
+      product_name: productName,
+      ean: result.ean,
+      supplier: offer.supplier,
+      source_cost: offer.source_cost,
+      currency: offer.currency,
+      stock: offer.stock,
+      supply_channel: offer.supply_channel,
+      lead_time_min_days: offer.lead_time_min_days,
+      lead_time_max_days: offer.lead_time_max_days,
+      source_file: offer.source_file,
+      imported_at: offer.imported_at,
+      status: offer.unavailable_reason || result.status,
+      is_winner: offer.offer_id === result.winner?.offer_id,
+      tier_min_quantity: offer.tier_min_quantity,
+    }));
+  });
+}
+
+function procurementMoneyFormatter(cell, showTier = false) {
+  const row = cell.getRow().getData();
+  const money = comparisonMoney(cell.getValue(), row.currency);
+  const tier = showTier ? comparisonTierLabel(row) : "";
+  return `<span class="procurement-grid-money">${money}${tier ? ` <small>${tier}</small>` : ""}</span>`;
+}
+
+function procurementGridColumns() {
+  return [
+    {
+      title: t("table.requestedProduct"),
+      field: "product_name",
+      width: 300,
+      minWidth: 220,
+      frozen: true,
+      variableHeight: true,
+      formatter: (cell) => {
+        const value = String(cell.getValue() || "-");
+        return `<div class="procurement-grid-product" title="${escapeHtml(value)}">${escapeHtml(value)}</div>`;
+      },
+    },
+    {
+      title: "EAN",
+      field: "ean",
+      width: 145,
+      minWidth: 125,
+      frozen: true,
+    },
+    {
+      title: t("table.supplier"),
+      field: "supplier",
+      width: 160,
+      minWidth: 120,
+      formatter: (cell) => {
+        const row = cell.getRow().getData();
+        const supplier = escapeHtml(cell.getValue()) || "-";
+        return row.is_winner
+          ? `<div class="procurement-grid-supplier"><strong>${supplier}</strong><span class="badge ok">${t("table.winner")}</span></div>`
+          : supplier;
+      },
+    },
+    {
+      title: t("table.sourceCost"),
+      field: "source_cost",
+      sorter: "number",
+      hozAlign: "right",
+      headerHozAlign: "right",
+      width: 130,
+      minWidth: 110,
+      formatter: (cell) => procurementMoneyFormatter(cell, true),
+    },
+    {
+      title: t("table.stock"),
+      field: "stock",
+      sorter: "number",
+      hozAlign: "right",
+      headerHozAlign: "right",
+      width: 86,
+      minWidth: 72,
+      formatter: (cell) => formatNumber(cell.getValue()),
+    },
+    {
+      title: t("field.supplyChannel"),
+      field: "supply_channel",
+      width: 145,
+      minWidth: 120,
+      formatter: (cell) => {
+        const value = cell.getValue();
+        return value ? t(`supply.${value}`) : "-";
+      },
+    },
+    {
+      title: t("field.leadTime"),
+      field: "lead_time_max_days",
+      sorter: "number",
+      width: 115,
+      minWidth: 95,
+      formatter: (cell) => supplyLeadTime(cell.getRow().getData()),
+    },
+    {
+      title: t("table.priceDate"),
+      field: "imported_at",
+      sorter: "datetime",
+      width: 170,
+      minWidth: 145,
+      formatter: (cell) => comparisonImportDate(cell.getRow().getData()),
+    },
+    {
+      title: t("table.file"),
+      field: "source_file",
+      width: 210,
+      minWidth: 140,
+      formatter: (cell) => {
+        const value = String(cell.getValue() || "-");
+        return `<div class="procurement-grid-file" title="${escapeHtml(value)}">${escapeHtml(value)}</div>`;
+      },
+    },
+    {
+      title: t("table.status"),
+      field: "status",
+      width: 170,
+      minWidth: 145,
+      formatter: (cell) => `<span class="badge ${comparisonStatusClass(cell.getValue())}">${escapeHtml(comparisonStatusLabel(cell.getValue()))}</span>`,
+    },
+  ];
+}
+
+function renderProcurementGrid(data) {
+  const element = document.querySelector("#procurement-results-table");
+  if (!element) return;
+  if (typeof Tabulator === "undefined") {
+    element.innerHTML = `<div class="procurement-grid-error">Tabulator failed to load.</div>`;
+    return;
+  }
+
+  if (state.procurementGrid && state.procurementGridLanguage !== state.language) {
+    state.procurementGrid.destroy();
+    state.procurementGrid = null;
+    element.innerHTML = "";
+  }
+
+  const rows = procurementGridRows(data);
+  if (!state.procurementGrid) {
+    state.procurementGridLanguage = state.language;
+    state.procurementGrid = new Tabulator(element, {
+      data: rows,
+      index: "id",
+      height: "100%",
+      layout: "fitDataStretch",
+      movableColumns: true,
+      resizableRows: true,
+      resizableColumnGuide: true,
+      placeholder: t("message.noRecords"),
+      persistence: { columns: true, sort: true },
+      persistenceMode: "local",
+      persistenceID: "mirenelle-procurement-grid-v2",
+      columnDefaults: {
+        resizable: true,
+        headerSort: true,
+        headerWordWrap: true,
+        vertAlign: "middle",
+      },
+      columns: procurementGridColumns(),
+    });
+  } else {
+    state.procurementGrid.replaceData(rows);
+  }
+}
+
+function resetProcurementGrid() {
+  Object.keys(localStorage)
+    .filter((key) => key.includes("mirenelle-procurement-grid-v2"))
+    .forEach((key) => localStorage.removeItem(key));
+
+  if (state.procurementGrid) {
+    state.procurementGrid.destroy();
+    state.procurementGrid = null;
+    document.querySelector("#procurement-results-table").innerHTML = "";
+  }
+  if (state.procurementComparison) {
+    renderProcurementGrid(state.procurementComparison);
+  }
+}
+
+function procurementExportRows(data) {
+  return (data.results || []).flatMap((result) => {
+    const productName = result.title
+      || result.winner?.title
+      || result.offers?.[0]?.title
+      || result.input;
+    if (!result.offers.length) {
+      return [{
+        requested_product: productName,
+        ean: result.ean,
+        status: comparisonStatusLabel(result.status),
+      }];
+    }
+
+    return result.offers.map((offer) => ({
+      requested_product: productName,
+      ean: result.ean,
+      status: comparisonStatusLabel(result.status),
+      best: offer.offer_id === result.winner?.offer_id ? "yes" : "",
+      supplier: offer.supplier,
+      supplier_sku: offer.supplier_sku,
+      source_file: offer.source_file,
+      source_cost: offer.source_cost,
+      imported_at: offer.imported_at,
+      age_days: importAgeDays(offer.imported_at),
+      purchase_quantity: offer.purchase_quantity,
+      tier_min_quantity: offer.tier_min_quantity,
+      price_tier_source: offer.price_tier_source,
+      available_tiers: offer.available_tiers,
+      currency: offer.currency,
+      stock: offer.stock,
+      supply_channel: offer.supply_channel,
+      lead_time_min_days: offer.lead_time_min_days,
+      lead_time_max_days: offer.lead_time_max_days,
+      difference_to_best: offer.difference_to_best,
+      unavailable_reason: offer.unavailable_reason,
+    }));
+  });
+}
+
+function renderProcurementComparison(data) {
+  const panel = document.querySelector("#procurement-results-panel");
+  const grid = document.querySelector("#procurement-results-table");
+  const summary = document.querySelector("#procurement-summary");
+  const invalid = document.querySelector("#procurement-invalid-lines");
+
+  if (!panel || !grid || !summary || !invalid) return;
+  if (!data) {
+    panel.classList.add("hidden");
+    registerTableExport("#procurement-results-table", t("panel.comparisonResults"), [], []);
+    return;
+  }
+
+  panel.classList.remove("hidden");
+  summary.innerHTML = [
+    ["summary.requestedProducts", data.requested],
+    ["summary.locatedProducts", data.offers_found ?? data.located ?? data.matched],
+    ["summary.matchedProducts", data.matched],
+    ["summary.needsConfiguration", data.needs_configuration ?? 0],
+    ["summary.unmatchedProducts", data.not_found ?? data.unmatched],
+    ["summary.invalidLines", data.invalid_lines?.length || 0],
+  ].map(([label, value]) => `
+    <article><span>${t(label)}</span><strong>${formatNumber(value)}</strong></article>
+  `).join("");
+
+  renderProcurementGrid(data);
+
+  const invalidLines = data.invalid_lines || [];
+  invalid.classList.toggle("hidden", !invalidLines.length);
+  invalid.innerHTML = invalidLines.length
+    ? `<strong>${t("message.invalidProductLines", { count: invalidLines.length })}</strong>
+       <span>${invalidLines.map((item) => `${item.line}: ${escapeHtml(item.text)}`).join(" · ")}</span>`
+    : "";
+
+  registerTableExport(
+    "#procurement-results-table",
+    t("panel.comparisonResults"),
+    procurementExportRows(data),
+    [
+      { key: "requested_product", label: t("table.requestedProduct") },
+      { key: "ean", label: "EAN" },
+      { key: "status", label: t("table.status") },
+      { key: "best", label: t("table.winner") },
+      { key: "supplier", label: t("table.supplier") },
+      { key: "supplier_sku", label: t("table.sku") },
+      { key: "source_file", label: t("table.file") },
+      { key: "source_cost", label: t("table.sourceCost") },
+      { key: "imported_at", label: t("table.priceDate") },
+      { key: "age_days", label: "Age (days)" },
+      { key: "purchase_quantity", label: t("field.purchaseQuantity") },
+      { key: "tier_min_quantity", label: "Tier min qty" },
+      { key: "price_tier_source", label: "Tier source" },
+      { key: "available_tiers", label: "Tiers" },
+      { key: "currency", label: t("field.targetCurrency") },
+      { key: "stock", label: t("table.stock") },
+      { key: "supply_channel", label: t("field.supplyChannel") },
+      { key: "lead_time_min_days", label: t("field.leadTimeMinDays") },
+      { key: "lead_time_max_days", label: t("field.leadTimeMaxDays") },
+      { key: "difference_to_best", label: "Delta" },
+      { key: "unavailable_reason", label: t("table.reason") },
+    ],
+    { filename: `price_compare_${localDateStamp()}.csv` },
+  );
+}
+
+async function runProcurementComparison(form) {
+  const button = form.querySelector("button[type='submit']");
+  const products = form.elements.products.value.trim();
+  if (!products) return;
+
+  button.disabled = true;
+  try {
+    state.procurementComparison = await api("/procurement/compare", {
+      method: "POST",
+      body: JSON.stringify({
+        products,
+        target_currency: form.elements.target_currency.value,
+        purchase_quantity: Number(form.elements.purchase_quantity.value),
+        include_hidden_suppliers: form.elements.include_hidden_suppliers.checked,
+      }),
+    });
+    renderProcurementComparison(state.procurementComparison);
+    showAlert(t("message.comparisonComplete", {
+      count: state.procurementComparison.requested,
+    }));
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function loadSummary() {
   state.summary = await api(scopedPath("/pipeline/summary"));
   renderSummary();
@@ -2488,6 +3236,94 @@ async function loadSupplierDetail(supplierId, options = {}) {
   renderSupplierDetail(state.supplierDetail);
 }
 
+async function refreshAfterSupplierImportDelete(result) {
+  const refreshes = [
+    loadSuppliers(),
+    loadSuppliersDashboard(),
+    loadSavedImports(),
+  ];
+  if (result.current_catalog_deleted || result.current_catalogs_deleted) {
+    refreshes.push(
+      loadSummary(),
+      loadDeals(),
+      loadResearch(),
+      loadKeepa(),
+      loadMarketSnapshots(),
+      loadAmazonPresence(),
+    );
+  }
+  await Promise.all(refreshes);
+}
+
+async function deleteSupplierImport(button) {
+  const supplierId = button.dataset.supplierId;
+  const runId = button.dataset.deleteSupplierImport;
+  const confirmationKey = button.dataset.activeImport === "true"
+    ? "message.confirmDeleteActiveImport"
+    : "message.confirmDeleteImport";
+  if (!window.confirm(t(confirmationKey))) return;
+
+  button.disabled = true;
+  try {
+    const result = await api(
+      `/suppliers/${supplierId}/imports/${runId}`,
+      { method: "DELETE" },
+    );
+    await refreshAfterSupplierImportDelete(result);
+    showAlert(t("message.importsDeleted", {
+      imports: result.deleted_imports || 0,
+      offers: result.deleted_catalog?.supplier_offers || 0,
+    }));
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteOldSupplierImports(button) {
+  const supplierId = button.dataset.deleteOldSupplierImports;
+  if (!window.confirm(t("message.confirmDeleteOldImports"))) return;
+
+  button.disabled = true;
+  try {
+    const result = await api(
+      `/suppliers/${supplierId}/imports?older_than_days=30`,
+      { method: "DELETE" },
+    );
+    await refreshAfterSupplierImportDelete(result);
+    showAlert(t("message.importsDeleted", {
+      imports: result.deleted_imports || 0,
+      offers: result.deleted_catalog?.supplier_offers || 0,
+    }));
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deleteOldImportsGlobal(button) {
+  if (!window.confirm(t("message.confirmDeleteOldImports"))) return;
+
+  button.disabled = true;
+  try {
+    const result = await api(
+      "/suppliers/imports/history?older_than_days=30",
+      { method: "DELETE" },
+    );
+    await refreshAfterSupplierImportDelete(result);
+    showAlert(t("message.importsDeleted", {
+      imports: result.deleted_imports || 0,
+      offers: result.deleted_catalog?.supplier_offers || 0,
+    }));
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 async function toggleSupplierVisibility(supplierId, isVisible) {
   await api(`/suppliers/${supplierId}/visibility`, {
     method: "PATCH",
@@ -2528,6 +3364,35 @@ async function saveSupplierPriceSource(
   }
 
   return result;
+}
+
+async function saveSupplierPricing(supplierId, button) {
+  const panel = document.querySelector("#supplier-detail");
+  const pricesIncludeVat = panel.querySelector(
+    "[data-supplier-prices-include-vat]",
+  ).checked;
+  const vatInput = panel.querySelector("[data-supplier-default-vat-rate]");
+  const defaultVatRate = vatInput.value === "" ? null : Number(vatInput.value);
+
+  button.disabled = true;
+  try {
+    await api(`/suppliers/${supplierId}/pricing`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        prices_include_vat: pricesIncludeVat,
+        default_vat_rate: defaultVatRate,
+      }),
+    });
+    await Promise.all([
+      loadSuppliers(),
+      loadSupplierDetail(supplierId, { silent: true }),
+    ]);
+    showAlert(t("message.supplierPricingSaved"));
+  } catch (error) {
+    showAlert(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function checkSupplierPriceUpdate(
@@ -3060,6 +3925,7 @@ async function refreshAll() {
       loadMarketSnapshots(),
       loadAmazonPresence(),
       loadSuppliersDashboard(),
+      loadSavedImports(),
       loadMaintenanceStatus(),
     ]);
   } catch (error) {
@@ -3574,6 +4440,7 @@ async function resetResearchRules(button) {
 function setImportDraft(draft) {
   state.importDraft = draft;
   state.importFiltersConfirmed = Boolean(draft);
+  state.supplyChannelsConfirmed = false;
   updateUploadActionButtons();
 
   if (!draft) {
@@ -3587,12 +4454,76 @@ function setImportDraft(draft) {
 function updateUploadActionButtons() {
   document.querySelector("#save-import-button").classList.toggle(
     "hidden",
-    !state.importDraft || !state.importFiltersConfirmed,
+    !state.importDraft
+      || !state.importFiltersConfirmed
+      || !state.supplyChannelsConfirmed,
   );
   document.querySelector("#reset-upload-button").classList.toggle(
     "hidden",
     !state.importDraft && !state.importPreview,
   );
+}
+
+function supplyChannelAssignments() {
+  return Object.fromEntries(
+    Array.from(document.querySelectorAll("[data-supply-channel-file]"))
+      .map((select) => [select.dataset.supplyChannelFile, select.value]),
+  );
+}
+
+function supplyLeadTime(item) {
+  const min = item.lead_time_min_days;
+  const max = item.lead_time_max_days;
+  if (min == null || max == null) return "-";
+  if (min === 0 && max === 0) return "0 d";
+  return min === max ? `${min} d` : `${min}-${max} d`;
+}
+
+function renderSupplyChannels(items = []) {
+  const list = document.querySelector("#supply-channel-list");
+  const confirmation = document.querySelector("#confirm-supply-channels");
+  if (!list || !confirmation) return;
+
+  list.innerHTML = items.map((item) => `
+    <article class="supply-channel-item">
+      <div class="supply-channel-file">
+        <strong>${escapeHtml(item.filename)}</strong>
+        <span>${escapeHtml((item.evidence || []).join(" · ") || "-")}</span>
+      </div>
+      <label>
+        <span>${t("field.supplyChannel")}</span>
+        <select data-supply-channel-file="${escapeHtml(item.filename)}">
+          <option value="" ${item.channel ? "" : "selected"}>-</option>
+          <option value="stock" ${item.channel === "stock" ? "selected" : ""}>${t("supply.stock")}</option>
+          <option value="incoming" ${item.channel === "incoming" ? "selected" : ""}>${t("supply.incoming")}</option>
+          <option value="preorder" ${item.channel === "preorder" ? "selected" : ""}>${t("supply.preorder")}</option>
+        </select>
+      </label>
+      <div class="supply-channel-meta">
+        <span>${t("field.leadTime")}</span>
+        <strong>${supplyLeadTime(item)}</strong>
+        <span class="badge ${item.confidence >= 60 ? "ok" : "warn"}">${formatNumber(item.confidence || 0)}%</span>
+      </div>
+    </article>
+  `).join("");
+
+  confirmation.checked = false;
+  confirmation.disabled = items.length === 0 || items.some((item) => !item.channel);
+  state.supplyChannelsConfirmed = false;
+  list.querySelectorAll("select").forEach((select) => {
+    select.addEventListener("change", () => {
+      confirmation.checked = false;
+      confirmation.disabled = Array.from(list.querySelectorAll("select"))
+        .some((element) => !element.value);
+      state.supplyChannelsConfirmed = false;
+      updateUploadActionButtons();
+    });
+  });
+  confirmation.onchange = () => {
+    state.supplyChannelsConfirmed = confirmation.checked;
+    updateUploadActionButtons();
+  };
+  updateUploadActionButtons();
 }
 
 function previewColumnClass(column) {
@@ -3684,9 +4615,12 @@ function renderImportPreview(result) {
   const mappingList = document.querySelector("#mapping-list");
   const columns = result.normalized_columns || [];
   const rows = result.preview || [];
-  const mappedColumns = (result.normalization_report || [])
-    .filter((item) => item.mapped_to)
-    .length;
+  const mappedColumns = new Set(
+    (result.normalization_report || [])
+      .map((item) => item.mapped_to)
+      .filter(Boolean),
+  ).size;
+  const filenames = result.filenames || [result.filename];
 
   summary.innerHTML = `
     <article>
@@ -3695,7 +4629,15 @@ function renderImportPreview(result) {
     </article>
     <article>
       <span>${t("field.file")}</span>
-      <strong>${escapeHtml(result.filename)}</strong>
+      <strong title="${escapeHtml(filenames.join(", "))}">${escapeHtml(filenames.join(", "))}</strong>
+    </article>
+    <article>
+      <span>${t("field.fileCount")}</span>
+      <strong>${formatNumber(result.file_count || filenames.length)}</strong>
+    </article>
+    <article>
+      <span>${t("field.skippedFiles")}</span>
+      <strong title="${escapeHtml((result.skipped_files || []).join(", "))}">${formatNumber(result.skipped_file_count || 0)}</strong>
     </article>
     <article>
       <span>${t("field.rows")}</span>
@@ -3712,6 +4654,8 @@ function renderImportPreview(result) {
   `;
 
   renderQualityChecks(result.quality_report || {});
+  renderFileDiagnostics(result.file_diagnostics || []);
+  renderSupplyChannels(result.supply_channel_suggestions || []);
   renderImportFilters(result);
   resetUploadSearchPanel();
   renderPreviewRows(rows, columns);
@@ -3735,7 +4679,7 @@ function renderImportPreview(result) {
         <article class="mapping-item">
           <div>
             <span>${t("table.fileColumn")}</span>
-            <strong>${escapeHtml(item.column)}</strong>
+            <strong>${escapeHtml(item.file ? `${item.file}: ${item.column}` : item.column)}</strong>
           </div>
           <div>
             <span>${t("table.detectedAs")}</span>
@@ -3748,6 +4692,62 @@ function renderImportPreview(result) {
     .join("");
 
   preview.classList.remove("hidden");
+}
+
+function renderFileDiagnostics(diagnostics) {
+  const container = document.querySelector("#upload-file-diagnostics");
+  if (!container) return;
+  if (!diagnostics.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const rows = [...diagnostics].sort((left, right) => (
+    (right.missing_ean + right.missing_price + right.unmapped_columns)
+    + (right.invalid_ean || 0)
+    - (left.missing_ean + left.missing_price + left.unmapped_columns
+      + (left.invalid_ean || 0))
+  ));
+
+  container.innerHTML = `
+    <details class="file-diagnostics" ${rows.length <= 10 ? "open" : ""}>
+      <summary>${t("panel.fileDiagnostics")} · ${formatNumber(rows.length)}</summary>
+      <div class="table-wrap file-diagnostics-table">
+        <table>
+          <thead>
+            <tr>
+              <th>${t("table.file")}</th>
+              <th>${t("table.rows")}</th>
+              <th>${t("quality.missingEan")}</th>
+              <th>${t("quality.invalidEan")}</th>
+              <th>${t("quality.supplierCode")}</th>
+              <th>${t("quality.testerRows")}</th>
+              <th>${t("quality.missingPrice")}</th>
+              <th>${t("quality.duplicateEan")}</th>
+              <th>${t("field.mapped")}</th>
+              <th>${t("quality.unmappedColumns")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((item) => `
+              <tr>
+                <td>${escapeHtml(item.filename)}</td>
+                <td>${formatNumber(item.rows)}</td>
+                <td>${formatNumber(item.missing_ean)}</td>
+                <td>${formatNumber(item.invalid_ean || 0)}</td>
+                <td>${formatNumber(item.supplier_code || 0)}</td>
+                <td>${formatNumber(item.tester || 0)}</td>
+                <td>${formatNumber(item.missing_price)}</td>
+                <td>${formatNumber(item.duplicate_ean)}</td>
+                <td>${formatNumber(item.mapped_columns)}</td>
+                <td>${formatNumber(item.unmapped_columns)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  `;
 }
 
 async function searchUploadPreview(button) {
@@ -3852,6 +4852,9 @@ function estimateImportFilterResult() {
           before: formatNumber(result.filter_summary.rows_before),
           after: formatNumber(result.filter_summary.rows_after),
         })}</strong>
+        <small>${t("message.testersSkipped", {
+          count: formatNumber(result.filter_summary.tester_rows_skipped || 0),
+        })}</small>
       </article>
     `;
     state.importFiltersConfirmed = Boolean(result.is_filtered_preview);
@@ -3875,6 +4878,7 @@ function estimateImportFilterResult() {
   );
 
   const estimatedExcluded = [
+    suggestions.tester_count || 0,
     filters.brand_filter_mode === "include"
       ? Math.max(0, rows - brandEstimate)
       : brandEstimate,
@@ -3997,6 +5001,11 @@ function renderImportFilters(result) {
         <input id="import-filter-non-new" type="checkbox" ${activeFilters.exclude_non_new ? "checked" : ""}>
         <span>${t("field.excludeNonNew")}</span>
         <strong>${formatNumber(suggestions.non_new_count || 0)}</strong>
+      </label>
+      <label class="filter-choice locked-filter">
+        <input type="checkbox" checked disabled>
+        <span>${t("field.excludeTesters")}</span>
+        <strong>${formatNumber(suggestions.tester_count || 0)}</strong>
       </label>
       <div class="price-filter-row">
         <label>
@@ -4569,6 +5578,27 @@ function bindActions() {
     const savePriceButton = event.target.closest("[data-save-supplier-price-url]");
     const loadPriceButton = event.target.closest("[data-load-supplier-price]");
     const checkPriceButton = event.target.closest("[data-check-supplier-price]");
+    const savePricingButton = event.target.closest("[data-save-supplier-pricing]");
+    const deleteImportButton = event.target.closest("[data-delete-supplier-import]");
+    const deleteOldImportsButton = event.target.closest("[data-delete-old-supplier-imports]");
+
+    if (deleteImportButton) {
+      deleteSupplierImport(deleteImportButton);
+      return;
+    }
+
+    if (deleteOldImportsButton) {
+      deleteOldSupplierImports(deleteOldImportsButton);
+      return;
+    }
+
+    if (savePricingButton) {
+      saveSupplierPricing(
+        savePricingButton.dataset.saveSupplierPricing,
+        savePricingButton,
+      );
+      return;
+    }
 
     if (checkPriceButton) {
       checkSupplierPriceUpdate(
@@ -4637,6 +5667,19 @@ function bindActions() {
     state.supplierDetail = null;
     renderSupplierDetail(null);
   });
+  document.querySelector("#saved-imports-panel").addEventListener("click", (event) => {
+    const deleteImportButton = event.target.closest("[data-delete-supplier-import]");
+    const deleteOldButton = event.target.closest("#delete-old-imports-global");
+
+    if (deleteImportButton) {
+      deleteSupplierImport(deleteImportButton);
+      return;
+    }
+
+    if (deleteOldButton) {
+      deleteOldImportsGlobal(deleteOldButton);
+    }
+  });
   document.querySelectorAll("[data-close-modal]").forEach((element) => {
     element.addEventListener("click", closeIssueModal);
   });
@@ -4678,20 +5721,43 @@ function bindActions() {
     resetResearchRules(event.currentTarget);
   });
 
+  document.querySelector("#procurement-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    runProcurementComparison(event.currentTarget);
+  });
+  document.querySelector("#clear-procurement-button").addEventListener("click", () => {
+    document.querySelector("#procurement-form").reset();
+    state.procurementComparison = null;
+    renderProcurementComparison(null);
+  });
+  document.querySelector("#reset-procurement-grid").addEventListener("click", resetProcurementGrid);
+
   document.querySelector("#upload-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
+    const button = form.querySelector("button[type='submit']");
+    if (button.disabled) return;
+
     const supplier = form.elements.supplier_name.value;
+    const files = Array.from(form.elements.file.files || []);
+    if (!files.length) return;
     const body = new FormData();
-    body.append("file", form.elements.file.files[0]);
+    files.forEach((file) => body.append("file", file));
     setImportDraft(null);
+    button.disabled = true;
 
     try {
       const response = await fetch(`/upload/preview?supplier_name=${encodeURIComponent(supplier)}`, {
         method: "POST",
         body,
       });
-      const result = await response.json();
+      const text = await response.text();
+      let result;
+      try {
+        result = text ? JSON.parse(text) : null;
+      } catch (_error) {
+        result = { detail: text || `Request failed with ${response.status}` };
+      }
 
       if (!response.ok) {
         throw new Error(JSON.stringify(result.detail || result));
@@ -4699,9 +5765,16 @@ function bindActions() {
 
       setImportDraft(result);
       renderImportPreview(result);
-      showAlert(t("message.previewReady", { count: result.rows }));
+      showAlert(t(
+        result.file_count > 1
+          ? "message.batchPreviewReady"
+          : "message.previewReady",
+        { files: result.file_count, count: result.rows },
+      ));
     } catch (error) {
       showAlert(error.message, true);
+    } finally {
+      button.disabled = false;
     }
   });
 
@@ -4741,9 +5814,9 @@ function bindActions() {
   });
 
   document.querySelector("#save-import-button").addEventListener("click", async (event) => {
-    if (!state.importDraft?.import_token) return;
-
     const button = event.currentTarget;
+    if (button.disabled || !state.importDraft?.import_token) return;
+
     button.disabled = true;
 
     try {
@@ -4751,6 +5824,7 @@ function bindActions() {
         method: "POST",
         body: JSON.stringify({
           import_token: state.importDraft.import_token,
+          supply_channels: supplyChannelAssignments(),
         }),
       });
 
@@ -4764,6 +5838,7 @@ function bindActions() {
         loadMarketSnapshots(),
         loadSuppliers(),
         loadSuppliersDashboard(),
+        loadSavedImports(),
       ]);
     } catch (error) {
       showAlert(error.message, true);

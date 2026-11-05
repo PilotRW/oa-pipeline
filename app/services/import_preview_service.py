@@ -7,6 +7,7 @@ from app.ingestion.normalizer import normalize_columns
 from app.ingestion.parser import parse_content
 from app.services.import_draft_service import (
     apply_import_filters,
+    build_quality_report,
     serialize_import_draft,
 )
 
@@ -82,6 +83,65 @@ def normalize_import_dataframe(
     original_columns = list(df.columns)
     normalized, report = normalize_columns(df)
     return clean_dataframe(normalized), original_columns, report
+
+
+def combine_import_dataframes(
+    files: list[tuple[str, pd.DataFrame, list, list[dict]]],
+) -> tuple[pd.DataFrame, list, list[dict], list[str]]:
+    if not files:
+        raise ValueError("At least one supplier file is required")
+
+    frames: list[pd.DataFrame] = []
+    original_columns: list = []
+    normalization_report: list[dict] = []
+    filenames: list[str] = []
+
+    for filename, df, file_columns, file_report in files:
+        safe_filename = str(filename or "supplier-file")
+        frame = df.copy()
+        frame["source_file"] = safe_filename
+        frames.append(frame)
+        filenames.append(safe_filename)
+
+        for column in file_columns:
+            if column not in original_columns:
+                original_columns.append(column)
+        normalization_report.extend(
+            {**item, "file": safe_filename}
+            for item in file_report
+        )
+
+    combined = pd.concat(frames, ignore_index=True, sort=False).fillna("")
+    return combined, original_columns, normalization_report, filenames
+
+
+def build_file_diagnostics(
+    files: list[tuple[str, pd.DataFrame, list, list[dict]]],
+) -> list[dict]:
+    diagnostics = []
+    for filename, df, _original_columns, report in files:
+        quality = build_quality_report(df, report)
+        diagnostics.append(
+            {
+                "filename": filename,
+                "rows": len(df),
+                "columns": len(df.columns),
+                "mapped_columns": len({
+                    item.get("mapped_to")
+                    for item in report
+                    if item.get("mapped_to")
+                }),
+                "unmapped_columns": len(quality["unmapped_columns"]),
+                "missing_ean": quality["missing_ean_count"],
+                "invalid_ean": quality["invalid_ean_count"],
+                "supplier_code": quality["supplier_code_count"],
+                "tester": quality["tester_count"],
+                "missing_price": quality["missing_price_count"],
+                "duplicate_ean": quality["duplicate_ean_count"],
+                "suspicious_price": quality["suspicious_price_count"],
+            }
+        )
+    return diagnostics
 
 
 def build_import_dataframe_from_content(

@@ -1,5 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +22,11 @@ from app.services.supplier_price_service import (
     validate_public_price_url,
 )
 from app.services.price_file_fingerprint import price_file_fingerprint
+from app.services.supplier_import_service import (
+    delete_old_supplier_imports,
+    delete_supplier_import,
+    latest_import_id,
+)
 
 router = APIRouter(
     prefix="/suppliers",
@@ -36,6 +45,13 @@ class SupplierPriceSourcePayload(BaseModel):
 class SupplierCreatePayload(BaseModel):
     name: str
     price_url: str | None = None
+
+
+class SupplierPricingPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prices_include_vat: bool
+    default_vat_rate: Decimal | None = Field(default=None, ge=0, le=100)
 
 
 def supplier_price_tracking(supplier: Supplier) -> dict:
@@ -102,6 +118,12 @@ async def create_supplier(
         "name": supplier.name,
         "is_visible": supplier.is_visible,
         "price_url": supplier.price_url,
+        "prices_include_vat": supplier.prices_include_vat,
+        "default_vat_rate": (
+            float(supplier.default_vat_rate)
+            if supplier.default_vat_rate is not None
+            else None
+        ),
         "has_saved_import_filters": False,
         "offers_count": 0,
         **supplier_price_tracking(supplier),
@@ -119,6 +141,8 @@ async def list_suppliers(
             Supplier.name,
             Supplier.is_visible,
             Supplier.price_url,
+            Supplier.prices_include_vat,
+            Supplier.default_vat_rate,
             Supplier.import_filter_profile,
             Supplier.price_update_status,
             Supplier.price_last_checked_at,
@@ -137,6 +161,8 @@ async def list_suppliers(
             Supplier.name,
             Supplier.is_visible,
             Supplier.price_url,
+            Supplier.prices_include_vat,
+            Supplier.default_vat_rate,
             Supplier.import_filter_profile,
             Supplier.price_update_status,
             Supplier.price_last_checked_at,
@@ -160,6 +186,12 @@ async def list_suppliers(
             "name": name,
             "is_visible": is_visible,
             "price_url": price_url,
+            "prices_include_vat": prices_include_vat,
+            "default_vat_rate": (
+                float(default_vat_rate)
+                if default_vat_rate is not None
+                else None
+            ),
             "has_saved_import_filters": bool(import_filter_profile),
             "price_update_status": (
                 price_update_status
@@ -177,6 +209,8 @@ async def list_suppliers(
             name,
             is_visible,
             price_url,
+            prices_include_vat,
+            default_vat_rate,
             import_filter_profile,
             price_update_status,
             price_last_checked_at,
@@ -187,6 +221,87 @@ async def list_suppliers(
             offers_count,
         ) in rows
     ]
+
+
+@router.get("/imports/history")
+async def list_supplier_imports(
+    limit: int = Query(default=500, ge=1, le=5000),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(
+            select(IngestionRun, Supplier)
+            .join(Supplier, Supplier.id == IngestionRun.supplier_id)
+            .order_by(
+                IngestionRun.created_at.desc(),
+                IngestionRun.id.desc(),
+            )
+            .limit(limit)
+        )
+    ).all()
+    active_supplier_ids: set[int] = set()
+    result = []
+
+    for run, supplier in rows:
+        is_active = supplier.id not in active_supplier_ids
+        active_supplier_ids.add(supplier.id)
+        result.append({
+            "id": run.id,
+            "supplier_id": supplier.id,
+            "supplier_name": supplier.name,
+            "filename": run.filename,
+            "status": run.status,
+            "rows_total": run.rows_total,
+            "rows_valid": run.rows_valid,
+            "rows_failed": run.rows_failed,
+            "created_at": run.created_at,
+            "is_active": is_active,
+        })
+
+    return result
+
+
+@router.delete("/imports/history")
+async def delete_expired_import_history(
+    older_than_days: int = Query(default=30, ge=1, le=3650),
+    db: AsyncSession = Depends(get_db),
+):
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(days=older_than_days)
+    ).replace(tzinfo=None)
+    suppliers = (
+        await db.execute(
+            select(Supplier)
+            .join(IngestionRun, IngestionRun.supplier_id == Supplier.id)
+            .where(IngestionRun.created_at < cutoff)
+            .distinct()
+        )
+    ).scalars().all()
+    totals = {
+        "status": "ok",
+        "older_than_days": older_than_days,
+        "deleted_imports": 0,
+        "deleted_rows_reported": 0,
+        "current_catalogs_deleted": 0,
+        "deleted_catalog": {},
+    }
+
+    for supplier in suppliers:
+        result = await delete_old_supplier_imports(
+            db,
+            supplier,
+            older_than_days,
+        )
+        totals["deleted_imports"] += result["deleted_imports"]
+        totals["deleted_rows_reported"] += result["deleted_rows_reported"]
+        if result["current_catalog_deleted"]:
+            totals["current_catalogs_deleted"] += 1
+        for key, value in result["deleted_catalog"].items():
+            totals["deleted_catalog"][key] = (
+                totals["deleted_catalog"].get(key, 0) + value
+            )
+
+    return totals
 
 
 async def count_supplier_statuses(
@@ -359,6 +474,34 @@ async def update_supplier_price_source(
     }
 
 
+@router.patch("/{supplier_id}/pricing")
+async def update_supplier_pricing(
+    supplier_id: int,
+    payload: SupplierPricingPayload,
+    db: AsyncSession = Depends(get_db),
+):
+    supplier = await db.get(Supplier, supplier_id)
+
+    if supplier is None:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    supplier.prices_include_vat = payload.prices_include_vat
+    supplier.default_vat_rate = payload.default_vat_rate
+    await db.commit()
+    await db.refresh(supplier)
+
+    return {
+        "id": supplier.id,
+        "name": supplier.name,
+        "prices_include_vat": supplier.prices_include_vat,
+        "default_vat_rate": (
+            float(supplier.default_vat_rate)
+            if supplier.default_vat_rate is not None
+            else None
+        ),
+    }
+
+
 @router.post("/{supplier_id}/check-price-update")
 async def check_supplier_price_update(
     supplier_id: int,
@@ -480,6 +623,7 @@ async def supplier_detail(
         .limit(50)
     )
     runs = (await db.execute(runs_query)).scalars().all()
+    active_import_id = await latest_import_id(db, supplier_id)
 
     recent_offers_query = (
         select(SupplierOffer)
@@ -495,6 +639,12 @@ async def supplier_detail(
         "name": supplier.name,
         "is_visible": supplier.is_visible,
         "price_url": supplier.price_url,
+        "prices_include_vat": supplier.prices_include_vat,
+        "default_vat_rate": (
+            float(supplier.default_vat_rate)
+            if supplier.default_vat_rate is not None
+            else None
+        ),
         "import_filter_profile": supplier.import_filter_profile,
         "has_saved_import_filters": bool(
             supplier.import_filter_profile
@@ -522,6 +672,11 @@ async def supplier_detail(
             {
                 "id": run.id,
                 "filename": run.filename,
+                "files": sorted({
+                    item.get("file")
+                    for item in (run.normalization_report or [])
+                    if item.get("file")
+                }) or [run.filename],
                 "status": run.status,
                 "rows_total": run.rows_total,
                 "rows_valid": run.rows_valid,
@@ -533,6 +688,7 @@ async def supplier_detail(
                 ),
                 "total_columns": len(run.normalization_report or []),
                 "created_at": run.created_at,
+                "is_active": run.id == active_import_id,
             }
             for run in runs
         ],
@@ -544,10 +700,54 @@ async def supplier_detail(
                 "brand": offer.brand,
                 "title": offer.title,
                 "cost": float(offer.cost) if offer.cost is not None else None,
+                "vat_rate": (
+                    float(offer.vat_rate)
+                    if offer.vat_rate is not None
+                    else None
+                ),
                 "currency": offer.currency,
                 "stock": offer.stock,
+                "source_file": (
+                    offer.raw_data.get("source_file")
+                    if isinstance(offer.raw_data, dict)
+                    else None
+                ),
                 "imported_at": offer.imported_at,
             }
             for offer in recent_offers
         ],
     }
+
+
+@router.delete("/{supplier_id}/imports")
+async def delete_expired_supplier_imports(
+    supplier_id: int,
+    older_than_days: int = Query(default=30, ge=1, le=3650),
+    db: AsyncSession = Depends(get_db),
+):
+    supplier = await db.get(Supplier, supplier_id)
+    if supplier is None:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    return await delete_old_supplier_imports(
+        db,
+        supplier,
+        older_than_days,
+    )
+
+
+@router.delete("/{supplier_id}/imports/{run_id}")
+async def delete_supplier_import_run(
+    supplier_id: int,
+    run_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    supplier = await db.get(Supplier, supplier_id)
+    if supplier is None:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    run = await db.get(IngestionRun, run_id)
+    if run is None or run.supplier_id != supplier_id:
+        raise HTTPException(status_code=404, detail="Import not found")
+
+    return await delete_supplier_import(db, supplier, run)

@@ -15,6 +15,7 @@ from app.services.ingestion_service import (
 )
 from app.services.marketplace import currency_for_marketplace
 from app.services.supplier_offer_service import save_supplier_offers
+from app.ingestion.cleaners import tester_mask
 
 
 class ImportSupplierNotFoundError(LookupError):
@@ -51,8 +52,14 @@ async def commit_import_draft(
     normalization_report: list[dict],
     filter_summary: dict | None = None,
     price_tracking: dict | None = None,
+    source_files: list[str] | None = None,
+    skipped_files: list[str] | None = None,
+    file_diagnostics: list[dict] | None = None,
+    supply_channel_assignments: dict[str, str] | None = None,
+    supply_channel_suggestions: list[dict] | None = None,
 ) -> dict:
     settings = await ConfigService(session).get_pipeline_settings()
+    df = df.loc[~tester_mask(df)].copy()
     supplier = (
         await session.get(Supplier, supplier_id)
         if supplier_id is not None
@@ -69,6 +76,39 @@ async def commit_import_draft(
             supplier_name=supplier_name,
         )
 
+    assignments = supply_channel_assignments or {filename: "stock"}
+    suggestions = {
+        item.get("filename"): item
+        for item in (supply_channel_suggestions or [])
+    }
+    df = df.copy()
+    if "source_file" in df.columns:
+        source_names = df["source_file"].astype(str)
+    else:
+        source_names = [filename] * len(df)
+    df["supply_channel"] = [
+        assignments.get(source_name, "stock")
+        for source_name in source_names
+    ]
+
+    def lead_time(source_name, field):
+        suggestion = suggestions.get(source_name, {})
+        selected = assignments.get(source_name, "stock")
+        if selected == "stock":
+            return 0
+        if selected != suggestion.get("channel"):
+            return None
+        return suggestion.get(field)
+
+    df["lead_time_min_days"] = [
+        lead_time(source_name, "lead_time_min_days")
+        for source_name in source_names
+    ]
+    df["lead_time_max_days"] = [
+        lead_time(source_name, "lead_time_max_days")
+        for source_name in source_names
+    ]
+
     rows_total = len(df)
     ingestion_run = await save_ingestion_run(
         session=session,
@@ -78,6 +118,7 @@ async def commit_import_draft(
         rows_valid=rows_total,
         rows_failed=0,
         normalization_report=normalization_report,
+        supply_channel_assignments=assignments,
     )
     mappings_saved = await save_column_mappings(
         session=session,
@@ -102,6 +143,12 @@ async def commit_import_draft(
             "status": ingestion_run.status,
         },
         "filename": filename,
+        "filenames": source_files or [filename],
+        "file_count": len(source_files or [filename]),
+        "skipped_files": skipped_files or [],
+        "skipped_file_count": len(skipped_files or []),
+        "file_diagnostics": file_diagnostics or [],
+        "supply_channel_assignments": assignments,
         "rows": rows_total,
         "rows_valid": rows_total,
         "rows_failed": 0,

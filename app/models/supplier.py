@@ -1,4 +1,12 @@
-from sqlalchemy import BigInteger, Boolean, Column, Integer, Text, TIMESTAMP
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    Integer,
+    Numeric,
+    Text,
+    TIMESTAMP,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
@@ -12,6 +20,8 @@ class Supplier(Base):
     name = Column(Text, nullable=False, unique=True)
     is_visible = Column(Boolean, nullable=False, default=True)
     price_url = Column(Text, nullable=True)
+    prices_include_vat = Column(Boolean, nullable=False, default=False)
+    default_vat_rate = Column(Numeric(5, 2), nullable=True)
     import_filter_profile = Column(JSONB, nullable=True)
     price_etag = Column(Text, nullable=True)
     price_last_modified = Column(Text, nullable=True)

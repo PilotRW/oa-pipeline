@@ -5,6 +5,8 @@ import unittest
 import pandas as pd
 
 from app.services.import_preview_service import (
+    build_file_diagnostics,
+    combine_import_dataframes,
     content_hash,
     dataframe_hash,
     export_filename,
@@ -14,6 +16,57 @@ from app.services.import_preview_service import (
 
 
 class ImportPreviewServiceTests(unittest.TestCase):
+    def test_builds_quality_diagnostics_for_each_batch_file(self):
+        diagnostics = build_file_diagnostics(
+            [
+                (
+                    "missing-price.csv",
+                    pd.DataFrame([
+                        {
+                            "ean": "11111111",
+                            "price": "",
+                            "title": "Display bottle *Tester",
+                        },
+                        {"ean": "", "price": 10.0},
+                    ]),
+                    ["EAN", "Price"],
+                    [
+                        {"column": "EAN", "mapped_to": "ean", "confidence": 100},
+                        {"column": "Price", "mapped_to": "price", "confidence": 100},
+                    ],
+                ),
+            ]
+        )
+
+        self.assertEqual(1, diagnostics[0]["missing_ean"])
+        self.assertEqual(1, diagnostics[0]["missing_price"])
+        self.assertEqual(1, diagnostics[0]["tester"])
+        self.assertEqual(2, diagnostics[0]["mapped_columns"])
+
+    def test_combines_multiple_supplier_files_and_tracks_row_source(self):
+        combined, columns, report, filenames = combine_import_dataframes(
+            [
+                (
+                    "part-a.csv",
+                    pd.DataFrame([{"ean": "11111111", "price": 10.0}]),
+                    ["EAN", "Price"],
+                    [{"column": "EAN", "mapped_to": "ean", "confidence": 100}],
+                ),
+                (
+                    "part-b.xlsx",
+                    pd.DataFrame([{"ean": "22222222", "stock": 5}]),
+                    ["EAN", "Stock"],
+                    [{"column": "Stock", "mapped_to": "stock", "confidence": 100}],
+                ),
+            ]
+        )
+
+        self.assertEqual(2, len(combined))
+        self.assertEqual(["part-a.csv", "part-b.xlsx"], filenames)
+        self.assertEqual(["part-a.csv", "part-b.xlsx"], combined["source_file"].tolist())
+        self.assertEqual(["EAN", "Price", "Stock"], columns)
+        self.assertEqual(["part-a.csv", "part-b.xlsx"], [item["file"] for item in report])
+
     def test_export_filename_is_filesystem_safe(self):
         self.assertEqual(
             "supplier-catalog-xlsx-preview",

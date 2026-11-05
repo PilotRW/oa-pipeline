@@ -61,7 +61,61 @@ class ImportFilterServiceTests(unittest.TestCase):
         report = build_quality_report(self.df, [])
 
         self.assertEqual(1, report["missing_ean_count"])
+        self.assertEqual(0, report["invalid_ean_count"])
         self.assertEqual(0, report["missing_price_count"])
+
+    def test_quality_report_detects_invalid_ean(self):
+        source = pd.DataFrame(
+            [
+                {"ean": "4006381333931", "price": 10},
+                {"ean": "4006381333932", "price": 10},
+            ]
+        )
+
+        report = build_quality_report(source, [])
+
+        self.assertEqual(1, report["invalid_ean_count"])
+
+    def test_quality_report_separates_supplier_codes_from_invalid_gtin(self):
+        source = pd.DataFrame(
+            [
+                {"ean": "99006108", "price": 10},
+                {"ean": "4006381333932", "price": 10},
+            ]
+        )
+
+        report = build_quality_report(source, [])
+
+        self.assertEqual(1, report["supplier_code_count"])
+        self.assertEqual(1, report["invalid_ean_count"])
+
+    def test_non_gtin_length_is_reported_as_supplier_code(self):
+        report = build_quality_report(
+            pd.DataFrame([{"ean": "634349749", "price": 10}]),
+            [],
+        )
+
+        self.assertEqual(1, report["supplier_code_count"])
+        self.assertEqual(0, report["invalid_ean_count"])
+
+    def test_tester_rows_are_always_excluded_and_marked(self):
+        source = pd.DataFrame(
+            [
+                {"ean": "4006381333931", "title": "Retail", "price": 10},
+                {
+                    "ean": "708177131977",
+                    "title": "Jurlique cream *Tester",
+                    "price": 8,
+                },
+            ]
+        )
+
+        filtered, summary = apply_import_filters(source, {})
+        report = build_quality_report(source, [])
+
+        self.assertEqual(["Retail"], filtered["title"].tolist())
+        self.assertEqual(1, summary["tester_rows_skipped"])
+        self.assertEqual(1, report["tester_count"])
 
 
 if __name__ == "__main__":

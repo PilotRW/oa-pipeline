@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Mirenelle Automation</title>
     <link rel="icon" type="image/png" href="/ui/favicon.png">
-    <link rel="stylesheet" href="/ui/styles.css?v=20260626-1">
+    <link rel="stylesheet" href="/ui/styles.css?v=20261105-2">
+    <link rel="stylesheet" href="/ui/vendor/tabulator/tabulator.min.css?v=6.5.0">
   </head>
   <body>
     <div class="app-shell">
@@ -48,6 +49,7 @@
             </button>
             <div class="nav-group-items">
               <button class="nav-item" data-view="suppliers" type="button"><span>▥</span><span data-i18n="nav.suppliers">Suppliers</span></button>
+              <button class="nav-item" data-view="procurement" type="button"><span>⇄</span><span data-i18n="nav.procurement">Price comparison</span></button>
               <button class="nav-item" data-view="upload" type="button"><span>⇧</span><span data-i18n="nav.upload">Upload</span></button>
             </div>
           </div>
@@ -527,7 +529,81 @@
           <div class="suppliers-grid" id="suppliers-dashboard"></div>
         </section>
 
+        <section class="view" id="view-procurement">
+          <form class="panel procurement-form" id="procurement-form">
+            <div class="panel-header">
+              <h3 data-i18n="panel.procurementComparison">Supplier price comparison</h3>
+              <div class="button-row">
+                <label class="compact-field">
+                  <span data-i18n="field.targetCurrency">Currency</span>
+                  <input name="target_currency" type="text" value="EUR" maxlength="3" pattern="[A-Za-z]{3}" required>
+                </label>
+                <label class="compact-field quantity-field">
+                  <span data-i18n="field.purchaseQuantity">Quantity</span>
+                  <input name="purchase_quantity" type="number" value="1" min="1" max="1000000" step="1" required>
+                </label>
+                <label class="inline-toggle">
+                  <span data-i18n="field.includeHiddenSuppliers">Include hidden</span>
+                  <input name="include_hidden_suppliers" type="checkbox">
+                </label>
+                <button class="ghost-button" id="clear-procurement-button" data-i18n="action.clear" type="button">Clear</button>
+                <button class="primary-button" data-i18n="action.compare" type="submit">Compare</button>
+              </div>
+            </div>
+            <label>
+              <span data-i18n="field.productList">Product list</span>
+              <textarea
+                name="products"
+                rows="10"
+                required
+                data-i18n-placeholder="message.productListPlaceholder"
+                placeholder="1. Product name — EAN 4006381333931"
+              ></textarea>
+            </label>
+          </form>
+
+          <section class="panel hidden" id="procurement-results-panel">
+            <div class="panel-header">
+              <h3 data-i18n="panel.comparisonResults">Comparison results</h3>
+              <button class="ghost-button" data-export-table="#procurement-results-table" type="button">CSV</button>
+            </div>
+            <div class="preview-summary procurement-summary" id="procurement-summary"></div>
+            <div class="procurement-grid-header">
+              <span data-i18n="procurement.gridHint">Drag column headers to reorder them and drag cell borders to resize.</span>
+              <button class="ghost-button compact-button" id="reset-procurement-grid" data-i18n="action.resetColumns" type="button">Reset columns</button>
+            </div>
+            <div id="procurement-results-table" class="procurement-grid" aria-label="Supplier price comparison table"></div>
+            <div class="procurement-invalid hidden" id="procurement-invalid-lines"></div>
+          </section>
+        </section>
+
         <section class="view" id="view-upload">
+          <section class="panel" id="saved-imports-panel">
+            <div class="panel-header">
+              <div>
+                <h3 data-i18n="panel.savedPriceLists">Saved price lists</h3>
+                <p data-i18n="message.savedPriceListsHint">Manage imported supplier price lists without opening a supplier first.</p>
+              </div>
+              <button class="ghost-button danger-button" id="delete-old-imports-global" data-i18n="action.deleteOldImports" type="button">Delete imports older than 30 days</button>
+            </div>
+            <div class="table-wrap scroll-table compact-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="table.supplier">Supplier</th>
+                    <th data-i18n="table.file">File</th>
+                    <th data-i18n="table.rows">Rows</th>
+                    <th data-i18n="table.valid">Valid</th>
+                    <th data-i18n="table.status">Status</th>
+                    <th data-i18n="metric.createdAt">Created at</th>
+                    <th data-i18n="table.actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="saved-imports-table"></tbody>
+              </table>
+            </div>
+          </section>
+
           <form class="panel upload-panel" id="upload-form">
             <div class="panel-header">
               <h3 data-i18n="panel.supplierFeed">Supplier Feed</h3>
@@ -544,12 +620,24 @@
             </label>
 
             <label>
-              <span data-i18n="field.feedFile">CSV or Excel file</span>
-              <input name="file" type="file" accept=".csv,.xlsx,.xls" required>
+              <span data-i18n="field.feedFile">CSV, Excel or ZIP files</span>
+              <input name="file" type="file" accept=".csv,.xlsx,.zip" multiple required>
             </label>
 
             <section id="upload-preview" class="import-preview hidden" aria-live="polite">
               <div class="preview-summary" id="preview-summary"></div>
+
+              <div id="upload-file-diagnostics"></div>
+
+              <div class="preview-section supply-channel-panel">
+                <h4 data-i18n="panel.supplyChannels">Supply categories</h4>
+                <p class="muted-note" data-i18n="message.supplyChannelHint">Confirm how quickly each price list can be supplied.</p>
+                <div class="supply-channel-list" id="supply-channel-list"></div>
+                <label class="confirmation-row">
+                  <input id="confirm-supply-channels" type="checkbox">
+                  <span data-i18n="message.confirmSupplyChannels">I confirm these supply categories</span>
+                </label>
+              </div>
 
               <div class="preview-section">
                 <h4 data-i18n="panel.qualityChecks">Quality Checks</h4>
@@ -621,6 +709,7 @@
     </div>
 
     <script src="/ui/ui-helpers.js?v=20260921-1"></script>
-    <script src="/ui/app.js?v=20260921-1"></script>
+    <script src="/ui/vendor/tabulator/tabulator.min.js?v=6.5.0"></script>
+    <script src="/ui/app.js?v=20261105-6"></script>
   </body>
 </html>

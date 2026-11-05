@@ -5,12 +5,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.config.settings import settings
 from app.ingestion.parser import parse_file
 from app.models.supplier import Supplier
 from app.services.import_commit_service import (
     ImportSupplierNotFoundError,
     commit_import_draft,
 )
+from app.services.import_archive_service import extract_price_files_from_zip
 from app.services.import_draft_service import (
     apply_import_filters,
     consume_import_draft,
@@ -21,6 +23,8 @@ from app.services.import_draft_service import (
 from app.services.import_preview_service import (
     apply_saved_filter_profile,
     build_import_dataframe_from_content,
+    build_file_diagnostics,
+    combine_import_dataframes,
     content_hash,
     dataframe_hash,
     export_filename,
@@ -32,6 +36,10 @@ from app.services.supplier_price_service import (
     SupplierPriceDownloadError,
     download_supplier_price,
 )
+from app.services.supply_channel_service import (
+    infer_supply_channel,
+    validate_supply_channel_assignments,
+)
 
 router = APIRouter()
 
@@ -39,6 +47,7 @@ router = APIRouter()
 class ImportCommitRequest(BaseModel):
     import_token: str
     filters: dict | None = None
+    supply_channels: dict[str, str] | None = None
 
 
 class ImportFilterPreviewRequest(BaseModel):
@@ -70,13 +79,109 @@ async def build_import_dataframe(file: UploadFile):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+async def build_import_batch(files: list[UploadFile]):
+    if not files:
+        raise HTTPException(status_code=400, detail="Select at least one file")
+    if len(files) > settings.MAX_IMPORT_BATCH_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "A single import batch can contain at most "
+                f"{settings.MAX_IMPORT_BATCH_FILES} files"
+            ),
+        )
+
+    expanded_files: list[tuple[str, bytes]] = []
+    skipped_files: list[str] = []
+    for file in files:
+        filename = file.filename or "supplier-file"
+        content = await file.read()
+        if filename.lower().endswith(".zip"):
+            try:
+                archive_files, archive_skipped = extract_price_files_from_zip(
+                    content,
+                    filename,
+                    max_files=settings.MAX_IMPORT_EXPANDED_FILES,
+                    max_uncompressed_bytes=(
+                        settings.MAX_IMPORT_UNCOMPRESSED_BYTES
+                    ),
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            expanded_files.extend(archive_files)
+            skipped_files.extend(archive_skipped)
+        else:
+            expanded_files.append((filename, content))
+
+    if len(expanded_files) > settings.MAX_IMPORT_EXPANDED_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Import expands to more than "
+                f"{settings.MAX_IMPORT_EXPANDED_FILES} price files"
+            ),
+        )
+    if sum(len(content) for _, content in expanded_files) > (
+        settings.MAX_IMPORT_UNCOMPRESSED_BYTES
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Import uncompressed size exceeds the configured limit",
+        )
+
+    parsed_files = []
+    supply_channel_suggestions = []
+    for filename, content in expanded_files:
+        try:
+            df, original_columns, normalization_report = (
+                build_import_dataframe_from_content(
+                    content=content,
+                    filename=filename,
+                )
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{filename}: {exc}",
+            ) from exc
+        parsed_files.append(
+            (
+                filename,
+                df,
+                original_columns,
+                normalization_report,
+            )
+        )
+        supply_channel_suggestions.append(
+            infer_supply_channel(filename, content)
+        )
+
+    try:
+        return (
+            *combine_import_dataframes(parsed_files),
+            build_file_diagnostics(parsed_files),
+            skipped_files,
+            supply_channel_suggestions,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post("/upload/preview")
 async def preview_upload(
     supplier_name: str = Query(...),
-    file: UploadFile = File(...),
+    file: list[UploadFile] = File(...),
     session: AsyncSession = Depends(get_db),
 ):
-    df, original_columns, normalization_report = await build_import_dataframe(file)
+    (
+        df,
+        original_columns,
+        normalization_report,
+        filenames,
+        file_diagnostics,
+        skipped_files,
+        supply_channel_suggestions,
+    ) = await build_import_batch(file)
     supplier_result = await session.execute(
         select(Supplier).where(
             func.lower(Supplier.name) == supplier_name.strip().lower()
@@ -87,10 +192,18 @@ async def preview_upload(
     draft = create_import_draft(
         supplier_name=supplier_name,
         supplier_id=supplier.id if supplier else None,
-        filename=file.filename,
+        filename=(
+            filenames[0]
+            if len(filenames) == 1
+            else f"{len(filenames)} files"
+        ),
+        filenames=filenames,
+        skipped_files=skipped_files,
+        file_diagnostics=file_diagnostics,
         df=df,
         original_columns=original_columns,
         normalization_report=normalization_report,
+        supply_channel_suggestions=supply_channel_suggestions,
     )
 
     return apply_saved_filter_profile(
@@ -156,6 +269,9 @@ async def preview_supplier_price_url(
         df=df,
         original_columns=original_columns,
         normalization_report=normalization_report,
+        supply_channel_suggestions=[
+            infer_supply_channel(filename, content)
+        ],
     )
     draft["price_tracking"] = {
         "etag": metadata.get("etag"),
@@ -191,7 +307,7 @@ async def commit_upload(
     payload: ImportCommitRequest,
     session: AsyncSession = Depends(get_db),
 ):
-    draft = consume_import_draft(payload.import_token)
+    draft = get_import_draft(payload.import_token)
 
     if not draft:
         raise HTTPException(
@@ -216,7 +332,15 @@ async def commit_upload(
         )
 
     try:
-        return await commit_import_draft(
+        supply_channels = validate_supply_channel_assignments(
+            draft.get("filenames", [draft["filename"]]),
+            payload.supply_channels,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        result = await commit_import_draft(
             session=session,
             supplier_name=draft["supplier_name"],
             supplier_id=draft.get("supplier_id"),
@@ -226,9 +350,19 @@ async def commit_upload(
             normalization_report=draft["normalization_report"],
             filter_summary=filter_summary,
             price_tracking=draft.get("price_tracking"),
+            source_files=draft.get("filenames"),
+            skipped_files=draft.get("skipped_files"),
+            file_diagnostics=draft.get("file_diagnostics"),
+            supply_channel_assignments=supply_channels,
+            supply_channel_suggestions=draft.get(
+                "supply_channel_suggestions"
+            ),
         )
     except ImportSupplierNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    consume_import_draft(payload.import_token)
+    return result
 
 
 @router.post("/upload/filter-preview")
@@ -361,14 +495,25 @@ async def upload_csv(
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_db),
 ):
-    df, original_columns, normalization_report = await build_import_dataframe(file)
+    content = await file.read()
+    filename = file.filename or "supplier-file"
+    try:
+        df, original_columns, normalization_report = (
+            build_import_dataframe_from_content(content, filename)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return await commit_import_draft(
         session=session,
         supplier_name=supplier_name,
         supplier_id=None,
-        filename=file.filename,
+        filename=filename,
         df=df,
         original_columns=original_columns,
         normalization_report=normalization_report,
+        supply_channel_assignments={filename: "stock"},
+        supply_channel_suggestions=[
+            infer_supply_channel(filename, content)
+        ],
     )

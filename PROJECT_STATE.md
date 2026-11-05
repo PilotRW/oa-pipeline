@@ -1,6 +1,6 @@
 # Mirenelle Automation - Project State
 
-Last updated: 2026-09-21
+Last updated: 2026-11-05
 
 ## Current Position
 
@@ -9,6 +9,73 @@ latest-price URLs, persistent supplier-specific import filter profiles,
 size-aware Maintenance controls, Upload preview/search/export refinements, and
 Keepa live API preparation. The first Market Snapshot boundary is now
 implemented in mock mode.
+
+2026-11-04 update: a supplier procurement comparison workflow is implemented.
+Operators can paste a multiline `product name + EAN` list, compare all visible
+supplier offers, inspect the cheapest supplier price and alternatives, and
+export the complete result to `price_compare_YYYY-MM-DD.csv`. Supplier feeds
+are treated as net price lists for this workflow, so VAT is not calculated,
+ranked, shown, or exported. UPC/EAN/GTIN values that differ only by valid
+leading-zero padding are matched as the same identifier. Cross-currency offers
+are shown as non-comparable until an FX source is implemented.
+
+Supplier prices are net by default. Quantity-aware pricing is also implemented:
+imports persist a normalized `price_tiers` list built from the base price/MOQ
+and common numbered bulk, tier, volume, or Staffel quantity-price pairs. The
+comparison request includes `purchase_quantity`, selects the highest eligible
+tier per offer, exposes the applied minimum quantity, and rejects an offer when
+the requested quantity is below its MOQ. Vedelec-style
+`Bulk1Qty/Bulk1Price` through `Bulk3Qty/Bulk3Price` columns are covered by tests.
+Comparison results also expose the exact offer import timestamp and age in days
+in both the UI and CSV export; freshness is informational and does not silently
+override the supplier-price ranking.
+
+2026-11-05 update: multi-file supplier imports now distinguish fulfillment
+channels. Each uploaded file receives an automatic `stock`, `incoming`, or
+`preorder` suggestion based on filename, workbook text, and lead-time wording.
+The Upload UI requires the operator to review and confirm every assignment
+before saving. `supplier_offers` persist the confirmed channel plus optional
+minimum/maximum lead time, while `ingestion_runs` retain the file-to-channel
+assignment for auditability. Refreshing an incoming or preorder feed replaces
+only that supplier/channel combination and preserves the supplier's other
+feeds. Procurement comparison exposes channel and lead time; supplier price is
+still the primary ranking until a configurable delivery-priority policy is
+introduced.
+
+Future import case to validate when a real supplier sample is available: one
+price-list file may contain a mixture of `stock`, `incoming`, and `preorder`
+rows. Extend detection from file-level classification to row-level
+classification using a supplier status/availability/lead-time column, while
+keeping the operator confirmation step. File-level classification remains the
+fallback when no reliable row-level signal exists. Do not implement guessed
+status mappings until the representative source file is available.
+
+Tester handling is now a mandatory ingestion rule. Rows whose condition,
+title, or description identifies them as a tester are labeled `tester` in the
+preview diagnostics and automatically excluded both by the import filter and
+again at the commit boundary. A verification run over the three current
+Skundys files detected and skipped 1,478 tester rows out of 45,391; 43,913
+ordinary offers remained eligible for import.
+
+GTIN normalization also handles supplier feeds that omit the final check
+digit: an 11-digit UPC body and a 12-digit EAN body receive their calculated
+check digit. Numeric identifiers whose length cannot represent GTIN-8,
+UPC-12, EAN-13, or GTIN-14 are reported as supplier/internal codes instead of
+inflating the invalid-EAN count. The PerfumeDistri verification reduced the
+invalid count from 417 to 226 without guessing replacements for genuinely
+malformed 8/13/14-digit values.
+
+Supplier offer persistence recursively sanitizes `raw_data` before writing
+PostgreSQL JSON. Pandas/NumPy missing and non-finite values such as `NaN` and
+`Infinity` become JSON `null`, preventing large multi-file imports with empty
+lead-time cells from failing at commit. The Sunrise Cosmetics 106-file import
+was verified completed with 18,854 of 18,854 rows saved.
+
+Price-column precedence is explicit: when multiple source columns normalize to
+`price`, a header containing both `new` and `price` is merged first. The normal
+or old price remains a per-row fallback only when the new value is empty or
+invalid. This was verified on the Sunrise archive, including `ARMANI 2025.xlsx`
+where `OLD PRICE 41.12` and `New Price 28.784` normalize to `28.784`.
 
 2026-09-21 update: supplier latest-price sources now support credentialed FTP
 feeds through the generic `SUPPLIER_FTP_CREDENTIALS_JSON` registry. Connection
@@ -35,7 +102,7 @@ clean/default import filters unless `apply_saved_filters=true` is requested.
   token-aware Keepa batch policy;
 - shared frontend formatting/status helpers live in `ui-helpers.js`; the
   established static UI behavior and layout remain unchanged;
-- 32 tests pass, including FTP catalog cases and prior regressions involving
+- 87 tests pass, including New Price precedence, JSON-safe raw-data persistence, GTIN check-digit recovery, mandatory tester exclusion, per-file archive diagnostics, ZIP safety, batch-import source tracking, blank-row and import type-safety checks, procurement/volume-tier cases, FTP catalog cases, and prior regressions involving
   leading-zero EAN values.
 
 Architecture decision update: the product should be modeled as a multi-stage
@@ -495,8 +562,8 @@ End-to-end smoke verified:
 
 ### Mirenelle Ops UI Alignment
 
-The OA Pipeline static UI now follows the same visual system as
-`/Users/pilotrw/GITHUB/mirenelle-ops`:
+The OA Pipeline static UI now follows the same visual system as the adjacent
+`mirenelle-ops` repository:
 
 - grouped dark sidebar navigation;
 - collapsible sidebar with persisted desktop state;
@@ -598,7 +665,7 @@ Important next validation:
 The Cyberport file checked during this pause:
 
 ```text
-/Users/pilotrw/Downloads/cyberport-feedsmitmengen_synaxonvertriebcude (5).csv
+cyberport-feedsmitmengen_synaxonvertriebcude.csv
 ```
 
 User-selected filter criteria:
@@ -652,7 +719,7 @@ rendering. Keyword suggestions remain frequency-based.
 The Jacob file checked during this pause:
 
 ```text
-/Users/pilotrw/Downloads/haendler_netto.csv
+haendler_netto.csv
 ```
 
 Source file facts:
@@ -669,7 +736,7 @@ Source file facts:
 Exported filtered preview checked during this pause:
 
 ```text
-/Users/pilotrw/Downloads/jacob-haendler-netto-csv-preview.csv
+jacob-haendler-netto-csv-preview.csv
 ```
 
 Validation result:
@@ -819,7 +886,7 @@ docker compose exec app alembic upgrade head
 curl -sS 'http://localhost:8000/amazon-presence/?limit=5'
 curl -sS -X POST 'http://localhost:8000/amazon-presence/create-pending?limit=5'
 curl -sS -X POST 'http://localhost:8000/amazon-presence/process-pending?limit=5'
-/Users/pilotrw/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check app/static/app.js
+node --check app/static/app.js
 node --check app/static/app.js
 docker compose exec app python -m py_compile app/api/upload.py
 docker compose exec app python -m py_compile app/ingestion/synonyms.py app/ingestion/cleaners.py
@@ -849,7 +916,7 @@ Latest checks passed:
 
 ```bash
 docker compose exec app python -m py_compile app/models/amazon_presence_check.py app/services/amazon_presence_service.py app/api/amazon_presence.py app/main.py
-/Users/pilotrw/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check app/static/app.js
+node --check app/static/app.js
 docker compose exec app alembic upgrade head
 curl -sS 'http://localhost:8000/amazon-presence/?limit=5'
 curl -sS -X POST 'http://localhost:8000/amazon-presence/create-pending?limit=5'
@@ -882,6 +949,13 @@ credentials and must never be committed.
 
 ## Next Recommended Step
 
+Before procurement comparison is used operationally:
+
+1. Compare a known overlapping EAN set and manually verify the first supplier
+   price results against the original price files.
+2. Do not compare different currencies until an auditable FX-rate provider and
+   rate timestamp policy are added.
+
 Continue from real Keepa activation:
 
 1. Add `KEEPA_API_KEY` to local `.env` without printing or committing it.
@@ -905,6 +979,11 @@ Continue from real Keepa activation:
 
 - Do not hardcode blocked brands, categories, or product types in code.
 - Surface actual values in preview, then let the operator choose exclusions.
+- Tester products are the exception to configurable product filtering. Detect
+  tester markers in condition/title/description, label the rows as `tester` in
+  import diagnostics, and always exclude them before writing
+  `supplier_offers`. Tester rows must not enter research, marketplace lookup,
+  or Keepa processing even if the client bypasses the preview filters.
 - Stock is not a hard blocker; it affects scoring only.
 - Keepa tokens should be protected by local/import/research prefilters.
 - Deep Keepa history should be fetched only for final manual-review candidates.

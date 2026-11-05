@@ -21,4 +21,6 @@ class IngestionRun(Base):
 
     normalization_report = Column(JSONB)
 
+    supply_channel_assignments = Column(JSONB, nullable=True)
+
     created_at = Column(TIMESTAMP, server_default=func.now())
